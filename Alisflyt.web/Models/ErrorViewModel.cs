@@ -1,4 +1,4 @@
-namespace Alisflyt.web.Models
+namespace Alisflyt.Web.Models
 {
     public class ErrorViewModel
     {

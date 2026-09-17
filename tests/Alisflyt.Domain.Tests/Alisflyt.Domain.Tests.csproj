@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	<TargetFramework>net10.0</TargetFramework>
+	<Nullable>enable</Nullable>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<IsTestProject>true</IsTestProject>
+	<RootNamespace>Alisflyt.Domain.Tests</RootNamespace>
+	<AssemblyName>Alisflyt.Domain.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<ProjectReference Include="../../Alisflyt.Domain/Alisflyt.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

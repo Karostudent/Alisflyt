@@ -1,8 +1,8 @@
-using Alisflyt.web.Models;
+using Alisflyt.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
-namespace Alisflyt.web.Controllers
+namespace Alisflyt.Web.Controllers
 {
     public class HomeController : Controller
     {

@@ -1,3 +1,12 @@
 <Solution>
-  <Project Path="Alisflyt.web/Alisflyt.web.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/Alisflyt.Application.Tests/Alisflyt.Application.Tests.csproj" />
+    <Project Path="tests/Alisflyt.Domain.Tests/Alisflyt.Domain.Tests.csproj" />
+    <Project Path="tests/Alisflyt.IntegrationTests/Alisflyt.IntegrationTests.csproj" />
+  </Folder>
+  <Project Path="Alisflyt.Application/Alisflyt.Application.csproj" />
+  <Project Path="Alisflyt.Domain/Alisflyt.Domain.csproj" />
+  <Project Path="Alisflyt.Infrastructure/Alisflyt.Infrastructure.csproj" />
+  <Project Path="Alisflyt.Integrations/Alisflyt.Integrations.csproj" />
+  <Project Path="Alisflyt.Web/Alisflyt.Web.csproj" />
 </Solution>
