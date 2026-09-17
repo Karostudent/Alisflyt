@@ -1,0 +1,46 @@
+@model Alisflyt.Web.ViewModels.GrantCases.GrantCaseDetailsViewModel
+
+@{
+	ViewData["Title"] = "Søknad";
+}
+
+<h2>Søknad @Model.CaseNumber</h2>
+
+@using (Html.BeginForm("Submit", "GrantCases", FormMethod.Post))
+{
+	@Html.AntiForgeryToken()
+	<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+	<dl class="row">
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
+		<dd class="col-sm-9">@Model.CaseNumber</dd>
+
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.HprNumber)</dt>
+		<dd class="col-sm-9">@Model.HprNumber</dd>
+
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.EmploymentPercentage)</dt>
+		<dd class="col-sm-9">@Model.EmploymentPercentage</dd>
+
+		<dt class="col-sm-3">Periode</dt>
+		<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
+
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
+		<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status.ToString())</dd>
+
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
+		<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
+
+		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.LastModifiedAtUtc)</dt>
+		<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
+	</dl>
+
+	<div class="mt-3">
+		@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft)
+		{
+			<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
+			<input type="hidden" name="id" value="@Model.Id" />
+			<button type="submit" class="btn btn-success">Send inn</button>
+		}
+		<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
+	</div>
+}

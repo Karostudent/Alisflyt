@@ -1,0 +1,46 @@
+@model Alisflyt.Web.ViewModels.GrantCases.EditGrantCaseViewModel
+
+@{
+	ViewData["Title"] = "Rediger søknad";
+}
+
+<h2>Rediger søknad</h2>
+
+@using (Html.BeginForm("Edit", "GrantCases", FormMethod.Post))
+{
+	@Html.AntiForgeryToken()
+	<input type="hidden" asp-for="Id" />
+
+	<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+	<div class="mb-3">
+		<label asp-for="HprNumber" class="form-label"></label>
+		<input asp-for="HprNumber" class="form-control" />
+		<span asp-validation-for="HprNumber" class="text-danger"></span>
+	</div>
+
+	<div class="mb-3">
+		<label asp-for="EmploymentPercentage" class="form-label"></label>
+		<input asp-for="EmploymentPercentage" class="form-control" />
+		<span asp-validation-for="EmploymentPercentage" class="text-danger"></span>
+	</div>
+
+	<div class="mb-3">
+		<label asp-for="EmploymentStartDate" class="form-label"></label>
+		<input asp-for="EmploymentStartDate" class="form-control" type="date" />
+		<span asp-validation-for="EmploymentStartDate" class="text-danger"></span>
+	</div>
+
+	<div class="mb-3">
+		<label asp-for="EmploymentEndDate" class="form-label"></label>
+		<input asp-for="EmploymentEndDate" class="form-control" type="date" />
+		<span asp-validation-for="EmploymentEndDate" class="text-danger"></span>
+	</div>
+
+	<button type="submit" class="btn btn-primary">Lagre</button>
+	<a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Avbryt</a>
+}
+
+@section Scripts {
+	@await Html.PartialAsync("_ValidationScriptsPartial")
+}

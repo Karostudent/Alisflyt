@@ -1,0 +1,47 @@
+@model IEnumerable<Alisflyt.Web.ViewModels.GrantCases.GrantCaseListItemViewModel>
+
+@{
+	ViewData["Title"] = "Søknader";
+}
+
+<div class="d-flex justify-content-between mb-3">
+	<h2>Søknader</h2>
+	<a class="btn btn-primary" asp-action="Create" asp-controller="GrantCases">Ny søknad</a>
+</div>
+
+@{
+	var grantCases = Model ?? System.Array.Empty<Alisflyt.Web.ViewModels.GrantCases.GrantCaseListItemViewModel>();
+}
+
+@if (!grantCases.Any())
+{
+	<div class="alert alert-info">Ingen søknader funnet.</div>
+}
+else
+{
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>Saksnummer</th>
+				<th>HPR</th>
+				<th>Status</th>
+				<th>Endret</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+		@foreach (var item in grantCases)
+		{
+			<tr>
+				<td>@item.CaseNumber</td>
+				<td>@item.HprNumber</td>
+				<td>@item.Status</td>
+				<td>@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+				<td>
+					<a class="btn btn-sm btn-link" asp-action="Details" asp-route-id="@item.Id">Vis</a>
+				</td>
+			</tr>
+		}
+		</tbody>
+	</table>
+}
