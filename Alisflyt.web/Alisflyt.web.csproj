@@ -8,4 +8,14 @@
 	<RootNamespace>Alisflyt.Web</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+	<ProjectReference Include="../Alisflyt.Application/Alisflyt.Application.csproj" />
+	<ProjectReference Include="../Alisflyt.Infrastructure/Alisflyt.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<!-- Required by dotnet-ef when using the Web project as the startup project -->
+	<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
+  </ItemGroup>
+
 </Project>
