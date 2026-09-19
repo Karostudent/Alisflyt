@@ -14,16 +14,23 @@ Løsningen er under utvikling og skal foreløpig bare brukes med syntetiske test
 - Presentasjon av planlagt veilederområde
 - Opprettelse og lagring av ufullstendige utkast
 - Redigering, validering og innsending av søknader
+- Koordinator kan starte behandling av innsendte søknader
+- Koordinator kan returnere en sak for korrigering med obligatorisk begrunnelse
+- ALIS kan se returbegrunnelse og tidspunkt
+- ALIS kan redigere en returnert søknad og sende den inn på nytt
+- Norske statusetiketter i brukergrensesnittet (Utkast, Innsendt, Under behandling, Returnert for korrigering)
+- Lagring av returbegrunnelse og returtidspunkt i databasen
 - Entity Framework Core, migrasjoner og demodata
-- Automatiserte tester for Domain, Application, Infrastructure og Web
+- Automatiserte tester for Domain, Application, Infrastructure og Web (kjøres i CI)
 - GitHub Actions for automatisk bygging og testing
 
 ### Planlagt
 
+
 - Autentisering og rollebasert tilgangsstyring
 - Avgrensning slik at ALIS bare ser egne saker
 - Registrering og avstemming av veiledningstimer
-- Koordinatorbehandling og retur for korrigering
+- Utvidede veilederfunksjoner
 - Sakshistorikk og sporbarhet
 - Dokumentopplasting og beregning av tilskudd
 - Revisorgodkjenning
@@ -102,7 +109,7 @@ dotnet build Alisflyt.slnx --verbosity minimal
 dotnet test Alisflyt.slnx --no-build --verbosity minimal
 ```
 
-På dokumentasjonstidspunktet har løsningen 51 automatiserte tester fordelt på Domain, Application, Web og Integration.
+Løsningen inneholder automatiserte tester for Domain, Application, Web og Integration som kjøres i CI.
 
 ## Database
 
@@ -145,6 +152,8 @@ Begge jobbene skal normalt være grønne før en pull request merges.
 - Ikke bruk ekte personopplysninger i utvikling eller demonstrasjon.
 - Bruk kun syntetiske testdata.
 - Produksjonsklar autentisering og autorisasjon er ikke implementert.
+
+Merk: Dette er en prototype. ALIS ser foreløpig demo-/testdata og er ikke filtrert på innlogget bruker. Autentisering, autorisasjon og produksjonsintegrasjoner er ikke ferdigstilt.
 
 ## Videre lesing
 
