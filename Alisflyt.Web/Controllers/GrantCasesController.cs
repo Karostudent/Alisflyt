@@ -79,7 +79,9 @@ namespace Alisflyt.Web.Controllers
                 EmploymentEndDate = d.EmploymentEndDate,
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
-                LastModifiedAtUtc = d.LastModifiedAtUtc
+                LastModifiedAtUtc = d.LastModifiedAtUtc,
+                ReturnReason = d.ReturnReason,
+                ReturnedAtUtc = d.ReturnedAtUtc
             };
 
             // Return explicit Details view so MVC does not search for a Submit.cshtml view.
@@ -98,7 +100,7 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            if (d.Status != Domain.Enums.GrantCaseStatus.Draft)
+            if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
             var vm = new EditGrantCaseViewModel

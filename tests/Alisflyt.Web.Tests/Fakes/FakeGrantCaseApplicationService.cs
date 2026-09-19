@@ -21,6 +21,9 @@ namespace Alisflyt.Web.Tests.Fakes
         public Exception? GetByIdException { get; set; }
         public Exception? ListException { get; set; }
         public Exception? SubmitException { get; set; }
+        // New configurable exceptions for tests
+        public Exception? StartReviewException { get; set; }
+        public Exception? ReturnForCorrectionException { get; set; }
 
         // Call recording
         public List<(CreateGrantCaseRequest request, CancellationToken ct)> CreateDraftCalls { get; } = new();
@@ -75,12 +78,14 @@ namespace Alisflyt.Web.Tests.Fakes
         public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
         {
             StartReviewCalls.Add((id, cancellationToken));
+            if (StartReviewException != null) throw StartReviewException;
             return Task.CompletedTask;
         }
 
         public Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default)
         {
             ReturnForCorrectionCalls.Add((id, request, cancellationToken));
+            if (ReturnForCorrectionException != null) throw ReturnForCorrectionException;
             return Task.CompletedTask;
         }
     }
