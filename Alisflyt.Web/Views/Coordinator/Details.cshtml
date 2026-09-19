@@ -1,0 +1,42 @@
+@model Alisflyt.Web.ViewModels.Coordinator.CoordinatorCaseDetailsViewModel
+
+@{
+	ViewData["Title"] = "Sak (Koordinator)";
+}
+
+<h2>Sak @Model.CaseNumber</h2>
+
+<dl class="row">
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
+	<dd class="col-sm-9">@Model.CaseNumber</dd>
+
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.HprNumber)</dt>
+	<dd class="col-sm-9">@Model.HprNumber</dd>
+
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.EmploymentPercentage)</dt>
+	<dd class="col-sm-9">@((Model.EmploymentPercentage.HasValue) ? $"{Model.EmploymentPercentage.Value:0.##} %" : "-")</dd>
+
+	<dt class="col-sm-3">Periode</dt>
+	<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
+
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
+	<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status.ToString())</dd>
+
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
+	<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
+
+	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.LastModifiedAtUtc)</dt>
+	<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
+</dl>
+
+<div class="mt-3">
+	<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
+</div>
+
+<div class="mt-4 alert alert-secondary">
+	<h5>Planlagte prosessteg</h5>
+	<ul>
+		<li>Revisjon (revisor-del)</li>
+		<li>Send til Helsedirektoratet</li>
+	</ul>
+</div>

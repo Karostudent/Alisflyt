@@ -1,0 +1,123 @@
+@model Alisflyt.Web.ViewModels.Portals.PortalEntryViewModel
+
+@{
+	ViewData["Title"] = "Portal";
+}
+
+<div class="container">
+	<div class="row mb-4">
+		<div class="col-12">
+			<h1 class="display-6">ALISflyt — Demoportal</h1>
+			<p class="lead">ALISflyt er et forslag til en digital arbeidsflate for søknad og behandling av kommunale ALIS-tilskudd. Informasjon registreres én gang og gjenbrukes gjennom prosessen, slik at brukerne får bedre oversikt og koordinator kan bruke mer tid på kontroll og behandling.</p>
+			<p class="text-muted">Dette er en tidlig prototype med testdata.</p>
+			<div class="alert alert-warning" role="alert">@Model.DemoNotice</div>
+		</div>
+	</div>
+
+	<!-- Role cards -->
+	<div class="row g-3 mb-4">
+		<div class="col-12 col-md-4 d-flex">
+			<div class="card w-100 shadow-sm d-flex flex-column">
+				<div class="card-body d-flex flex-column">
+					<h5 class="card-title">ALIS</h5>
+					<p class="card-text">Opprett og følg egne tilskuddssøknader. Du kan lagre utkast, redigere opplysninger og sende inn en komplett søknad.</p>
+					<div class="mt-auto">
+						<a asp-controller="Alis" asp-action="Index" class="btn btn-primary">Gå til ALIS</a>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-12 col-md-4 d-flex">
+			<div class="card w-100 shadow-sm d-flex flex-column">
+				<div class="card-body d-flex flex-column">
+					<h5 class="card-title">Koordinator</h5>
+					<p class="card-text">Få oversikt over mottatte og innsendte søknader. Kontroller opplysninger og følg sakene videre i behandlingsprosessen.</p>
+					<div class="mt-auto">
+						<a asp-controller="Coordinator" asp-action="Index" class="btn btn-primary">Gå til koordinator</a>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-12 col-md-4 d-flex">
+			<div class="card w-100 shadow-sm d-flex flex-column">
+				<div class="card-body d-flex flex-column">
+					<h5 class="card-title">Veileder <span class="badge bg-secondary">Planlagt funksjonalitet</span></h5>
+					<p class="card-text">Bekreft gjennomførte veiledningstimer og følg relevante oppgaver.</p>
+					<div class="mt-auto">
+						<a asp-controller="Guidance" asp-action="Index" class="btn btn-outline-primary">Se veilederområdet</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Planned main process -->
+	<div class="row mb-4">
+		<div class="col-12">
+			<h3>Planlagt hovedprosess</h3>
+			<p class="text-muted">Dette viser målbildet. Ikke alle trinn er implementert ennå.</p>
+		</div>
+
+		<div class="col-12">
+			<div class="row g-3">
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">1</div>
+						<div>ALIS oppretter søknad</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">2</div>
+						<div>Veileder bekrefter timer</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">3</div>
+						<div>Koordinator kontrollerer</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">4</div>
+						<div>Tilskudd beregnes</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">5</div>
+						<div>Revisorgodkjenning dokumenteres</div>
+					</div>
+				</div>
+				<div class="col-6 col-md-2">
+					<div class="border rounded p-3 h-100 text-center">
+						<div class="display-6 fw-bold">6</div>
+						<div>Resultat registreres og saken avsluttes</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Demonstrable features -->
+	<div class="row mb-4">
+		<div class="col-12 col-md-8">
+			<h3>Dette kan demonstreres nå</h3>
+			<ul>
+				<li>Opprette og lagre utkast</li>
+				<li>Redigere søknadsopplysninger</li>
+				<li>Validere og sende inn søknad</li>
+				<li>Se samme sak fra ALIS- og koordinatorperspektiv</li>
+				<li>Vise planlagt veilederområde</li>
+			</ul>
+		</div>
+		<div class="col-12 col-md-4">
+			<h5>Prototype</h5>
+			<p class="small text-muted">Dette er en prototype med testdata. Innlogging, tilgangsstyring og full saksbehandling er ikke implementert.</p>
+		</div>
+	</div>
+</div>
+
