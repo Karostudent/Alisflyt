@@ -1,53 +1,152 @@
-# ALISflyt — Municipal Grant Application Portal (work in progress)
+# ALISflyt
 
-Short overview
-- Purpose: a small municipal web portal (ALISflyt) for creating, editing and submitting grant cases (søknader).
-- Status: early implementation of Domain, Application, Infrastructure and a thin Web UI (Razor / MVC) for the GrantCases flow.
+ALISflyt er en prototype for digital søknad og behandling av kommunale ALIS-tilskudd. Målet er at informasjon skal registreres én gang og gjenbrukes gjennom prosessen, slik at brukerne får bedre oversikt og koordinator kan bruke mer tid på kontroll og behandling.
 
-Technology stack
-- .NET 10 (net10.0)
-- C# 12
-- ASP.NET Core MVC with Razor views (server rendered)
-- EF Core 10 for persistence
-- SQL Server / LocalDB used for local development
-- xUnit for tests
+Løsningen er under utvikling og skal foreløpig bare brukes med syntetiske testdata.
 
-Project layout
-- Alisflyt.Domain — domain entities, enums and business rules (GrantCase entity and status enum)
-- Alisflyt.Application — application services, DTOs and requests (IGrantCaseApplicationService, DTOs)
-- Alisflyt.Infrastructure — EF Core DbContext, repositories, migrations and development seeding
-- Alisflyt.Web — UI project (controllers, Razor views, ViewModels, static assets)
-- tests/* — unit and integration test projects (Domain, Application, IntegrationTests, etc.)
+## Status
 
-Key implemented features
-- Domain model for GrantCase with rules for draft/update/submit
-- Application service IGrantCaseApplicationService and implementation
-- EF Core persistence and initial migration (InitialCreate)
-- Thin MVC controller GrantCasesController with Create/Edit/Details/Index/Submit flows
-- Razor views and ViewModels for GrantCases (list, create, edit, details)
-- Server-side validation for percentage and date ranges; Norwegian UI labels and messages
+### Implementert
 
-How to build and run (development)
-1. Restore/build/tests:
-   dotnet build Alisflyt.slnx --verbosity minimal
-   dotnet test Alisflyt.slnx --no-build --verbosity minimal
+- Rolleportal for ALIS, koordinator og veileder
+- ALIS-dashboard med oversikt over utkast og innsendte søknader
+- Koordinator-dashboard med skrivebeskyttet visning av saker
+- Presentasjon av planlagt veilederområde
+- Opprettelse og lagring av ufullstendige utkast
+- Redigering, validering og innsending av søknader
+- Entity Framework Core, migrasjoner og demodata
+- Automatiserte tester for Domain, Application, Infrastructure og Web
+- GitHub Actions for automatisk bygging og testing
 
-2. Run web app (development environment requires DefaultConnection in appsettings.Development.json):
-   dotnet run --project Alisflyt.Web/Alisflyt.Web.csproj
+### Planlagt
 
-3. When running in Development the app will apply migrations and optionally seed demo data. To enable seeding set SeedDemoData=true in appsettings.Development.json.
+- Autentisering og rollebasert tilgangsstyring
+- Avgrensning slik at ALIS bare ser egne saker
+- Registrering og avstemming av veiledningstimer
+- Koordinatorbehandling og retur for korrigering
+- Sakshistorikk og sporbarhet
+- Dokumentopplasting og beregning av tilskudd
+- Revisorgodkjenning
+- Frister og varsling
+- Integrasjoner mot P360 og Helsedirektoratet
 
-Notes for contributors
-- The Web layer is intentionally thin: controllers call IGrantCaseApplicationService and map DTOs to ViewModels.
-- Domain rules live in Alisflyt.Domain and must not be duplicated in the Web layer; the Web validates only presentation concerns and mirrors domain expectations.
-- Tests: keep existing test projects green before changing domain or persistence.
+## Teknologi
 
-Where to look
-- GrantCases controller: Alisflyt.Web/Controllers/GrantCasesController.cs
-- Views: Alisflyt.Web/Views/GrantCases/
-- ViewModels: Alisflyt.Web/ViewModels/GrantCases/
-- Domain entity: Alisflyt.Domain/Entities/GrantCase.cs
-- Application service: Alisflyt.Application/Services/IGrantCaseApplicationService.cs
+- .NET 10
+- ASP.NET Core MVC og Razor Views
+- Entity Framework Core
+- SQL Server Express LocalDB
+- xUnit
+- GitHub Actions
 
-If you need a focused task (tests for Submit, translation, accessibility), open an issue or request a short implementation.
+## Prosjektstruktur
 
+- `Alisflyt.Domain` inneholder entiteter, statuser og forretningsregler.
+- `Alisflyt.Application` inneholder brukstilfeller, tjenester, DTO-er og kontrakter.
+- `Alisflyt.Infrastructure` inneholder EF Core, databasekontekst, repositories, migrasjoner og demodata.
+- `Alisflyt.Web` inneholder controllere, ViewModels, Razor Views og statiske filer.
+- `Alisflyt.Integrations` er klargjort for fremtidige integrasjoner mot eksterne systemer.
+- `tests` inneholder enhets- og integrasjonstestprosjektene.
+
+Kort huskeregel:
+
+> Web viser. Application koordinerer. Domain bestemmer. Infrastructure lagrer. Integrations kommuniserer.
+
+## Forutsetninger
+
+- Git
+- .NET 10 SDK
+- Visual Studio med ASP.NET-workload, eller et annet egnet utviklingsmiljø
+- SQL Server Express LocalDB på Windows
+
+## Klone repository
+
+```powershell
+git clone <repository-url>
+cd Alisflyt
+```
+
+Erstatt `<repository-url>` med repository-adressen fra GitHub.
+
+## Første gangs oppsett
+
+Gjenopprett det lokale .NET-verktøyet og NuGet-pakkene:
+
+```powershell
+dotnet tool restore
+dotnet restore
+```
+
+Kontroller om LocalDB-instansen finnes:
+
+```powershell
+sqllocaldb info
+```
+
+Hvis `MSSQLLocalDB` ikke finnes, oppretter du den:
+
+```powershell
+sqllocaldb create MSSQLLocalDB
+```
+
+Start instansen:
+
+```powershell
+sqllocaldb start MSSQLLocalDB
+```
+
+## Bygg og test
+
+```powershell
+dotnet build Alisflyt.slnx --verbosity minimal
+dotnet test Alisflyt.slnx --no-build --verbosity minimal
+```
+
+På dokumentasjonstidspunktet har løsningen 51 automatiserte tester fordelt på Domain, Application, Web og Integration.
+
+## Database
+
+Lokal utvikling bruker:
+
+- Instans: `(localdb)\MSSQLLocalDB`
+- Database: `AlisflytDevelopment`
+- Konfigurasjon: `Alisflyt.Web/appsettings.Development.json`
+
+I Development-miljøet kjører applikasjonen migrasjoner automatisk ved oppstart. Demodata legges inn når `SeedDemoData` er satt til `true`. Integrasjonstestene bruker egne midlertidige LocalDB-databaser og skal ikke bruke `AlisflytDevelopment`.
+
+Databasen kan også oppdateres manuelt:
+
+```powershell
+dotnet ef database update --project Alisflyt.Infrastructure/Alisflyt.Infrastructure.csproj --startup-project Alisflyt.Web/Alisflyt.Web.csproj --context Alisflyt.Infrastructure.Persistence.ApplicationDbContext
+```
+
+## Starte løsningen
+
+```powershell
+dotnet run --project Alisflyt.Web/Alisflyt.Web.csproj
+```
+
+Terminalen viser adressen applikasjonen lytter på. Stopp den med `Ctrl+C`.
+
+Du kan også starte `Alisflyt.Web` som oppstartsprosjekt fra Visual Studio.
+
+## GitHub Actions
+
+Ved push til `main` og pull requests mot `main` kjører GitHub Actions automatisk:
+
+- Domain-, Application- og Web-tester på Ubuntu
+- LocalDB-integrasjonstester på Windows
+
+Begge jobbene skal normalt være grønne før en pull request merges.
+
+## Sikkerhet og testdata
+
+- Ikke legg secrets, passord eller produksjons-connection strings i Git.
+- Ikke bruk ekte personopplysninger i utvikling eller demonstrasjon.
+- Bruk kun syntetiske testdata.
+- Produksjonsklar autentisering og autorisasjon er ikke implementert.
+
+## Videre lesing
+
+- [Bidra til ALISflyt](CONTRIBUTING.md)
+- [Arkitektur](docs/architecture.md)
