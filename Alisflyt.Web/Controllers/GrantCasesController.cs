@@ -59,9 +59,15 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
-            var d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            if (d is null)
+            Alisflyt.Application.Models.GrantCaseDto d;
+            try
+            {
+                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
                 return NotFound();
+            }
 
             var vm = new GrantCaseDetailsViewModel
             {
@@ -82,9 +88,15 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
         {
-            var d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            if (d is null)
+            Alisflyt.Application.Models.GrantCaseDto d;
+            try
+            {
+                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
                 return NotFound();
+            }
 
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft)
                 return BadRequest();
@@ -116,7 +128,15 @@ namespace Alisflyt.Web.Controllers
                 EmploymentEndDate = model.EmploymentEndDate
             };
 
-            var updated = await _svc.UpdateDraftAsync(model.Id, req, cancellationToken).ConfigureAwait(false);
+            Alisflyt.Application.Models.GrantCaseDto updated;
+            try
+            {
+                updated = await _svc.UpdateDraftAsync(model.Id, req, cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
+                return NotFound();
+            }
 
             return RedirectToAction(nameof(Details), new { id = updated.Id });
         }
@@ -129,6 +149,10 @@ namespace Alisflyt.Web.Controllers
             {
                 await _svc.SubmitAsync(id, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
+                return NotFound();
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -146,9 +170,15 @@ namespace Alisflyt.Web.Controllers
             // On validation-related failure, show a friendly Norwegian message and render Details with ModelState errors.
             ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn. Kontroller at HPR-nummer, stillingsprosent og ansettelsesperiode er fylt ut riktig.");
 
-            var d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            if (d is null)
+            Alisflyt.Application.Models.GrantCaseDto d;
+            try
+            {
+                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException)
+            {
                 return NotFound();
+            }
 
             var vm = new GrantCaseDetailsViewModel
             {

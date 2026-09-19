@@ -15,9 +15,6 @@ namespace Alisflyt.Web.Controllers
             return View(vm);
         }
 
-        public IActionResult Info()
-        {
-            return View();
-        }
+        // Info action removed: no view or routes reference Info.cshtml in the project.
     }
 }

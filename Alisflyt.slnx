@@ -3,6 +3,7 @@
     <Project Path="tests/Alisflyt.Application.Tests/Alisflyt.Application.Tests.csproj" />
     <Project Path="tests/Alisflyt.Domain.Tests/Alisflyt.Domain.Tests.csproj" />
     <Project Path="tests/Alisflyt.IntegrationTests/Alisflyt.IntegrationTests.csproj" />
+    <Project Path="tests/Alisflyt.Web.Tests/Alisflyt.Web.Tests.csproj" Id="6bc9c61b-b93d-4cc1-8a9e-567c7b037f8b" />
   </Folder>
   <Project Path="Alisflyt.Application/Alisflyt.Application.csproj" />
   <Project Path="Alisflyt.Domain/Alisflyt.Domain.csproj" />
