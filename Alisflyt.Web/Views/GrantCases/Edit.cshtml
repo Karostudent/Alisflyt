@@ -21,7 +21,7 @@
 
 	<div class="mb-3">
 		<label asp-for="EmploymentPercentage" class="form-label"></label>
-		<input asp-for="EmploymentPercentage" class="form-control" />
+		<input asp-for="EmploymentPercentage" class="form-control" type="number" step="0.01" min="0" max="100" />
 		<span asp-validation-for="EmploymentPercentage" class="text-danger"></span>
 	</div>
 
