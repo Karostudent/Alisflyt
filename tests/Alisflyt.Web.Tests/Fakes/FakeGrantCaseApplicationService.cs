@@ -28,6 +28,8 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, CancellationToken ct)> GetByIdCalls { get; } = new();
         public List<CancellationToken> ListCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
+        public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
+        public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
 
         public Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default)
         {
@@ -67,6 +69,18 @@ namespace Alisflyt.Web.Tests.Fakes
         {
             SubmitCalls.Add((id, cancellationToken));
             if (SubmitException != null) throw SubmitException;
+            return Task.CompletedTask;
+        }
+
+        public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            StartReviewCalls.Add((id, cancellationToken));
+            return Task.CompletedTask;
+        }
+
+        public Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default)
+        {
+            ReturnForCorrectionCalls.Add((id, request, cancellationToken));
             return Task.CompletedTask;
         }
     }

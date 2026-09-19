@@ -12,6 +12,8 @@ namespace Alisflyt.Application.Models
         public DateOnly? EmploymentStartDate { get; init; }
         public DateOnly? EmploymentEndDate { get; init; }
         public GrantCaseStatus Status { get; init; }
+        public string? ReturnReason { get; init; }
+        public DateTimeOffset? ReturnedAtUtc { get; init; }
         public DateTimeOffset CreatedAtUtc { get; init; }
         public DateTimeOffset LastModifiedAtUtc { get; init; }
     }

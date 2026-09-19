@@ -56,6 +56,26 @@ namespace Alisflyt.Application.Services
             return MapToDto(grantCase);
         }
 
+        public async Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            var now = _timeProvider.GetUtcNow();
+
+            grantCase.StartReview(now);
+
+            await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default)
+        {
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            var now = _timeProvider.GetUtcNow();
+
+            grantCase.ReturnForCorrection(request.Reason, now);
+
+            await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         public async Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default)
         {
             var list = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
@@ -89,6 +109,8 @@ namespace Alisflyt.Application.Services
                 EmploymentPercentage = c.EmploymentPercentage,
                 EmploymentStartDate = c.EmploymentStartDate,
                 EmploymentEndDate = c.EmploymentEndDate,
+                ReturnReason = c.ReturnReason,
+                ReturnedAtUtc = c.ReturnedAtUtc,
                 Status = c.Status,
                 CreatedAtUtc = c.CreatedAtUtc,
                 LastModifiedAtUtc = c.LastModifiedAtUtc

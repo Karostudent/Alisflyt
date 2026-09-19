@@ -21,11 +21,11 @@ namespace Alisflyt.Web.Tests.Fakes
 
         public string Action(string action, string controller, object values, string protocol, string host, string fragment) => $"/{controller}/{action}";
 
-        public string Content(string contentPath) => contentPath ?? string.Empty;
+        public string? Content(string? contentPath) => contentPath ?? string.Empty;
 
-        public bool IsLocalUrl(string url) => !string.IsNullOrEmpty(url) && url.StartsWith("/");
+        public bool IsLocalUrl(string? url) => !string.IsNullOrEmpty(url) && url.StartsWith("/");
 
-        public string Link(string routeName, object values) => "/" + (routeName ?? "route");
+        public string? Link(string? routeName, object? values) => "/" + (routeName ?? "route");
 
         public string RouteUrl(UrlRouteContext routeContext) => "/" + (routeContext?.RouteName ?? "route");
 
