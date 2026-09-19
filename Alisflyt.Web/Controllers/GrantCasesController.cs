@@ -163,7 +163,8 @@ namespace Alisflyt.Web.Controllers
                 LastModifiedAtUtc = d.LastModifiedAtUtc
             };
 
-            return View(vm);
+            // Return explicit Details view so MVC does not search for a Submit.cshtml view.
+            return View("Details", vm);
         }
     }
 }

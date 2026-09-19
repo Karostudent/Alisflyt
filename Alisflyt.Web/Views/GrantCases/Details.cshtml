@@ -19,7 +19,7 @@
 		<dd class="col-sm-9">@Model.HprNumber</dd>
 
 		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.EmploymentPercentage)</dt>
-		<dd class="col-sm-9">@Model.EmploymentPercentage</dd>
+		<dd class="col-sm-9">@((Model.EmploymentPercentage.HasValue) ? $"{Model.EmploymentPercentage.Value:0.##} %" : "-")</dd>
 
 		<dt class="col-sm-3">Periode</dt>
 		<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
