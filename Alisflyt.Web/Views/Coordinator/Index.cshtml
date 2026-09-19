@@ -1,0 +1,40 @@
+@model Alisflyt.Web.ViewModels.Dashboards.CoordinatorDashboardViewModel
+
+@{
+	ViewData["Title"] = "Koordinator Dashboard";
+}
+
+<h2>Koordinator Dashboard</h2>
+
+<form method="get">
+	<label>Filter:</label>
+	<select name="status" class="form-select" onchange="this.form.submit()">
+		<option value="All" selected='@(Model.Filter == "All" ? "selected" : null)'>Alle</option>
+		<option value="Submitted" selected='@(Model.Filter == "Submitted" ? "selected" : null)'>Innsendt</option>
+		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under vurdering</option>
+	</select>
+</form>
+
+<table class="table mt-3">
+	<thead>
+		<tr>
+			<th>Saksnummer</th>
+			<th>HPR</th>
+			<th>Status</th>
+			<th>Sist endret</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+@foreach(var c in Model.Cases)
+{
+		<tr>
+			<td>@c.CaseNumber</td>
+			<td>@c.HprNumber</td>
+			<td>@c.Status</td>
+			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+			<td><a asp-controller="Coordinator" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
+		</tr>
+}
+	</tbody>
+</table>

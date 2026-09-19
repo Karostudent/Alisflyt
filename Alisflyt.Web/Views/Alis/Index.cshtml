@@ -1,0 +1,38 @@
+@model Alisflyt.Web.ViewModels.Dashboards.AlisDashboardViewModel
+
+@{
+	ViewData["Title"] = "ALIS Dashboard";
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+	<h2 class="m-0">ALIS Dashboard</h2>
+	<a asp-controller="GrantCases" asp-action="Create" class="btn btn-primary">Ny søknad</a>
+</div>
+
+<p class="text-muted">Oversikt over saker</p>
+
+<div class="alert alert-info small">I denne demoversjonen vises testdata. I ferdig løsning skal ALIS bare se egne søknader.</div>
+
+<table class="table">
+	<thead>
+		<tr>
+			<th>Saksnummer</th>
+			<th>HPR</th>
+			<th>Status</th>
+			<th>Sist endret</th>
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+@foreach(var c in Model.Cases)
+{
+		<tr>
+			<td>@c.CaseNumber</td>
+			<td>@c.HprNumber</td>
+			<td>@c.Status</td>
+			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+			<td><a asp-controller="GrantCases" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
+		</tr>
+}
+	</tbody>
+</table>
