@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Alisflyt.slnx
+
+      - name: Build (Release, no-restore)
+        run: dotnet build Alisflyt.slnx --configuration Release --no-restore
+
+      - name: Run Domain tests
+        run: dotnet test tests/Alisflyt.Domain.Tests/Alisflyt.Domain.Tests.csproj --configuration Release --no-build
+
+      - name: Run Application tests
+        run: dotnet test tests/Alisflyt.Application.Tests/Alisflyt.Application.Tests.csproj --configuration Release --no-build
+
+      - name: Run Web tests
+        run: dotnet test tests/Alisflyt.Web.Tests/Alisflyt.Web.Tests.csproj --configuration Release --no-build
+
+  integration-tests:
+    name: Integration tests
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Alisflyt.slnx
+
+      - name: Ensure LocalDB is available and started
+        shell: pwsh
+        run: |
+          Write-Host "Checking for sqllocaldb..."
+          $sqllocaldb = Get-Command sqllocaldb -ErrorAction SilentlyContinue
+          if (-not $sqllocaldb) {
+              Write-Error "sqllocaldb command is not available on this runner. Integration tests require LocalDB on Windows runner."
+              exit 1
+          }
+
+          # Get list of instances
+          $instances = (& sqllocaldb i) -join "`n"
+
+          if ($instances -match 'MSSQLLocalDB') {
+              Write-Host "MSSQLLocalDB exists. Starting instance..."
+              & sqllocaldb start MSSQLLocalDB
+              if ($LASTEXITCODE -ne 0) { Write-Error "Failed to start MSSQLLocalDB"; exit 1 }
+          } else {
+              Write-Host "MSSQLLocalDB does not exist. Creating instance..."
+              & sqllocaldb create MSSQLLocalDB
+              if ($LASTEXITCODE -ne 0) { Write-Error "Failed to create MSSQLLocalDB"; exit 1 }
+              & sqllocaldb start MSSQLLocalDB
+              if ($LASTEXITCODE -ne 0) { Write-Error "Failed to start MSSQLLocalDB after create"; exit 1 }
+          }
+
+          Write-Host "LocalDB info:"
+          & sqllocaldb info MSSQLLocalDB
+          if ($LASTEXITCODE -ne 0) { Write-Error "sqllocaldb info failed"; exit 1 }
+
+      - name: Run Integration tests
+        shell: pwsh
+        run: dotnet test tests/Alisflyt.IntegrationTests/Alisflyt.IntegrationTests.csproj --configuration Release --no-restore

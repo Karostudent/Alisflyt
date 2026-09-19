@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Web.ViewModels.GrantCases;
 
 namespace Alisflyt.Web.Controllers
@@ -31,6 +32,10 @@ namespace Alisflyt.Web.Controllers
                     LastModifiedAtUtc = c.LastModifiedAtUtc
                 }).ToList()
             };
+
+            // Calculate status counts from the already retrieved list
+            vm.DraftCount = list.Count(c => c.Status == GrantCaseStatus.Draft);
+            vm.SubmittedCount = list.Count(c => c.Status == GrantCaseStatus.Submitted);
 
             return View(vm);
         }

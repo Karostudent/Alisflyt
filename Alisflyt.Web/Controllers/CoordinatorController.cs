@@ -47,9 +47,15 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(System.Guid id, CancellationToken cancellationToken)
         {
-            var d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            if (d is null)
+            Alisflyt.Application.Models.GrantCaseDto d;
+            try
+            {
+                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (KeyNotFoundException)
+            {
                 return NotFound();
+            }
 
             var vm = new CoordinatorCaseDetailsViewModel
             {
