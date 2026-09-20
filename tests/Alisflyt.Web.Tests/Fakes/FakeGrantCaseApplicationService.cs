@@ -21,6 +21,9 @@ namespace Alisflyt.Web.Tests.Fakes
         public Exception? GetByIdException { get; set; }
         public Exception? ListException { get; set; }
         public Exception? SubmitException { get; set; }
+        // New configurable exceptions for tests
+        public Exception? StartReviewException { get; set; }
+        public Exception? ReturnForCorrectionException { get; set; }
 
         // Call recording
         public List<(CreateGrantCaseRequest request, CancellationToken ct)> CreateDraftCalls { get; } = new();
@@ -28,6 +31,8 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, CancellationToken ct)> GetByIdCalls { get; } = new();
         public List<CancellationToken> ListCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
+        public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
+        public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
 
         public Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default)
         {
@@ -67,6 +72,20 @@ namespace Alisflyt.Web.Tests.Fakes
         {
             SubmitCalls.Add((id, cancellationToken));
             if (SubmitException != null) throw SubmitException;
+            return Task.CompletedTask;
+        }
+
+        public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            StartReviewCalls.Add((id, cancellationToken));
+            if (StartReviewException != null) throw StartReviewException;
+            return Task.CompletedTask;
+        }
+
+        public Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default)
+        {
+            ReturnForCorrectionCalls.Add((id, request, cancellationToken));
+            if (ReturnForCorrectionException != null) throw ReturnForCorrectionException;
             return Task.CompletedTask;
         }
     }

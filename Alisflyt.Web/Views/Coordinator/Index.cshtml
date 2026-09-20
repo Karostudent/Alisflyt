@@ -31,7 +31,7 @@
 		<tr>
 			<td>@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
-			<td>@c.Status</td>
+		<td>@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</td>
 			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
 			<td><a asp-controller="Coordinator" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
 		</tr>

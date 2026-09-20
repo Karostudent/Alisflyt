@@ -38,6 +38,14 @@ namespace Alisflyt.Infrastructure.Persistence.Configurations
 
             builder.Property(c => c.LastModifiedAtUtc)
                 .IsRequired();
+
+            // Return workflow fields
+            builder.Property(c => c.ReturnReason)
+                .HasMaxLength(1000)
+                .IsRequired(false);
+
+            builder.Property(c => c.ReturnedAtUtc)
+                .IsRequired(false);
         }
     }
 }

@@ -31,5 +31,11 @@ namespace Alisflyt.Web.ViewModels.Coordinator
 
         [Display(Name = "Sist endret")]
         public DateTimeOffset LastModifiedAtUtc { get; init; }
+
+        [Display(Name = "Returnert begrunnelse")]
+        public string? ReturnReason { get; init; }
+
+        [Display(Name = "Returnert dato")]
+        public DateTimeOffset? ReturnedAtUtc { get; init; }
     }
 }

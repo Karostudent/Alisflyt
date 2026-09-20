@@ -90,6 +90,7 @@ Testene ligger under `tests/`:
 6. `GrantCaseRepository` og `ApplicationDbContext` i Infrastructure lagrer saken med EF Core.
 7. Application returnerer en DTO, som Web mapper til en ViewModel.
 
+
 ## Implementert
 
 - Opprette og lagre ufullstendige utkast
@@ -98,7 +99,10 @@ Testene ligger under `tests/`:
 - Validere og sende inn søknader
 - Rolleportal og ALIS-dashboard
 - Skrivebeskyttet koordinatorvisning
-- Presentasjon av planlagt veilederområde
+- Starte behandling av innsendt søknad
+- Returnere søknad for korrigering med begrunnelse
+- Vise returbegrunnelse og tidspunkt
+- Redigere og sende inn returnert søknad på nytt
 - EF Core-persistens, migrasjoner og demodata
 - Automatiserte tester og GitHub Actions
 
@@ -115,3 +119,20 @@ Testene ligger under `tests/`:
 - Integrasjoner mot P360 og Helsedirektoratet
 
 Se `Alisflyt.Web/Program.cs` for hvordan applikasjonen settes sammen, og `README.md` for oppstart og lokal utvikling.
+
+### Returflyt (kort)
+
+Flyt for retur til ALIS:
+
+```
+Draft → Submitted → UnderReview → ReturnedForCorrection → Submitted
+```
+
+Kort forklaring:
+
+- Domain håndhever gyldige statusoverganger og krav til begrunnelse ved retur.
+- Application koordinerer tiltakene StartReviewAsync og ReturnForCorrectionAsync.
+- Infrastructure lagrer ReturnReason og ReturnedAtUtc i databasen via EF Core.
+- Web presenterer skjemaer, handlinger og norske valideringsmeldinger, men dupliserer ikke domenereglene.
+
+Behold arkitekturregelen: Web viser. Application koordinerer. Domain bestemmer. Infrastructure lagrer. Integrations kommuniserer.

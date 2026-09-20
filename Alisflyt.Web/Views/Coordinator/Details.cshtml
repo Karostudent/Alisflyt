@@ -20,7 +20,7 @@
 	<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
 
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
-	<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status.ToString())</dd>
+	<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : Model.Status.ToString())</dd>
 
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
 	<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
@@ -40,3 +40,26 @@
 		<li>Send til Helsedirektoratet</li>
 	</ul>
 </div>
+
+@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted)
+{
+	<form asp-action="StartReview" method="post">
+		@Html.AntiForgeryToken()
+		<input type="hidden" name="id" value="@Model.Id" />
+		<button type="submit" class="btn btn-primary">Start behandling</button>
+	</form>
+}
+
+@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview)
+{
+	<a asp-action="ReturnForCorrection" asp-route-id="@Model.Id" class="btn btn-warning">Returner for korrigering</a>
+}
+
+@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
+{
+	<div class="alert alert-warning mt-3">
+		<h5>Saken er returnert for korrigering</h5>
+		<p><strong>Begrunnelse:</strong> @Model.ReturnReason</p>
+		<p><strong>Returnert:</strong> @Model.ReturnedAtUtc?.ToLocalTime().ToString("g")</p>
+	</div>
+}

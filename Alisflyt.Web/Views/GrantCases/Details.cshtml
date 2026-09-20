@@ -25,7 +25,7 @@
 		<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
 
 		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
-		<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status.ToString())</dd>
+		<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : Model.Status.ToString())</dd>
 
 		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
 		<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
@@ -34,13 +34,28 @@
 		<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
 	</dl>
 
-	<div class="mt-3">
-		@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft)
-		{
-			<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
+	@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
+	{
+		<div class="alert alert-warning">
+			<h5>Søknaden er returnert for korrigering</h5>
+			<p><strong>Begrunnelse:</strong> @Model.ReturnReason</p>
+			<p><strong>Returnert:</strong> @Model.ReturnedAtUtc?.ToLocalTime().ToString("g")</p>
+			<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger søknad</a>
 			<input type="hidden" name="id" value="@Model.Id" />
-			<button type="submit" class="btn btn-success">Send inn</button>
-		}
-		<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
-	</div>
+			<button type="submit" class="btn btn-success">Send inn på nytt</button>
+			<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
+		</div>
+	}
+	else
+	{
+		<div class="mt-3">
+			@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft)
+			{
+				<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
+				<input type="hidden" name="id" value="@Model.Id" />
+				<button type="submit" class="btn btn-success">Send inn</button>
+			}
+			<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
+		</div>
+	}
 }

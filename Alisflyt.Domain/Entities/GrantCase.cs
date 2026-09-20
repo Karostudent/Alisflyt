@@ -11,6 +11,8 @@ namespace Alisflyt.Domain.Entities
         public decimal? EmploymentPercentage { get; private set; }
         public DateOnly? EmploymentStartDate { get; private set; }
         public DateOnly? EmploymentEndDate { get; private set; }
+        public string? ReturnReason { get; private set; }
+        public DateTimeOffset? ReturnedAtUtc { get; private set; }
         public GrantCaseStatus Status { get; private set; }
         public DateTimeOffset CreatedAtUtc { get; private set; }
         public DateTimeOffset LastModifiedAtUtc { get; private set; }
@@ -34,7 +36,7 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateDraft(string? hprNumber, decimal? employmentPercentage, DateOnly? employmentStartDate, DateOnly? employmentEndDate, DateTimeOffset now)
         {
-            if (Status != GrantCaseStatus.Draft)
+            if (Status != GrantCaseStatus.Draft && Status != GrantCaseStatus.ReturnedForCorrection)
                 throw new InvalidOperationException("Can only update draft cases.");
 
             if (employmentPercentage.HasValue)
@@ -58,8 +60,8 @@ namespace Alisflyt.Domain.Entities
 
         public void Submit(DateTimeOffset now)
         {
-            if (Status != GrantCaseStatus.Draft)
-                throw new InvalidOperationException("Only draft cases can be submitted.");
+            if (Status != GrantCaseStatus.Draft && Status != GrantCaseStatus.ReturnedForCorrection)
+                throw new InvalidOperationException("Only draft or returned-for-correction cases can be submitted.");
 
             if (string.IsNullOrWhiteSpace(HprNumber))
                 throw new ArgumentException("HPR number is required for submission.", nameof(HprNumber));
@@ -77,6 +79,33 @@ namespace Alisflyt.Domain.Entities
                 throw new ArgumentException("EmploymentEndDate cannot be before EmploymentStartDate.");
 
             Status = GrantCaseStatus.Submitted;
+            LastModifiedAtUtc = now;
+        }
+
+        public void StartReview(DateTimeOffset now)
+        {
+            if (Status != GrantCaseStatus.Submitted)
+                throw new InvalidOperationException("Can only start review for submitted cases.");
+
+            Status = GrantCaseStatus.UnderReview;
+            LastModifiedAtUtc = now;
+        }
+
+        public void ReturnForCorrection(string reason, DateTimeOffset now)
+        {
+            if (Status != GrantCaseStatus.UnderReview)
+                throw new InvalidOperationException("Can only return cases that are under review.");
+
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Return reason must be provided.", nameof(reason));
+
+            var trimmed = reason.Trim();
+            if (trimmed.Length > 1000)
+                throw new ArgumentException("Return reason cannot exceed 1000 characters.", nameof(reason));
+
+            ReturnReason = trimmed;
+            ReturnedAtUtc = now;
+            Status = GrantCaseStatus.ReturnedForCorrection;
             LastModifiedAtUtc = now;
         }
     }

@@ -68,9 +68,89 @@ namespace Alisflyt.Web.Controllers
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
                 LastModifiedAtUtc = d.LastModifiedAtUtc
+                ,
+                ReturnReason = d.ReturnReason,
+                ReturnedAtUtc = d.ReturnedAtUtc
             };
 
             return View("~/Views/Coordinator/Details.cshtml", vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> StartReview(System.Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _svc.StartReviewAsync(id, cancellationToken).ConfigureAwait(false);
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidOperationException)
+            {
+                TempData["Error"] = "Saken kan ikke settes til behandling.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
+        public async Task<IActionResult> ReturnForCorrection(System.Guid id, CancellationToken cancellationToken)
+        {
+            Alisflyt.Application.Models.GrantCaseDto d;
+            try
+            {
+                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+
+            if (d.Status != Domain.Enums.GrantCaseStatus.UnderReview)
+            {
+                TempData["Error"] = "Saken er ikke i behandling og kan ikke returneres.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            var vm = new ViewModels.Coordinator.ReturnForCorrectionViewModel
+            {
+                Id = d.Id,
+                CaseNumber = d.CaseNumber
+            };
+
+            return View("~/Views/Coordinator/ReturnForCorrection.cshtml", vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReturnForCorrection(ViewModels.Coordinator.ReturnForCorrectionViewModel model, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+                return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
+
+            var req = new Alisflyt.Application.Models.ReturnForCorrectionRequest { Reason = model.Reason };
+
+            try
+            {
+                await _svc.ReturnForCorrectionAsync(model.Id, req, cancellationToken).ConfigureAwait(false);
+                return RedirectToAction(nameof(Details), new { id = model.Id });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (ArgumentException)
+            {
+                ModelState.AddModelError(string.Empty, "Ugyldig begrunnelse.");
+                return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
+            }
+            catch (InvalidOperationException)
+            {
+                ModelState.AddModelError(string.Empty, "Saken kan ikke returneres i gjeldende tilstand.");
+                return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
+            }
         }
     }
 }
