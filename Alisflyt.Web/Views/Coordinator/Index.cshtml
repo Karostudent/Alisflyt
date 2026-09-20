@@ -10,8 +10,10 @@
 	<label>Filter:</label>
 	<select name="status" class="form-select" onchange="this.form.submit()">
 		<option value="All" selected='@(Model.Filter == "All" ? "selected" : null)'>Alle</option>
+		<option value="Draft" selected='@(Model.Filter == "Draft" ? "selected" : null)'>Utkast</option>
 		<option value="Submitted" selected='@(Model.Filter == "Submitted" ? "selected" : null)'>Innsendt</option>
-		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under vurdering</option>
+		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under behandling</option>
+		<option value="ReturnedForCorrection" selected='@(Model.Filter == "ReturnedForCorrection" ? "selected" : null)'>Returnert for korrigering</option>
 	</select>
 </form>
 

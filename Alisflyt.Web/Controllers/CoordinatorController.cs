@@ -24,9 +24,22 @@ namespace Alisflyt.Web.Controllers
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
 
             // Only support All or Submitted filters for the coordinator dashboard
+            // Support filtering by status using enum names from domain
             if (status == "Submitted")
             {
                 list = list.Where(c => c.Status == GrantCaseStatus.Submitted).ToList();
+            }
+            else if (status == "Draft")
+            {
+                list = list.Where(c => c.Status == GrantCaseStatus.Draft).ToList();
+            }
+            else if (status == "UnderReview")
+            {
+                list = list.Where(c => c.Status == GrantCaseStatus.UnderReview).ToList();
+            }
+            else if (status == "ReturnedForCorrection")
+            {
+                list = list.Where(c => c.Status == GrantCaseStatus.ReturnedForCorrection).ToList();
             }
 
             var vm = new CoordinatorDashboardViewModel
