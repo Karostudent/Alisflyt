@@ -16,7 +16,4 @@ public class SupervisionSessionInputModel
     public DateOnly? Date { get; set; }
     public decimal? Hours { get; set; }
     public string Topic { get; set; } = "";
-    // Typed names are not authenticated electronic signatures.
-    public string DoctorSignatureName { get; set; } = "";
-    public string SupervisorSignatureName { get; set; } = "";
 }

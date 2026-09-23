@@ -32,9 +32,10 @@ namespace Alisflyt.Web.Controllers
             return View(vm);
         }
 
+        [HttpGet]
         public IActionResult Create()
         {
-            return View(new CreateGrantCaseViewModel());
+            return View("Application", new GrantApplicationFormViewModel());
         }
 
         [HttpPost]
@@ -58,7 +59,7 @@ namespace Alisflyt.Web.Controllers
             catch (InvalidOperationException) { return Conflict(new { message = "Søknaden kan ikke redigeres i nåværende status." }); }
         }
 
-        private static T FormModel<T>(GrantCaseDto data) where T : GrantApplicationFormViewModel, new()
+        private static GrantApplicationFormViewModel FormModel(GrantCaseDto data)
         {
             var form = data.ApplicationData ?? new Alisflyt.Domain.Forms.GrantApplicationData
             {
@@ -68,7 +69,7 @@ namespace Alisflyt.Web.Controllers
                         FundingFrom = data.EmploymentStartDate, FundingThrough = data.EmploymentEndDate }]
                     : []
             };
-            var model = System.Text.Json.JsonSerializer.Deserialize<T>(System.Text.Json.JsonSerializer.Serialize(form))!;
+            var model = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationFormViewModel>(System.Text.Json.JsonSerializer.Serialize(form))!;
             model.Id = data.Id;
             return model;
         }
@@ -79,32 +80,13 @@ namespace Alisflyt.Web.Controllers
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                var model = FormModel<GrantApplicationFormViewModel>(data);
+                var model = FormModel(data);
                 model.ReadOnly = true;
                 return View(model);
             }
             catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(); }
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(CreateGrantCaseViewModel model, CancellationToken cancellationToken)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var req = new CreateGrantCaseRequest
-            {
-                HprNumber = model.HprNumber,
-                EmploymentPercentage = model.EmploymentPercentage,
-                EmploymentStartDate = model.EmploymentStartDate,
-                EmploymentEndDate = model.EmploymentEndDate
-            };
-
-            var created = await _svc.CreateDraftAsync(req, cancellationToken).ConfigureAwait(false);
-
-            return RedirectToAction(nameof(Details), new { id = created.Id });
-        }
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
@@ -137,6 +119,7 @@ namespace Alisflyt.Web.Controllers
             return View("Details", vm);
         }
 
+        [HttpGet]
         public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
         {
             Alisflyt.Application.Models.GrantCaseDto d;
@@ -152,41 +135,9 @@ namespace Alisflyt.Web.Controllers
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
-            var vm = FormModel<EditGrantCaseViewModel>(d);
-            vm.EmploymentPercentage = d.EmploymentPercentage;
-            vm.EmploymentStartDate = d.EmploymentStartDate;
-            vm.EmploymentEndDate = d.EmploymentEndDate;
-
-            return View(vm);
+            return View("Application", FormModel(d));
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(EditGrantCaseViewModel model, CancellationToken cancellationToken)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var req = new UpdateGrantCaseDraftRequest
-            {
-                HprNumber = model.HprNumber,
-                EmploymentPercentage = model.EmploymentPercentage,
-                EmploymentStartDate = model.EmploymentStartDate,
-                EmploymentEndDate = model.EmploymentEndDate
-            };
-
-            Alisflyt.Application.Models.GrantCaseDto updated;
-            try
-            {
-                updated = await _svc.UpdateDraftAsync(model.Id, req, cancellationToken).ConfigureAwait(false);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound();
-            }
-
-            return RedirectToAction(nameof(Details), new { id = updated.Id });
-        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]

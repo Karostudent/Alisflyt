@@ -17,7 +17,7 @@ public class GrantApplicationFormTests
             ApplicationData = new() { DoctorName = "Lege", Certificate = new() { SupervisorName = "Veileder", Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } } };
         var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto });
         var result = Assert.IsType<ViewResult>(await controller.Edit(dto.Id, default));
-        var model = Assert.IsType<EditGrantCaseViewModel>(result.Model);
+        var model = Assert.IsType<GrantApplicationFormViewModel>(result.Model);
         Assert.Equal(dto.Id, model.Id);
         Assert.Equal("Lege", model.DoctorName);
         Assert.Equal("Veileder", model.Certificate.SupervisorName);
@@ -31,7 +31,7 @@ public class GrantApplicationFormTests
             EmploymentStartDate = new(2026, 1, 1), EmploymentEndDate = new(2026, 6, 30), Status = GrantCaseStatus.Draft };
         var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto });
         var result = Assert.IsType<ViewResult>(await controller.Edit(dto.Id, default));
-        var model = Assert.IsType<EditGrantCaseViewModel>(result.Model);
+        var model = Assert.IsType<GrantApplicationFormViewModel>(result.Model);
         Assert.Equal("123", model.HprNumber);
         var period = Assert.Single(model.EmploymentPeriods);
         Assert.Equal(75, period.PositionPercentage);
