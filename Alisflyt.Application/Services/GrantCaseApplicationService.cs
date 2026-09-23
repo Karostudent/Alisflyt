@@ -30,7 +30,10 @@ namespace Alisflyt.Application.Services
 
             var grantCase = Domain.Entities.GrantCase.Create(id, caseNumber, now);
             // allow incomplete draft per rules
-            grantCase.UpdateDraft(request.HprNumber, request.EmploymentPercentage, request.EmploymentStartDate, request.EmploymentEndDate, now);
+            if (request.ApplicationData is not null)
+                grantCase.UpdateApplication(request.ApplicationData, now);
+            else
+                grantCase.UpdateDraft(request.HprNumber, request.EmploymentPercentage, request.EmploymentStartDate, request.EmploymentEndDate, now);
 
             await _repository.AddAsync(grantCase, cancellationToken).ConfigureAwait(false);
             await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -43,7 +46,10 @@ namespace Alisflyt.Application.Services
             var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
             var now = _timeProvider.GetUtcNow();
 
-            grantCase.UpdateDraft(request.HprNumber, request.EmploymentPercentage, request.EmploymentStartDate, request.EmploymentEndDate, now);
+            if (request.ApplicationData is not null)
+                grantCase.UpdateApplication(request.ApplicationData, now);
+            else
+                grantCase.UpdateDraft(request.HprNumber, request.EmploymentPercentage, request.EmploymentStartDate, request.EmploymentEndDate, now);
 
             await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
@@ -103,6 +109,7 @@ namespace Alisflyt.Application.Services
         {
             return new GrantCaseDto
             {
+                ApplicationData = c.ApplicationDataJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(c.ApplicationDataJson),
                 Id = c.Id,
                 CaseNumber = c.CaseNumber,
                 HprNumber = c.HprNumber,

@@ -1,0 +1,86 @@
+@model Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel
+<div id="certificate-step" hidden>
+    <p class="text-muted">Trinn 2 av 2 · Veiledningsattest</p>
+    <h1 id="certificate-heading" tabindex="-1">Attest for gjennomført veiledning av ALIS</h1>
+    <p>Allmennlege i spesialiseringens tredje del – individuell veiledning.</p>
+    <p class="alert alert-info">Fyll inn navn én gang og legg til øktene nedenfor. Velg «Lagre utkast» når du vil beholde opplysningene.</p>
+    <section class="application-section">
+        <h2>Veileder og ALIS-lege</h2>
+        <div class="section-content">
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <label asp-for="Certificate.SupervisorName" class="form-label">Veileders navn</label>
+                    <input asp-for="Certificate.SupervisorName" class="form-control" autocomplete="off" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Certificate.DoctorName" class="form-label">ALIS-legens navn</label>
+                    <input asp-for="Certificate.DoctorName" class="form-control" autocomplete="off" />
+                </div>
+            </div>
+            <h3>Gjennomført veiledning</h3>
+
+            <p id="session-help">For hver økt: velg dato, oppgi varighet og skriv kort hva dere snakket om.</p>
+            <div id="supervision-rows" aria-describedby="session-help"></div>
+            <div class="session-summary">
+                <button type="button" id="add-supervision" class="btn btn-outline-primary">+ Legg til en veiledningsøkt</button>
+                <p>Totalt: <output id="total-supervision-hours" aria-live="polite">0</output> timer</p>
+            </div>
+            <details class="signing-details">
+                <summary>Sted, dato og signering</summary>
+                <p class="text-muted mt-3">Dette kan fylles ut senere. Elektronisk signering er ikke tilgjengelig.</p>
+            <p>Undertegnede innestår for riktigheten av ovennevnte opplysninger.</p>
+            <div class="row g-4">
+                <fieldset class="col-md-6">
+                    <legend>ALIS</legend>
+                    <label asp-for="Certificate.DoctorSigningPlace" class="form-label">Kommune</label>
+                    <input asp-for="Certificate.DoctorSigningPlace" class="form-control mb-3" />
+                    <label asp-for="Certificate.DoctorSigningDate" class="form-label">Dato</label>
+                    <input asp-for="Certificate.DoctorSigningDate" type="date" class="form-control date-input" />
+                    <p class="signature-line">Signatur og stempel</p>
+                </fieldset>
+                <fieldset class="col-md-6">
+                    <legend>Veileder</legend>
+                    <label asp-for="Certificate.SupervisorSigningPlace" class="form-label">Kommune</label>
+                    <input asp-for="Certificate.SupervisorSigningPlace" class="form-control mb-3" />
+                    <label asp-for="Certificate.SupervisorSigningDate" class="form-label">Dato</label>
+                    <input asp-for="Certificate.SupervisorSigningDate" type="date" class="form-control date-input" />
+                    <p class="signature-line">Signatur og stempel</p>
+                </fieldset>
+            </div>
+            </details>
+        </div>
+        <div class="form-actions">
+            <button type="button" id="previous-step" class="btn btn-outline-primary">← TILBAKE</button>
+            <button type="button" class="btn btn-outline-primary save-draft">Lagre utkast</button><span>Lagring sender ikke inn søknaden.</span>
+        </div>
+    </section>
+</div>
+
+<template id="supervision-row-template">
+    <fieldset class="supervision-session">
+        <legend>Veiledningsøkt</legend>
+        <input type="hidden" name="Certificate.Sessions.Index" value="__index__" />
+        <div class="session-fields">
+            <div>
+                <label for="session-date-__index__" class="form-label">Når var veiledningen?</label>
+                <input id="session-date-__index__" type="date" name="Certificate.Sessions[__index__].Date" class="form-control" />
+            </div>
+            <div>
+                <label for="session-hours-__index__" class="form-label">Hvor lenge varte den?</label>
+                <input id="session-hours-__index__" type="number" name="Certificate.Sessions[__index__].Hours" min="0.01" max="24" step="0.01" inputmode="decimal" class="form-control supervision-hours" placeholder="Antall timer" aria-describedby="hours-help-__index__" />
+                <div class="duration-shortcuts" role="group" aria-label="Velg varighet">
+                    <button type="button" class="btn btn-outline-primary" data-hours="0.5">30 min</button>
+                    <button type="button" class="btn btn-outline-primary" data-hours="1">1 time</button>
+                    <button type="button" class="btn btn-outline-primary" data-hours="1.5">1,5 timer</button>
+                    <button type="button" class="btn btn-outline-primary" data-hours="2">2 timer</button>
+                </div>
+                <small id="hours-help-__index__" class="text-muted">Velg en knapp eller skriv antall timer, f.eks. 1,5.</small>
+            </div>
+            <div class="session-topic">
+                <label for="session-topic-__index__" class="form-label">Hva handlet veiledningen om?</label>
+                <textarea id="session-topic-__index__" name="Certificate.Sessions[__index__].Topic" rows="2" class="form-control" placeholder="Skriv en kort beskrivelse av temaet"></textarea>
+            </div>
+        </div>
+        <button type="button" class="btn btn-outline-danger remove-supervision">Fjern økten</button>
+    </fieldset>
+</template>

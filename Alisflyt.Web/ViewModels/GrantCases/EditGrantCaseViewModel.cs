@@ -4,12 +4,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Alisflyt.Web.ViewModels.GrantCases
 {
-    public sealed class EditGrantCaseViewModel : IValidatableObject
+    public sealed class EditGrantCaseViewModel : GrantApplicationFormViewModel, IValidatableObject
     {
-        public Guid Id { get; set; }
 
-        [Display(Name = "HPR-nummer")]
-        public string? HprNumber { get; set; }
 
         [Display(Name = "Arbeidsprosent")]
         public decimal? EmploymentPercentage { get; set; }

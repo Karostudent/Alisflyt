@@ -137,6 +137,19 @@ Terminalen viser adressen applikasjonen lytter på. Stopp den med `Ctrl+C`.
 
 Du kan også starte `Alisflyt.Web` som oppstartsprosjekt fra Visual Studio.
 
+## Søknadsskjema
+
+Velg **Gå til ALIS → Ny søknad** for samme totrinnsskjema som i Tilskuddsapp:
+
+1. Søknadsopplysninger med lege, ALIS-avtale, stillingsperioder og refusjonsutgifter.
+2. Veiledningsattest med veileder, veiledningsøkter, timeoversikt og sted/dato.
+
+**Lagre utkast** lagrer begge trinnene. Lenken **Til saksoversikt og innsending** åpner saken for innsending. **Rediger** åpner begge trinnene igjen, også når saken er returnert for korrigering. ALIS og koordinator kan bruke **Vis hele søknaden og veiledningsattesten** for lesetilgang.
+
+Eksisterende utkast beholder HPR-nummer og ansettelsesperiode, som vises som første stillingsrad. Nye skjemadata lagres i `GrantCases.ApplicationDataJson`. Migrasjonen `AddGrantApplicationData` kjøres automatisk ved oppstart i Development; i andre miljøer brukes migrasjonskommandoen ovenfor.
+
+HPR-oppslag, tilskuddsberegning og elektronisk signering er fortsatt ikke tilgjengelig.
+
 ## GitHub Actions
 
 Ved push til `main` og pull requests mot `main` kjører GitHub Actions automatisk:

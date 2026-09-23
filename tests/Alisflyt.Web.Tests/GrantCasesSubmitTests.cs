@@ -9,6 +9,21 @@ namespace Alisflyt.Web.Tests
     public class GrantCasesSubmitTests
     {
         [Fact]
+        public async Task Submission_lists_each_missing_field_without_generic_duplicate()
+        {
+            var errors = new[] { "Oppgi HPR-nummer for legen.", "Stilling i kommunen, rad 2: Oppgi stillingsprosent." };
+            var fake = new FakeGrantCaseApplicationService
+            {
+                SubmitException = new Alisflyt.Domain.Forms.SubmissionValidationException(errors),
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = Guid.NewGuid() }
+            };
+            var controller = new Alisflyt.Web.Controllers.GrantCasesController(fake);
+            var result = Assert.IsType<ViewResult>(await controller.Submit(fake.GetByIdResponse.Id, default));
+            Assert.Equal("Details", result.ViewName);
+            Assert.Equal(errors, controller.ModelState[string.Empty]!.Errors.Select(e => e.ErrorMessage));
+        }
+
+        [Fact]
         public async Task GrantCasesController_Submit_RedirectsToDetails_When_SubmissionSucceeds()
         {
             var id = Guid.NewGuid();
