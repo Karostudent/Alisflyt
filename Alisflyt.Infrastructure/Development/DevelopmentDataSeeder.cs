@@ -17,9 +17,34 @@ namespace Alisflyt.Infrastructure.Development
             (new Guid("44444444-4444-4444-4444-444444444444"), "ALIS-DEM-004")
         };
 
+        private static readonly Guid GrantRateSet2025_2026Id =
+            new("55555555-5555-5555-5555-555555555555");
+
         public static async Task SeedAsync(Persistence.ApplicationDbContext context, System.TimeProvider timeProvider, CancellationToken cancellationToken = default)
         {
             var now = timeProvider.GetUtcNow();
+            if (!context.GrantRateSets.Any(x => x.Id == GrantRateSet2025_2026Id))
+            {
+                var rateSet = GrantRateSet.Create(
+                    GrantRateSet2025_2026Id,
+                    "Tilskudd 2025/2026",
+                    new DateOnly(2025, 6, 1),
+                    new DateOnly(2026, 5, 31),
+                    1375m,     // SalaryRate
+                    0.60m,     // PracticeCompensationRate
+                    160m,      // PracticeCompensationMaxHours
+                    14000m,    // LearningActivitiesMaxAmount
+                    125000m,   // ProductivityMaxAmount
+                    1.15m,     // GuidanceRate
+                    57.75m,    // GuidanceHoursPerYear
+                    0.05m,     // FacilitationRate
+                    200000m,   // CentralitySupplementMaxAmount
+                    now);
+
+                await context.GrantRateSets
+                    .AddAsync(rateSet, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             foreach (var (id, caseNumber) in SeedCases)
             {
