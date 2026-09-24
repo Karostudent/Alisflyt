@@ -10,6 +10,7 @@ namespace Alisflyt.Infrastructure.Persistence
         }
 
         public DbSet<GrantCase> GrantCases => Set<GrantCase>();
+        public DbSet<GrantRateSet> GrantRateSets => Set<GrantRateSet>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

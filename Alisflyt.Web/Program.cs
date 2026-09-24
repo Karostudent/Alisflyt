@@ -21,6 +21,7 @@ builder.Services.AddDbContext<Alisflyt.Infrastructure.Persistence.ApplicationDbC
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<Alisflyt.Application.Abstractions.IGrantCaseRepository, Alisflyt.Infrastructure.Persistence.Repositories.GrantCaseRepository>();
+builder.Services.AddScoped<Alisflyt.Application.Abstractions.IGrantRateSetRepository, Alisflyt.Infrastructure.Persistence.Repositories.GrantRateSetRepository>();
 builder.Services.AddScoped<Alisflyt.Application.Abstractions.ICaseNumberGenerator, Alisflyt.Infrastructure.Services.CaseNumberGenerator>();
 builder.Services.AddScoped<Alisflyt.Application.Services.IGrantCaseApplicationService, Alisflyt.Application.Services.GrantCaseApplicationService>();
 
