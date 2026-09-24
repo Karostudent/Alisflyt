@@ -28,6 +28,9 @@ namespace Alisflyt.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ApplicationDataJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CaseNumber")
                         .IsRequired()
                         .HasMaxLength(100)

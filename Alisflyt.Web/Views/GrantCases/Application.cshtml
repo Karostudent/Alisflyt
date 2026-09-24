@@ -1,0 +1,7 @@
+@model Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel
+@{ ViewData["Title"] = Model.ReadOnly ? "Søknadsopplysninger" : "Opplysninger om lege i spesialisering"; }
+<partial name="_ApplicationForm" model="Model" />
+@section Scripts {
+    <script id="draft-data" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize<Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel>(Model))</script>
+    <script src="~/js/grant-application.js" asp-append-version="true"></script>
+}

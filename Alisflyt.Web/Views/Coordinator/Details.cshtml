@@ -5,6 +5,7 @@
 }
 
 <h2>Sak @Model.CaseNumber</h2>
+<p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
 
 <dl class="row">
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
