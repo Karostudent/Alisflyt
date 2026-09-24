@@ -5,6 +5,7 @@
 }
 
 <h2>Søknad @Model.CaseNumber</h2>
+<p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
 
 @using (Html.BeginForm("Submit", "GrantCases", FormMethod.Post))
 {

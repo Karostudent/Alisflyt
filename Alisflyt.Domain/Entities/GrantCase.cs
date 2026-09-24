@@ -5,6 +5,7 @@ namespace Alisflyt.Domain.Entities
 {
     public class GrantCase
     {
+        public string? ApplicationDataJson { get; private set; }
         public Guid Id { get; private set; }
         public string CaseNumber { get; private set; }
         public string? HprNumber { get; private set; }
@@ -58,25 +59,37 @@ namespace Alisflyt.Domain.Entities
             LastModifiedAtUtc = now;
         }
 
+        public void UpdateApplication(Alisflyt.Domain.Forms.GrantApplicationData data, DateTimeOffset now)
+        {
+            data.ValidateDraft();
+            var first = data.EmploymentPeriods.FirstOrDefault();
+            UpdateDraft(data.HprNumber, first?.PositionPercentage, first?.EmploymentStartDate, first?.FundingThrough, now);
+            ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+        }
+
         public void Submit(DateTimeOffset now)
         {
+            if (ApplicationDataJson is not null)
+                System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!.ValidateSubmission();
             if (Status != GrantCaseStatus.Draft && Status != GrantCaseStatus.ReturnedForCorrection)
                 throw new InvalidOperationException("Only draft or returned-for-correction cases can be submitted.");
 
             if (string.IsNullOrWhiteSpace(HprNumber))
-                throw new ArgumentException("HPR number is required for submission.", nameof(HprNumber));
+                throw new ArgumentException("Oppgi HPR-nummer for legen.");
 
             if (!EmploymentPercentage.HasValue)
-                throw new ArgumentException("EmploymentPercentage is required for submission.", nameof(EmploymentPercentage));
+                throw new ArgumentException("Oppgi stillingsprosent.");
 
             if (EmploymentPercentage.Value <= 0 || EmploymentPercentage.Value > 100)
                 throw new ArgumentOutOfRangeException(nameof(EmploymentPercentage), "EmploymentPercentage must be > 0 and <= 100.");
 
-            if (!EmploymentStartDate.HasValue || !EmploymentEndDate.HasValue)
-                throw new ArgumentException("Employment period (start and end) is required for submission.");
+            if (!EmploymentStartDate.HasValue)
+                throw new ArgumentException("Oppgi startdato for ansettelsesperioden.");
+            if (!EmploymentEndDate.HasValue)
+                throw new ArgumentException("Oppgi sluttdato for ansettelsesperioden.");
 
             if (EmploymentEndDate!.Value < EmploymentStartDate!.Value)
-                throw new ArgumentException("EmploymentEndDate cannot be before EmploymentStartDate.");
+                throw new ArgumentException("Sluttdato for ansettelsesperioden kan ikke være før startdato.");
 
             Status = GrantCaseStatus.Submitted;
             LastModifiedAtUtc = now;

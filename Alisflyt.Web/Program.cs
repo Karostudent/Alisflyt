@@ -50,7 +50,7 @@ if (app.Environment.IsDevelopment())
     {
         // DevelopmentDataSeeder exposes a static SeedAsync method
         Alisflyt.Infrastructure.Development.DevelopmentDataSeeder.SeedAsync(db, TimeProvider.System).GetAwaiter().GetResult();
-    }
+    } 
 }
 
 // Configure the HTTP request pipeline.

@@ -5,6 +5,7 @@ namespace Alisflyt.Application.Models
 {
     public sealed class GrantCaseDto
     {
+        public Alisflyt.Domain.Forms.GrantApplicationData? ApplicationData { get; init; }
         public Guid Id { get; init; }
         public string CaseNumber { get; init; } = string.Empty;
         public string? HprNumber { get; init; }

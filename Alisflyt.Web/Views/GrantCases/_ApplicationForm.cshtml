@@ -1,0 +1,170 @@
+@using Alisflyt.Domain.Forms
+@model Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel
+@{
+    ViewData["Title"] = "Opplysninger om lege i spesialisering";
+}
+<form id="grant-application-form" method="post" asp-action="SaveApplication" data-readonly="@Model.ReadOnly.ToString().ToLowerInvariant()">
+<input asp-for="Id" type="hidden" />
+<link rel="stylesheet" href="~/css/grant-application.css" asp-append-version="true" />
+<div class="mb-3"><a asp-action="Index">Åpne lagrede søknader</a> · <a id="case-details" asp-action="Details" asp-route-id="@Model.Id" hidden="@(Model.Id == Guid.Empty)">Til saksoversikt og innsending</a></div>
+<p id="draft-status" role="status" aria-live="polite"></p>
+<div id="application-step">
+<p class="text-muted">Trinn 1 av 2 · Søknadsopplysninger</p>
+<h1 id="application-heading" tabindex="-1" class="mb-4">Opplysninger om lege i spesialisering</h1>
+<p class="alert alert-info">Fyll ut søknadsopplysningene og velg «Neste» for å fylle ut veiledningsattesten. Velg «Lagre utkast» for å beholde opplysningene til neste gang. HPR-oppslag og beregning av tilskudd er ikke tilgjengelig ennå.</p>
+
+
+    <section class="application-section">
+        <h2>Om ALIS</h2>
+        <div class="section-content">
+            <p>På denne siden legger dere inn opplysninger om den enkelte lege som dere søker tilskudd for.</p>
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <label asp-for="HprNumber" class="form-label">HPR-nummer for legen *</label>
+                    <input asp-for="HprNumber" class="form-control" />
+                </div>
+                <div class="col-md-8">
+                    <label asp-for="DoctorName" class="form-label">Navn</label>
+                    <input asp-for="DoctorName" class="form-control" />
+                    <label for="doctor-professions" class="form-label mt-3">Profesjoner</label>
+                    <input id="doctor-professions" value="@string.Join(", ", Model.DoctorProfessions)" class="form-control" aria-describedby="professions-help" />
+                    <small id="professions-help" class="text-muted">Skill flere profesjoner med komma.</small>
+                </div>
+            </div>
+            <div class="form-check mb-4">
+                <input asp-for="ConfirmsSpecialization" class="form-check-input" />
+                <label asp-for="ConfirmsSpecialization" class="form-check-label">Vi bekrefter at legen er under spesialisering i allmennmedisin i ny ordning for spesialistutdanning *</label>
+            </div>
+            <div class="mb-4">
+                <label asp-for="SpecializationStartDate" class="form-label">Når startet legen spesialiseringsløpet? *</label>
+                <input asp-for="SpecializationStartDate" type="date" class="form-control date-input" />
+            </div>
+            <div class="mb-4">
+                <label asp-for="ExpectedCompletionDate" class="form-label">Når forventes legen å avslutte spesialiseringsløpet? *</label>
+                <p>Datoen er et estimat som kan endres underveis i utdanningsløpet.</p>
+                <input asp-for="ExpectedCompletionDate" type="date" class="form-control date-input" />
+            </div>
+            <fieldset class="mb-4">
+                <legend>Tilskuddet gjelder *</legend>
+                @foreach (var option in Html.GetEnumSelectList<GrantType>())
+                {
+                    <div class="form-check">
+                        <input asp-for="GrantType" type="radio" value="@option.Value" id="grant-type-@option.Value" class="form-check-input" />
+                        <label for="grant-type-@option.Value" class="form-check-label">@option.Text</label>
+                    </div>
+                }
+            </fieldset>
+            <fieldset id="agreement-fields" hidden disabled>
+                <legend class="visually-hidden">ALIS-avtale</legend>
+                <div class="form-check mb-4">
+                    <input asp-for="ConfirmsAlisAgreement" class="form-check-input" />
+                    <label asp-for="ConfirmsAlisAgreement" class="form-check-label">Vi bekrefter at det er inngått ALIS-avtale mellom legen og kommunen. *</label>
+                </div>
+                <div class="form-check mb-4">
+                    <input asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-input" />
+                    <label asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-label">Vi bekrefter at vi har benyttet Helsedirektoratets mal for ALIS-avtale. *</label>
+                </div>
+                <div class="form-check mb-4">
+                    <input asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-input" />
+                    <label asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-label">Vi bekrefter at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet. *</label>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? *</label>
+                    <input asp-for="AgreementEffectiveFrom" type="date" class="form-control date-input" />
+                </div>
+            </fieldset>
+            <fieldset class="mb-4">
+                <legend>Hvilke stillinger har legen hatt i perioden det søkes tilskudd for? *</legend>
+                @foreach (var option in Html.GetEnumSelectList<PositionType>())
+                {
+                    <div class="form-check">
+                        <input type="checkbox" name="SelectedPositionTypes" value="@option.Value" id="position-type-@option.Value" class="form-check-input" />
+                        <label for="position-type-@option.Value" class="form-check-label">@option.Text</label>
+                    </div>
+                }
+            </fieldset>
+
+            <h3>Stilling i kommunen</h3>
+            <p>Hvis legen er ansatt i flere stillinger i kommunen, legger dere til disse ved å trykke på «Legg til rad».</p>
+            <div class="table-responsive">
+                <table class="table employment-table">
+                    <caption class="visually-hidden">Legens stillinger og perioder det søkes tilskudd for</caption>
+                    <thead><tr>
+                        <th scope="col">Stillingstype *</th>
+                        <th scope="col">Stillingsprosent *</th>
+                        <th scope="col">Dato for tiltredelse *</th>
+                        <th scope="col">Tilskudd fra *</th>
+                        <th scope="col">Tilskudd til og med *</th>
+                        <th scope="col"><span class="visually-hidden">Fjern rad</span></th>
+                    </tr></thead>
+                    <tbody id="employment-rows"></tbody>
+                </table>
+            </div>
+            <button type="button" id="add-employment" class="btn btn-outline-primary mb-4">+ LEGG TIL RAD</button>
+            <p class="text-muted">Antall dager og maksimalt søknadsbeløp vises når beregning er tilgjengelig.</p>
+
+            <h3>Refusjon for ALIS</h3>
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <label asp-for="AbsenceCompensation" class="form-label">Kompensasjon ved fravær</label>
+                    <input asp-for="AbsenceCompensation" type="number" min="0" step="0.01" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="LearningActivityExpenses" class="form-label">Utgifter til gjennomførte læringsaktiviteter</label>
+                    <input asp-for="LearningActivityExpenses" type="number" min="0" step="0.01" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SupervisionExpenses" class="form-label">Kommunens utgifter til veiledning</label>
+                    <input asp-for="SupervisionExpenses" type="number" min="0" step="0.01" class="form-control" />
+                </div>
+            </div>
+            <fieldset class="mb-4">
+                <legend>Har dere hatt merkostnader som følge av økt antall veiledningstimer for ALIS? *</legend>
+                <div class="form-check">
+                    <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="true" id="additional-costs-yes" class="form-check-input" />
+                    <label for="additional-costs-yes" class="form-check-label">Ja</label>
+                </div>
+                <div class="form-check">
+                    <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="false" id="additional-costs-no" class="form-check-input" />
+                    <label for="additional-costs-no" class="form-check-label">Nei</label>
+                </div>
+            </fieldset>
+            <fieldset id="additional-costs-fields" hidden disabled>
+                <legend class="visually-hidden">Merkostnader</legend>
+                <label asp-for="AdditionalSupervisionCosts" class="form-label">Merkostnader for veiledning (kr)</label>
+                <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control amount-input mb-4" />
+            </fieldset>
+        </div>
+        <div class="form-actions">
+            <span>Du kan lagre utkastet når som helst.</span>
+            
+            <button type="button" class="btn btn-outline-primary save-draft">Lagre utkast</button>
+<button type="button" id="next-step" class="btn btn-outline-primary">NESTE →</button>
+        </div>
+    </section>
+    <p class="mt-3"><em>Felt merket med * må fylles ut før innsending.</em></p>
+</div>
+<partial name="_SupervisionCertificate" model="Model" />
+<noscript><p class="alert alert-warning">Aktiver JavaScript for å gå videre til veiledningsattesten.</p></noscript>
+</form>
+
+<template id="employment-row-template">
+    <tr>
+        <td>
+            <input type="hidden" name="EmploymentPeriods.Index" value="__index__" />
+            <select name="EmploymentPeriods[__index__].PositionType" class="form-select" aria-label="Stillingstype">
+                <option value="">Velg stillingstype</option>
+                @foreach (var option in Html.GetEnumSelectList<PositionType>())
+                {
+                    <option value="@option.Value">@option.Text</option>
+                }
+            </select>
+        </td>
+        <td><input name="EmploymentPeriods[__index__].PositionPercentage" type="number" min="0.01" max="100" step="0.01" class="form-control" aria-label="Stillingsprosent" /></td>
+        <td><input name="EmploymentPeriods[__index__].EmploymentStartDate" type="date" class="form-control" aria-label="Dato for tiltredelse" /></td>
+        <td><input name="EmploymentPeriods[__index__].FundingFrom" type="date" class="form-control" aria-label="Tilskudd fra" /></td>
+        <td><input name="EmploymentPeriods[__index__].FundingThrough" type="date" class="form-control" aria-label="Tilskudd til og med" /></td>
+        <td><button type="button" class="btn btn-outline-danger remove-employment">Fjern</button></td>
+    </tr>
+</template>
+

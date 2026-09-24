@@ -32,30 +32,61 @@ namespace Alisflyt.Web.Controllers
             return View(vm);
         }
 
+        [HttpGet]
         public IActionResult Create()
         {
-            return View(new CreateGrantCaseViewModel());
+            return View("Application", new GrantApplicationFormViewModel());
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(CreateGrantCaseViewModel model, CancellationToken cancellationToken)
+        [RequestSizeLimit(1_048_576)]
+        public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
-                return View(model);
-
-            var req = new CreateGrantCaseRequest
+                return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
+            try
             {
-                HprNumber = model.HprNumber,
-                EmploymentPercentage = model.EmploymentPercentage,
-                EmploymentStartDate = model.EmploymentStartDate,
-                EmploymentEndDate = model.EmploymentEndDate
-            };
-
-            var created = await _svc.CreateDraftAsync(req, cancellationToken).ConfigureAwait(false);
-
-            return RedirectToAction(nameof(Details), new { id = created.Id });
+                var saved = model.Id == Guid.Empty
+                    ? await _svc.CreateDraftAsync(new CreateGrantCaseRequest { ApplicationData = model }, cancellationToken)
+                    : await _svc.UpdateDraftAsync(model.Id, new UpdateGrantCaseDraftRequest { ApplicationData = model }, cancellationToken);
+                return Ok(new { id = saved.Id, message = "Utkastet er lagret.",
+                    editUrl = Url.Action(nameof(Edit), new { id = saved.Id }),
+                    detailsUrl = Url.Action(nameof(Details), new { id = saved.Id }) });
+            }
+            catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(new { message = "Søknaden finnes ikke lenger." }); }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (InvalidOperationException) { return Conflict(new { message = "Søknaden kan ikke redigeres i nåværende status." }); }
         }
+
+        private static GrantApplicationFormViewModel FormModel(GrantCaseDto data)
+        {
+            var form = data.ApplicationData ?? new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                HprNumber = data.HprNumber,
+                EmploymentPeriods = data.EmploymentPercentage.HasValue || data.EmploymentStartDate.HasValue || data.EmploymentEndDate.HasValue
+                    ? [new() { PositionPercentage = data.EmploymentPercentage, EmploymentStartDate = data.EmploymentStartDate,
+                        FundingFrom = data.EmploymentStartDate, FundingThrough = data.EmploymentEndDate }]
+                    : []
+            };
+            var model = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationFormViewModel>(System.Text.Json.JsonSerializer.Serialize(form))!;
+            model.Id = data.Id;
+            return model;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Application(Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var data = await _svc.GetByIdAsync(id, cancellationToken);
+                var model = FormModel(data);
+                model.ReadOnly = true;
+                return View(model);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(); }
+        }
+
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
@@ -88,6 +119,7 @@ namespace Alisflyt.Web.Controllers
             return View("Details", vm);
         }
 
+        [HttpGet]
         public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
         {
             Alisflyt.Application.Models.GrantCaseDto d;
@@ -103,45 +135,9 @@ namespace Alisflyt.Web.Controllers
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
-            var vm = new EditGrantCaseViewModel
-            {
-                Id = d.Id,
-                HprNumber = d.HprNumber,
-                EmploymentPercentage = d.EmploymentPercentage,
-                EmploymentStartDate = d.EmploymentStartDate,
-                EmploymentEndDate = d.EmploymentEndDate
-            };
-
-            return View(vm);
+            return View("Application", FormModel(d));
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(EditGrantCaseViewModel model, CancellationToken cancellationToken)
-        {
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var req = new UpdateGrantCaseDraftRequest
-            {
-                HprNumber = model.HprNumber,
-                EmploymentPercentage = model.EmploymentPercentage,
-                EmploymentStartDate = model.EmploymentStartDate,
-                EmploymentEndDate = model.EmploymentEndDate
-            };
-
-            Alisflyt.Application.Models.GrantCaseDto updated;
-            try
-            {
-                updated = await _svc.UpdateDraftAsync(model.Id, req, cancellationToken).ConfigureAwait(false);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound();
-            }
-
-            return RedirectToAction(nameof(Details), new { id = updated.Id });
-        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -156,21 +152,23 @@ namespace Alisflyt.Web.Controllers
             {
                 return NotFound();
             }
+            catch (Alisflyt.Domain.Forms.SubmissionValidationException ex)
+            {
+                foreach (var error in ex.Errors)
+                    ModelState.AddModelError(string.Empty, error);
+            }
             catch (ArgumentOutOfRangeException)
             {
-                // Domain reported out of range values
+                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: Stillingsprosent må være større enn 0 og høyst 100.");
             }
-            catch (ArgumentException)
+            catch (ArgumentException ex)
             {
-                // Domain validation failed for submission (incomplete or invalid draft)
+                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: " + ex.Message);
             }
             catch (InvalidOperationException)
             {
-                // Domain reported operation not allowed (e.g. not a draft)
+                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn i nåværende status. Bare utkast og søknader returnert for korrigering kan sendes inn.");
             }
-
-            // On validation-related failure, show a friendly Norwegian message and render Details with ModelState errors.
-            ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn. Kontroller at HPR-nummer, stillingsprosent og ansettelsesperiode er fylt ut riktig.");
 
             Alisflyt.Application.Models.GrantCaseDto d;
             try

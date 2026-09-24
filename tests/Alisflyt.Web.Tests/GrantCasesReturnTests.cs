@@ -35,23 +35,22 @@ namespace Alisflyt.Web.Tests
             var result = await ctrl.Edit(id, default);
 
             var view = Assert.IsType<ViewResult>(result);
-            var model = Assert.IsType<Alisflyt.Web.ViewModels.GrantCases.EditGrantCaseViewModel>(view.Model);
+            var model = Assert.IsType<Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel>(view.Model);
             Assert.Equal(dto.Id, model.Id);
         }
 
         [Fact]
-        public async Task GrantCases_EditPost_Allows_ReturnedForCorrection()
+        public async Task GrantCases_SaveApplication_Allows_ReturnedForCorrection()
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { UpdateDraftResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = id } };
-            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake);
+            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake) { Url = new GrantCaseUrlHelper() };
 
-            var model = new Alisflyt.Web.ViewModels.GrantCases.EditGrantCaseViewModel { Id = id, HprNumber = "H" };
+            var model = new Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel { Id = id, HprNumber = "H" };
 
-            var result = await ctrl.Edit(model, default);
+            var result = await ctrl.SaveApplication(model, default);
 
-            var redirect = Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Details", redirect.ActionName);
+            Assert.IsType<OkObjectResult>(result);
             Assert.Single(fake.UpdateDraftCalls);
         }
 
