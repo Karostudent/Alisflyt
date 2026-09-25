@@ -33,7 +33,7 @@
                 <fieldset class="col-md-6">
                     <legend>ALIS</legend>
                     <label asp-for="Certificate.DoctorSigningPlace" class="form-label">Kommune</label>
-                    <input asp-for="Certificate.DoctorSigningPlace" class="form-control mb-3" />
+                    <input asp-for="Certificate.DoctorSigningPlace" class="form-control mb-3 municipality-input" list="norwegian-municipalities" autocomplete="off" placeholder="Skriv eller velg kommune" />
                     <label asp-for="Certificate.DoctorSigningDate" class="form-label">Dato</label>
                     <input asp-for="Certificate.DoctorSigningDate" type="date" class="form-control date-input" />
                     <p class="signature-line">Signatur og stempel</p>
@@ -41,13 +41,19 @@
                 <fieldset class="col-md-6">
                     <legend>Veileder</legend>
                     <label asp-for="Certificate.SupervisorSigningPlace" class="form-label">Kommune</label>
-                    <input asp-for="Certificate.SupervisorSigningPlace" class="form-control mb-3" />
+                    <input asp-for="Certificate.SupervisorSigningPlace" class="form-control mb-3 municipality-input" list="norwegian-municipalities" autocomplete="off" placeholder="Skriv eller velg kommune" />
                     <label asp-for="Certificate.SupervisorSigningDate" class="form-label">Dato</label>
                     <input asp-for="Certificate.SupervisorSigningDate" type="date" class="form-control date-input" />
                     <p class="signature-line">Signatur og stempel</p>
                 </fieldset>
             </div>
             </details>
+            <datalist id="norwegian-municipalities">
+                @foreach (var municipality in Alisflyt.Domain.Forms.NorwegianMunicipalities.Names)
+                {
+                    <option value="@municipality"></option>
+                }
+            </datalist>
         </div>
         <div class="form-actions">
             <button type="button" id="previous-step" class="btn btn-outline-primary">← TILBAKE</button>

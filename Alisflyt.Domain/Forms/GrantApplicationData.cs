@@ -23,6 +23,9 @@ public class GrantApplicationData
                 || period.FundingThrough < period.FundingFrom || period.FundingThrough < period.EmploymentStartDate)
                 throw new ArgumentException("Kontroller stillingsprosent og datoer i stillingsperiodene.");
         }
+        if (!NorwegianMunicipalities.IsValidSigningPlace(Certificate.DoctorSigningPlace)
+            || !NorwegianMunicipalities.IsValidSigningPlace(Certificate.SupervisorSigningPlace))
+            throw new ArgumentException("Velg en gyldig norsk kommune fra listen for ALIS og veileder.");
         if (Certificate.Sessions.Any(s => s is null || s.Hours is <= 0 or > 24))
             throw new ArgumentException("Veiledningstimer må være større enn 0 og høyst 24.");
         if (ExpectedCompletionDate < SpecializationStartDate)

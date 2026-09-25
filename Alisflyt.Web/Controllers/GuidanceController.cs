@@ -9,7 +9,7 @@ namespace Alisflyt.Web.Controllers
         {
             var vm = new GuidanceDashboardViewModel
             {
-                Message = "Veilederfunksjonalitet kommer snart. Dette er en demonstrasjon."
+                Message = "Veilederfunksjonalitet kommer snart. Dette er en test."
             };
 
             return View(vm);

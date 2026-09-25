@@ -175,8 +175,92 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
         });
     };
 
+    const municipalities = [...document.querySelectorAll("#norwegian-municipalities option")].map(option => option.value);
+    const validateMunicipality = input => {
+        const match = municipalities.find(name => name.toLocaleLowerCase("nb-NO") === input.value.trim().toLocaleLowerCase("nb-NO"));
+        input.setCustomValidity(input.value.trim() && !match ? "Velg en gyldig norsk kommune fra listen." : "");
+        return match;
+    };
+    form.querySelectorAll(".municipality-input").forEach(input => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "municipality-picker mb-3";
+        input.before(wrapper);
+        wrapper.append(input);
+        input.classList.remove("mb-3");
+        input.removeAttribute("list");
+        const suggestions = document.createElement("div");
+        suggestions.className = "municipality-suggestions";
+        suggestions.id = `${input.id}-suggestions`;
+        suggestions.setAttribute("role", "listbox");
+        suggestions.setAttribute("aria-label", "Kommuner");
+        wrapper.append(suggestions);
+        input.setAttribute("role", "combobox");
+        input.setAttribute("aria-autocomplete", "list");
+        input.setAttribute("aria-controls", suggestions.id);
+        let active = -1;
+        const close = () => {
+            suggestions.hidden = true;
+            input.setAttribute("aria-expanded", "false");
+            input.removeAttribute("aria-activedescendant");
+            active = -1;
+        };
+        const choose = option => {
+            input.value = option.textContent;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            close();
+        };
+        const updateSuggestions = () => {
+            const prefix = input.value.trim().toLocaleLowerCase("nb-NO");
+            close();
+            suggestions.replaceChildren(...municipalities
+                .filter(name => name.toLocaleLowerCase("nb-NO").startsWith(prefix))
+                .map((name, index) => {
+                    const option = document.createElement("div");
+                    option.id = `${suggestions.id}-${index}`;
+                    option.setAttribute("role", "option");
+                    option.textContent = name;
+                    option.addEventListener("click", () => choose(option));
+                    return option;
+                }));
+            suggestions.hidden = !suggestions.childElementCount;
+            input.setAttribute("aria-expanded", String(!suggestions.hidden));
+        };
+        close();
+        suggestions.addEventListener("mousedown", event => event.preventDefault());
+        input.addEventListener("focus", updateSuggestions);
+        input.addEventListener("blur", close);
+        input.addEventListener("keydown", event => {
+            if (event.key === "Escape") { close(); return; }
+            if (event.key === "Enter" && active >= 0) {
+                event.preventDefault();
+                choose(suggestions.children[active]);
+            }
+            if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
+            event.preventDefault();
+            if (suggestions.hidden) updateSuggestions();
+            const options = [...suggestions.children];
+            if (!options.length) return;
+            active = (active + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+            options.forEach((option, index) => option.setAttribute("aria-selected", String(index === active)));
+            input.setAttribute("aria-activedescendant", options[active].id);
+            options[active].scrollIntoView({ block: "nearest" });
+        });
+        input.addEventListener("input", () => {
+            updateSuggestions();
+            validateMunicipality(input);
+        });
+        input.addEventListener("change", () => {
+            const match = validateMunicipality(input);
+            if (match) input.value = match;
+        });
+    });
+
     form.querySelectorAll(".save-draft").forEach(button => {
         button.addEventListener("click", async () => {
+            form.querySelectorAll(".municipality-input").forEach(input => {
+                const match = validateMunicipality(input);
+                input.value = match || input.value.trim();
+            });
             const invalid = [...form.querySelectorAll("input,select,textarea")].find(input =>
                 !input.disabled && !input.validity.valid);
             if (invalid) {

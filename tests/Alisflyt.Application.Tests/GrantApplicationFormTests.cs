@@ -10,6 +10,40 @@ namespace Alisflyt.Application.Tests;
 
 public class GrantApplicationFormTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Invalid_municipality_cannot_create_or_overwrite_a_draft(bool doctor)
+    {
+        var service = Service();
+        var data = CompleteForm();
+        var created = await service.CreateDraftAsync(new() { ApplicationData = data });
+        if (doctor) data.Certificate.DoctorSigningPlace = "Not a municipality";
+        else data.Certificate.SupervisorSigningPlace = "Not a municipality";
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateDraftAsync(new() { ApplicationData = data }));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateDraftAsync(created.Id, new() { ApplicationData = data }));
+        var saved = (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate;
+        Assert.Equal("Oslo", saved.DoctorSigningPlace);
+        Assert.Equal("Oslo", saved.SupervisorSigningPlace);
+    }
+
+    [Theory]
+    [InlineData("Tromsø", "Haram")]
+    [InlineData("Ålesund", "Bodø")]
+    [InlineData("", "")]
+    public async Task Valid_or_blank_signing_places_survive_saving(string doctor, string supervisor)
+    {
+        var service = Service();
+        var data = CompleteForm();
+        data.Certificate.DoctorSigningPlace = doctor;
+        data.Certificate.SupervisorSigningPlace = supervisor;
+        var created = await service.CreateDraftAsync(new() { ApplicationData = data });
+        var saved = (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate;
+        Assert.Equal(doctor, saved.DoctorSigningPlace);
+        Assert.Equal(supervisor, saved.SupervisorSigningPlace);
+    }
+
     private static GrantCaseApplicationService Service() => new(new FakeGrantCaseRepository(), new FakeCaseNumberGenerator("FORM-1"), TimeProvider.System);
 
     private static GrantApplicationData CompleteForm() => new()
