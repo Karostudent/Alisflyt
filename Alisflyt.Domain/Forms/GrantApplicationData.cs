@@ -38,9 +38,21 @@ public class GrantApplicationData
         if (!SpecializationStartDate.HasValue) errors.Add("Oppgi når legen startet spesialiseringsløpet.");
         if (!ExpectedCompletionDate.HasValue) errors.Add("Oppgi når legen forventes å avslutte spesialiseringsløpet.");
         if (!GrantType.HasValue) errors.Add("Velg hva tilskuddet gjelder: ALIS-avtale eller veiledning av ALIS.");
-        if (!HasAdditionalSupervisionCosts.HasValue) errors.Add("Svar ja eller nei på om dere har hatt merkostnader for økt antall veiledningstimer.");
-        if (SelectedPositionTypes.Count == 0) errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
-        if (EmploymentPeriods.Count == 0) errors.Add("Legg til minst én stillingsperiode under «Stilling i kommunen».");
+        if (!HasAdditionalSupervisionCosts.HasValue)
+            errors.Add("Svar ja eller nei på om dere har hatt merkostnader for økt antall veiledningstimer.");
+
+        if (SelectedPositionTypes.Count == 0)
+            errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
+
+        if (SelectedPositionTypes.Contains(PositionType.RegularGpOrLocum)
+            && !FirstRegularGpOrLocumDate.HasValue)
+        {
+            errors.Add(
+                "Oppgi når legen første gang startet som fastlege eller fastlegevikar.");
+        }
+
+        if (EmploymentPeriods.Count == 0)
+            errors.Add("Legg til minst én stillingsperiode under «Stilling i kommunen».");
         if (GrantType == Forms.GrantType.AlisAgreementIncludingSupervision)
         {
             if (!ConfirmsAlisAgreement) errors.Add("Bekreft at det er inngått ALIS-avtale mellom legen og kommunen.");
@@ -89,6 +101,10 @@ public class GrantApplicationData
     public bool ConfirmsOfficialAgreementTemplate { get; set; }
     public bool ConfirmsNoCommercialAgencyAffiliation { get; set; }
     public DateOnly? AgreementEffectiveFrom { get; set; }
+
+    // First date the doctor started working as a regular GP or GP locum.
+    // Used to determine eligibility for the lower-productivity element.
+    public DateOnly? FirstRegularGpOrLocumDate { get; set; }
 
     // UI selections must be reconciled with employment rows before persistence.
     public List<PositionType> SelectedPositionTypes { get; set; } = [];

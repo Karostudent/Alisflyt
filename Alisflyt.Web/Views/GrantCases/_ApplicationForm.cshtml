@@ -83,6 +83,20 @@
                     </div>
                 }
             </fieldset>
+                <div class="mb-4">
+                    <label asp-for="FirstRegularGpOrLocumDate" class="form-label">
+                        Når startet legen første gang som fastlege eller fastlegevikar?
+                    </label>
+
+                    <p class="text-muted">
+                        Opplysningen brukes til å vurdere om legen er innenfor perioden
+                        som gir rett til produktivitetselementet.
+                    </p>
+
+                    <input asp-for="FirstRegularGpOrLocumDate"
+                           type="date"
+                           class="form-control date-input" />
+                </div>
 
             <h3>Stilling i kommunen</h3>
             <p>Hvis legen er ansatt i flere stillinger i kommunen, legger dere til disse ved å trykke på «Legg til rad».</p>

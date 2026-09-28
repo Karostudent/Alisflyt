@@ -36,10 +36,14 @@ public static class GrantCalculationInputMapper
         return new GrantCalculationInput
         {
             GrantType = grantType,
+
+            FirstRegularGpOrLocumDate =
+         applicationData.FirstRegularGpOrLocumDate,
+
             EmploymentPeriods = employmentPeriods,
 
             AbsenceCompensation =
-                applicationData.AbsenceCompensation ?? 0m,
+         applicationData.AbsenceCompensation ?? 0m,
 
             LearningActivityExpenses =
                 applicationData.LearningActivityExpenses ?? 0m,

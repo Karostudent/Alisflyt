@@ -19,6 +19,7 @@ public class GrantApplicationFormTests
         SpecializationStartDate = new(2025, 1, 1), ExpectedCompletionDate = new(2030, 1, 1),
         ConfirmsAlisAgreement = true, ConfirmsOfficialAgreementTemplate = true,
         ConfirmsNoCommercialAgencyAffiliation = true, AgreementEffectiveFrom = new(2025, 1, 1),
+        FirstRegularGpOrLocumDate = new(2025, 1, 1),
         SelectedPositionTypes = [PositionType.RegularGpOrLocum, PositionType.IntroductoryDoctor],
         EmploymentPeriods = [
             new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 80, EmploymentStartDate = new(2025, 1, 1), FundingFrom = new(2026, 1, 1), FundingThrough = new(2026, 6, 30) },
@@ -94,6 +95,49 @@ public class GrantApplicationFormTests
         var created = await service.CreateDraftAsync(new() { ApplicationData = data });
         var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
         Assert.Equal("Stilling i kommunen, rad 2: Oppgi «Tilskudd fra».", Assert.Single(error.Errors));
+    }
+
+    [Fact]
+    public void RegularGpOrLocum_requires_first_regular_gp_or_locum_date()
+    {
+        // Arrange
+        var data = CompleteForm();
+        data.FirstRegularGpOrLocumDate = null;
+
+        // Act
+        var error = Assert.Throws<SubmissionValidationException>(
+            () => data.ValidateSubmission());
+
+        // Assert
+        Assert.Contains(
+            "Oppgi når legen første gang startet som fastlege eller fastlegevikar.",
+            error.Errors);
+    }
+
+    [Fact]
+    public void First_regular_gp_or_locum_date_is_not_required_without_regular_gp_or_locum_position()
+    {
+        // Arrange
+        var data = CompleteForm();
+
+        data.FirstRegularGpOrLocumDate = null;
+        data.SelectedPositionTypes =
+            [PositionType.IntroductoryDoctor];
+
+        data.EmploymentPeriods =
+        [
+            new()
+        {
+            PositionType = PositionType.IntroductoryDoctor,
+            PositionPercentage = 100,
+            EmploymentStartDate = new(2025, 1, 1),
+            FundingFrom = new(2026, 1, 1),
+            FundingThrough = new(2026, 6, 30)
+        }
+        ];
+
+        // Act + Assert
+        data.ValidateSubmission();
     }
 
     [Fact]

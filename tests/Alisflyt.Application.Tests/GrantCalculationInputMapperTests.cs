@@ -15,6 +15,7 @@ namespace Alisflyt.Application.Tests
             var app = new GrantApplicationData
             {
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
+                FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
                 AbsenceCompensation = 100m,
                 LearningActivityExpenses = 200m,
                 SupervisionExpenses = 300m,
@@ -39,6 +40,9 @@ namespace Alisflyt.Application.Tests
             Assert.Equal(
                 GrantType.AlisAgreementIncludingSupervision,
                 result.GrantType);
+            Assert.Equal(
+    new DateOnly(2024, 8, 1),
+    result.FirstRegularGpOrLocumDate);
 
             Assert.Equal(100m, result.AbsenceCompensation);
             Assert.Equal(200m, result.LearningActivityExpenses);

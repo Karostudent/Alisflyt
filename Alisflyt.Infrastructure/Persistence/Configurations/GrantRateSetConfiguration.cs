@@ -44,6 +44,9 @@ namespace Alisflyt.Infrastructure.Persistence.Configurations
             builder.Property(x => x.ProductivityMaxAmount)
                 .HasPrecision(18, 2)
                 .IsRequired();
+            
+            builder.Property(x => x.ProductivityEligibilityMonths)
+                .IsRequired();
 
             builder.Property(x => x.GuidanceRate)
                 .HasPrecision(8, 4)

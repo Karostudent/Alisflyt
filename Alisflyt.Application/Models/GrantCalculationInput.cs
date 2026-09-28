@@ -5,6 +5,7 @@ namespace Alisflyt.Application.Models;
 public sealed class GrantCalculationInput
 {
     public GrantType GrantType { get; init; }
+    public DateOnly? FirstRegularGpOrLocumDate { get; init; }
 
     public IReadOnlyList<GrantCalculationEmploymentPeriod>
         EmploymentPeriods
