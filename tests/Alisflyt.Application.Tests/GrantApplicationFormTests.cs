@@ -15,18 +15,27 @@ public class GrantApplicationFormTests
     private static GrantApplicationData CompleteForm() => new()
     {
         HprNumber = "1234567", DoctorName = "Test Lege", DoctorProfessions = ["Lege"],
-        GrantType = GrantType.AlisAgreementIncludingSupervision, ConfirmsSpecialization = true,
-        SpecializationStartDate = new(2025, 1, 1), ExpectedCompletionDate = new(2030, 1, 1),
-        ConfirmsAlisAgreement = true, ConfirmsOfficialAgreementTemplate = true,
-        ConfirmsNoCommercialAgencyAffiliation = true, AgreementEffectiveFrom = new(2025, 1, 1),
+        GrantType = GrantType.AlisAgreementIncludingSupervision, 
+        ConfirmsSpecialization = true,
+        SpecializationStartDate = new(2025, 1, 1), 
+        ExpectedCompletionDate = new(2030, 1, 1),
+        ConfirmsAlisAgreement = true, 
+        ConfirmsOfficialAgreementTemplate = true,
+        ConfirmsNoCommercialAgencyAffiliation = true, 
+        AgreementEffectiveFrom = new(2025, 1, 1),
         FirstRegularGpOrLocumDate = new(2025, 1, 1),
         SelectedPositionTypes = [PositionType.RegularGpOrLocum, PositionType.IntroductoryDoctor],
         EmploymentPeriods = [
             new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 80, EmploymentStartDate = new(2025, 1, 1), FundingFrom = new(2026, 1, 1), FundingThrough = new(2026, 6, 30) },
             new() { PositionType = PositionType.IntroductoryDoctor, PositionPercentage = 20, EmploymentStartDate = new(2025, 1, 1), FundingFrom = new(2026, 1, 1), FundingThrough = new(2026, 6, 30) }
         ],
-        AbsenceCompensation = 1200.50m, LearningActivityExpenses = 2000, SupervisionExpenses = 3000,
-        HasAdditionalSupervisionCosts = true, AdditionalSupervisionCosts = 400,
+        AbsenceCompensation = 1200.50m, 
+        LearningActivityExpenses = 2000, 
+        SupervisionExpenses = 3000,
+        HasAdditionalSupervisionCosts = true, 
+        AdditionalSupervisionCosts = 400,
+        IsCentralityGrade6 = false,
+        CentralitySupplementRequestedAmount = null,
         Certificate = new() { DoctorName = "Test Lege", SupervisorName = "Test Veileder",
             DoctorSigningPlace = "Oslo", DoctorSigningDate = new(2026, 6, 30),
             SupervisorSigningPlace = "Oslo", SupervisorSigningDate = new(2026, 6, 30),
@@ -67,7 +76,7 @@ public class GrantApplicationFormTests
         var created = await service.CreateDraftAsync(new() { ApplicationData = new() });
         Assert.NotNull((await service.GetByIdAsync(created.Id)).ApplicationData);
         var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
-        Assert.Equal(8, error.Errors.Count);
+        Assert.Equal(9, error.Errors.Count);
         Assert.Contains("Oppgi HPR-nummer for legen.", error.Errors);
         Assert.Contains("Oppgi når legen startet spesialiseringsløpet.", error.Errors);
     }
@@ -152,5 +161,45 @@ public class GrantApplicationFormTests
         Assert.Contains("Oppgi når ALIS-avtalen gjelder fra.", error.Errors);
         data.GrantType = GrantType.SupervisionOnly;
         data.ValidateSubmission();
+    }
+
+    [Fact]
+    public void Submission_requires_centrality_grade_answer()
+    {
+        var data = CompleteForm();
+        data.IsCentralityGrade6 = null;
+
+        var error = Assert.Throws<SubmissionValidationException>(
+            () => data.ValidateSubmission());
+
+        Assert.Contains(
+            "Oppgi om kommunen har sentralitetsgrad 6.",
+            error.Errors);
+    }
+
+    [Fact]
+    public void Grade6_requires_centrality_supplement_amount()
+    {
+        var data = CompleteForm();
+        data.IsCentralityGrade6 = true;
+        data.CentralitySupplementRequestedAmount = null;
+
+        var error = Assert.Throws<SubmissionValidationException>(
+            () => data.ValidateSubmission());
+
+        Assert.Contains(
+            "Oppgi beløp for sentralitetstillegg.",
+            error.Errors);
+    }
+
+    [Fact]
+    public void Centrality_supplement_amount_cannot_be_negative()
+    {
+        var data = CompleteForm();
+        data.IsCentralityGrade6 = true;
+        data.CentralitySupplementRequestedAmount = -1m;
+
+        Assert.Throws<ArgumentException>(
+            () => data.ValidateDraft());
     }
 }

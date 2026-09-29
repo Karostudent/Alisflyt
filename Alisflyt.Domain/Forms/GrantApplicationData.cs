@@ -14,7 +14,7 @@ public class GrantApplicationData
         if (HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
             || SelectedPositionTypes.Any(p => !Enum.IsDefined(p)))
             throw new ArgumentException("Kontroller HPR-nummer og valgte typer.");
-        if (AbsenceCompensation < 0 || LearningActivityExpenses < 0 || SupervisionExpenses < 0 || AdditionalSupervisionCosts < 0)
+        if (AbsenceCompensation < 0 || LearningActivityExpenses < 0 || SupervisionExpenses < 0 || AdditionalSupervisionCosts < 0 || CentralitySupplementRequestedAmount < 0)
             throw new ArgumentException("Beløp kan ikke være negative.");
         foreach (var period in EmploymentPeriods)
         {
@@ -40,6 +40,15 @@ public class GrantApplicationData
         if (!GrantType.HasValue) errors.Add("Velg hva tilskuddet gjelder: ALIS-avtale eller veiledning av ALIS.");
         if (!HasAdditionalSupervisionCosts.HasValue)
             errors.Add("Svar ja eller nei på om dere har hatt merkostnader for økt antall veiledningstimer.");
+        if (IsCentralityGrade6 == true
+    && !CentralitySupplementRequestedAmount.HasValue)
+        {
+            errors.Add("Oppgi beløp for sentralitetstillegg.");
+        }
+        if (!IsCentralityGrade6.HasValue)
+        {
+            errors.Add("Oppgi om kommunen har sentralitetsgrad 6.");
+        }
 
         if (SelectedPositionTypes.Count == 0)
             errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
