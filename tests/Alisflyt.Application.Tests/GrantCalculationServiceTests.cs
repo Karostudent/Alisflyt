@@ -189,4 +189,111 @@ public class GrantCalculationServiceTests
 
         Assert.Equal(14_000m, result.LearningActivitiesAmount);
     }
+    [Fact]
+    public void Productivity_UsesEligiblePeriodWithinFirstMonths()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2024, 8, 1),
+                new DateOnly(2025, 8, 1),
+                new DateOnly(2026, 1, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(31_250m, result.ProductivityAmount);
+    }
+
+    [Fact]
+    public void Productivity_IsClippedAtEligibilityEnd()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2024, 8, 1),
+                new DateOnly(2026, 5, 1),
+                new DateOnly(2026, 10, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(31_250m, result.ProductivityAmount);
+    }
+
+    [Fact]
+    public void Productivity_IsZero_AfterEligibilityPeriod()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2024, 8, 1),
+                new DateOnly(2026, 8, 1),
+                new DateOnly(2026, 12, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(0m, result.ProductivityAmount);
+    }
+
+    [Fact]
+    public void Productivity_IsZero_ForNonRegularGpPosition()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.IntroductoryDoctor,
+                100m,
+                new DateOnly(2024, 8, 1),
+                new DateOnly(2025, 8, 1),
+                new DateOnly(2026, 1, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(0m, result.ProductivityAmount);
+    }
 }

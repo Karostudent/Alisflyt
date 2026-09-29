@@ -17,11 +17,14 @@ public class GrantCalculationService
             CalculatePracticeCompensation(input, rateSet);
         var learningActivities =
             CalculateLearningActivities(input, rateSet);
+        var productivity =
+            CalculateProductivity(input, rateSet);
 
         return new GrantCalculationResult
         {
             PracticeCompensationAmount = practiceCompensation,
-            LearningActivitiesAmount = learningActivities
+            LearningActivitiesAmount = learningActivities,
+            ProductivityAmount = productivity
         };
     }
 
@@ -103,6 +106,60 @@ public class GrantCalculationService
         return Math.Min(
             input.LearningActivityExpenses,
             maximumAmount);
+    }
+
+    private static decimal CalculateProductivity(
+    GrantCalculationInput input,
+    GrantRateSet rateSet)
+    {
+        if (!input.FirstRegularGpOrLocumDate.HasValue)
+        {
+            return 0m;
+        }
+
+        decimal amount = 0m;
+
+        foreach (var period in input.EmploymentPeriods)
+        {
+            if (period.PositionType != PositionType.RegularGpOrLocum)
+            {
+                continue;
+            }
+
+            var eligibilityPeriod =
+                ProductivityEligibilityCalculator.Calculate(
+                    input.FirstRegularGpOrLocumDate.Value,
+                    rateSet.ProductivityEligibilityMonths,
+                    period.FundingFrom,
+                    period.FundingThrough);
+
+            if (eligibilityPeriod is null)
+            {
+                continue;
+            }
+
+            var wholeMonths = CountWholeMonths(
+                eligibilityPeriod.From,
+                eligibilityPeriod.Through);
+
+            if (wholeMonths <= 0)
+            {
+                continue;
+            }
+
+            var positionFraction =
+                period.PositionPercentage / 100m;
+
+            var periodFraction =
+                wholeMonths / 12m;
+
+            amount +=
+                rateSet.ProductivityMaxAmount
+                * positionFraction
+                * periodFraction;
+        }
+
+        return amount;
     }
 
     private static int CountWholeMonths(
