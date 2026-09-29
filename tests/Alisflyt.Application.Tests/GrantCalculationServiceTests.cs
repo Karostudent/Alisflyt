@@ -296,4 +296,85 @@ public class GrantCalculationServiceTests
 
         Assert.Equal(0m, result.ProductivityAmount);
     }
+
+    [Fact]
+    public void Guidance_UsesActualExpense_WhenBelowMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            SupervisionExpenses = 20_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2026, 5, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(20_000m, result.GuidanceAmount);
+    }
+
+    [Fact]
+    public void Guidance_IsCappedAtMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            SupervisionExpenses = 100_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2026, 5, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(91_317.1875m, result.GuidanceAmount);
+    }
+
+    [Fact]
+    public void Guidance_IsProratedByPositionAndPeriod()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            SupervisionExpenses = 100_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2025, 11, 30))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(22_829.296875m, result.GuidanceAmount);
+    }
 }

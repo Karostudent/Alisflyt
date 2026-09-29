@@ -19,12 +19,15 @@ public class GrantCalculationService
             CalculateLearningActivities(input, rateSet);
         var productivity =
             CalculateProductivity(input, rateSet);
+        var guidance =
+            CalculateGuidance(input, rateSet);
 
         return new GrantCalculationResult
         {
             PracticeCompensationAmount = practiceCompensation,
             LearningActivitiesAmount = learningActivities,
-            ProductivityAmount = productivity
+            ProductivityAmount = productivity,
+            GuidanceAmount = guidance
         };
     }
 
@@ -160,6 +163,45 @@ public class GrantCalculationService
         }
 
         return amount;
+    }
+
+    private static decimal CalculateGuidance(
+    GrantCalculationInput input,
+    GrantRateSet rateSet)
+    {
+        decimal maximumAmount = 0m;
+
+        foreach (var period in input.EmploymentPeriods)
+        {
+            var wholeMonths = CountWholeMonths(
+                period.FundingFrom,
+                period.FundingThrough);
+
+            if (wholeMonths <= 0)
+            {
+                continue;
+            }
+
+            var positionFraction =
+                period.PositionPercentage / 100m;
+
+            var periodFraction =
+                wholeMonths / 12m;
+
+            var annualMaximum =
+                rateSet.SalaryRate
+                * rateSet.GuidanceRate
+                * rateSet.GuidanceHoursPerYear;
+
+            maximumAmount +=
+                annualMaximum
+                * positionFraction
+                * periodFraction;
+        }
+
+        return Math.Min(
+            input.SupervisionExpenses,
+            maximumAmount);
     }
 
     private static int CountWholeMonths(
