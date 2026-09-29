@@ -15,10 +15,13 @@ public class GrantCalculationService
 
         var practiceCompensation =
             CalculatePracticeCompensation(input, rateSet);
+        var learningActivities =
+            CalculateLearningActivities(input, rateSet);
 
         return new GrantCalculationResult
         {
-            PracticeCompensationAmount = practiceCompensation
+            PracticeCompensationAmount = practiceCompensation,
+            LearningActivitiesAmount = learningActivities
         };
     }
 
@@ -65,6 +68,40 @@ public class GrantCalculationService
 
         return Math.Min(
             input.AbsenceCompensation,
+            maximumAmount);
+    }
+
+    private static decimal CalculateLearningActivities(
+    GrantCalculationInput input,
+    GrantRateSet rateSet)
+    {
+        decimal maximumAmount = 0m;
+
+        foreach (var period in input.EmploymentPeriods)
+        {
+            var wholeMonths = CountWholeMonths(
+                period.FundingFrom,
+                period.FundingThrough);
+
+            if (wholeMonths <= 0)
+            {
+                continue;
+            }
+
+            var positionFraction =
+                period.PositionPercentage / 100m;
+
+            var periodFraction =
+                wholeMonths / 12m;
+
+            maximumAmount +=
+                rateSet.LearningActivitiesMaxAmount
+                * positionFraction
+                * periodFraction;
+        }
+
+        return Math.Min(
+            input.LearningActivityExpenses,
             maximumAmount);
     }
 

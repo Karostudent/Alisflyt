@@ -108,4 +108,85 @@ public class GrantCalculationServiceTests
             200_000m,
             DateTimeOffset.UtcNow);
     }
+
+    [Fact]
+    public void LearningActivities_UsesActualExpense_WhenBelowMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            LearningActivityExpenses = 3_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2025, 11, 30))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(3_000m, result.LearningActivitiesAmount);
+    }
+
+    [Fact]
+    public void LearningActivities_IsCappedAtMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            LearningActivityExpenses = 5_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2025, 11, 30))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(3_500m, result.LearningActivitiesAmount);
+    }
+
+    [Fact]
+    public void LearningActivities_UsesFullAnnualMaximum_ForFullPositionAndYear()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            LearningActivityExpenses = 20_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2026, 5, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(14_000m, result.LearningActivitiesAmount);
+    }
 }
