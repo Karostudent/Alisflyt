@@ -115,4 +115,7 @@ public class GrantApplicationData
     public decimal? SupervisionExpenses { get; set; }
     public bool? HasAdditionalSupervisionCosts { get; set; }
     public decimal? AdditionalSupervisionCosts { get; set; }
+    public bool? IsCentralityGrade6 { get; set; }
+
+    public decimal? CentralitySupplementRequestedAmount { get; set; }
 }

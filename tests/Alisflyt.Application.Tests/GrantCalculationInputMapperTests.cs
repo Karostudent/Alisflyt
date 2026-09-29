@@ -30,7 +30,9 @@ namespace Alisflyt.Application.Tests
                         FundingFrom = new DateOnly(2025, 7, 1),
                         FundingThrough = new DateOnly(2026, 5, 31)
                     }
-                }
+                },
+                IsCentralityGrade6 = true,
+                CentralitySupplementRequestedAmount = 75_000m
             };
 
             // Act
@@ -67,6 +69,10 @@ namespace Alisflyt.Application.Tests
             Assert.Equal(
                 new DateOnly(2026, 5, 31),
                 period.FundingThrough);
+            
+            Assert.True(result.IsCentralityGrade6);
+            
+            Assert.Equal(75_000m, result.CentralitySupplementRequestedAmount);
         }
 
         [Fact]

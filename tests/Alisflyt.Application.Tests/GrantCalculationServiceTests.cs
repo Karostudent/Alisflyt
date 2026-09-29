@@ -433,4 +433,116 @@ public class GrantCalculationServiceTests
 
         Assert.Equal(0m, result.FacilitationAmount);
     }
+
+    [Fact]
+    public void CentralitySupplement_UsesRequestedAmount_WhenBelowMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            IsCentralityGrade6 = true,
+            CentralitySupplementRequestedAmount = 35_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2025, 11, 30))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(35_000m, result.CentralitySupplementAmount);
+    }
+
+    [Fact]
+    public void CentralitySupplement_IsCappedAtMaximum()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            IsCentralityGrade6 = true,
+            CentralitySupplementRequestedAmount = 70_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                50m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2025, 11, 30))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(50_000m, result.CentralitySupplementAmount);
+    }
+
+    [Fact]
+    public void CentralitySupplement_IsZero_WhenMunicipalityIsNotGrade6()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            IsCentralityGrade6 = false,
+            CentralitySupplementRequestedAmount = 70_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2026, 5, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(0m, result.CentralitySupplementAmount);
+    }
+
+    [Fact]
+    public void CentralitySupplement_IsZero_ForSupervisionOnlyGrant()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.SupervisionOnly,
+            IsCentralityGrade6 = true,
+            CentralitySupplementRequestedAmount = 70_000m,
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2025, 1, 1),
+                new DateOnly(2025, 6, 1),
+                new DateOnly(2026, 5, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(0m, result.CentralitySupplementAmount);
+    }
 }

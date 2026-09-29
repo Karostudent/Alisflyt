@@ -29,6 +29,9 @@ public class GrantCalculationService
 
         var facilitation =
             standardElements * rateSet.FacilitationRate;
+        
+        var centralitySupplement =
+            CalculateCentralitySupplement(input, rateSet);
 
         return new GrantCalculationResult
         {
@@ -36,7 +39,8 @@ public class GrantCalculationService
             LearningActivitiesAmount = learningActivities,
             ProductivityAmount = productivity,
             GuidanceAmount = guidance,
-            FacilitationAmount = facilitation
+            FacilitationAmount = facilitation,
+            CentralitySupplementAmount = centralitySupplement
         };
     }
 
@@ -210,6 +214,49 @@ public class GrantCalculationService
 
         return Math.Min(
             input.SupervisionExpenses,
+            maximumAmount);
+    }
+    private static decimal CalculateCentralitySupplement(
+    GrantCalculationInput input,
+    GrantRateSet rateSet)
+    {
+        if (!input.IsCentralityGrade6)
+        {
+            return 0m;
+        }
+
+        if (input.GrantType != GrantType.AlisAgreementIncludingSupervision)
+        {
+            return 0m;
+        }
+
+        decimal maximumAmount = 0m;
+
+        foreach (var period in input.EmploymentPeriods)
+        {
+            var wholeMonths = CountWholeMonths(
+                period.FundingFrom,
+                period.FundingThrough);
+
+            if (wholeMonths <= 0)
+            {
+                continue;
+            }
+
+            var positionFraction =
+                period.PositionPercentage / 100m;
+
+            var periodFraction =
+                wholeMonths / 12m;
+
+            maximumAmount +=
+                rateSet.CentralitySupplementMaxAmount
+                * positionFraction
+                * periodFraction;
+        }
+
+        return Math.Min(
+            input.CentralitySupplementRequestedAmount,
             maximumAmount);
     }
 

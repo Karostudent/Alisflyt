@@ -18,4 +18,10 @@ public sealed class GrantCalculationInput
     public decimal SupervisionExpenses { get; init; }
 
     public decimal AdditionalSupervisionCosts { get; init; }
+
+    public bool IsCentralityGrade6 { get; init; }
+    // Har saken i det hele tatt rett til sentralitetstillegg?
+
+    public decimal CentralitySupplementRequestedAmount { get; init; }
+    // Hvor mye av tilleggselementet søker kommunen faktisk om?
 }

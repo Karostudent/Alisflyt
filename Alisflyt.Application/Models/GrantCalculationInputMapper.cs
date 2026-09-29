@@ -38,12 +38,12 @@ public static class GrantCalculationInputMapper
             GrantType = grantType,
 
             FirstRegularGpOrLocumDate =
-         applicationData.FirstRegularGpOrLocumDate,
+                applicationData.FirstRegularGpOrLocumDate,
 
             EmploymentPeriods = employmentPeriods,
 
             AbsenceCompensation =
-         applicationData.AbsenceCompensation ?? 0m,
+                applicationData.AbsenceCompensation ?? 0m,
 
             LearningActivityExpenses =
                 applicationData.LearningActivityExpenses ?? 0m,
@@ -52,7 +52,13 @@ public static class GrantCalculationInputMapper
                 applicationData.SupervisionExpenses ?? 0m,
 
             AdditionalSupervisionCosts =
-                applicationData.AdditionalSupervisionCosts ?? 0m
+                applicationData.AdditionalSupervisionCosts ?? 0m,
+
+            IsCentralityGrade6 = 
+                applicationData.IsCentralityGrade6 ?? false,
+            
+            CentralitySupplementRequestedAmount =
+                applicationData.CentralitySupplementRequestedAmount ?? 0m
         };
     }
 }
