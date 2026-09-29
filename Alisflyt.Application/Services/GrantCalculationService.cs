@@ -21,13 +21,22 @@ public class GrantCalculationService
             CalculateProductivity(input, rateSet);
         var guidance =
             CalculateGuidance(input, rateSet);
+        var standardElements =
+            practiceCompensation
+            + learningActivities
+            + productivity
+            + guidance;
+
+        var facilitation =
+            standardElements * rateSet.FacilitationRate;
 
         return new GrantCalculationResult
         {
             PracticeCompensationAmount = practiceCompensation,
             LearningActivitiesAmount = learningActivities,
             ProductivityAmount = productivity,
-            GuidanceAmount = guidance
+            GuidanceAmount = guidance,
+            FacilitationAmount = facilitation
         };
     }
 

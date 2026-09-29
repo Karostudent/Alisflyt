@@ -377,4 +377,60 @@ public class GrantCalculationServiceTests
 
         Assert.Equal(22_829.296875m, result.GuidanceAmount);
     }
+
+    [Fact]
+    public void Facilitation_IsFivePercentOfStandardElements()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            AbsenceCompensation = 10_000m,
+            LearningActivityExpenses = 10_000m,
+            SupervisionExpenses = 10_000m,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 8, 1),
+            EmploymentPeriods =
+            [
+                new GrantCalculationEmploymentPeriod(
+                PositionType.RegularGpOrLocum,
+                100m,
+                new DateOnly(2024, 8, 1),
+                new DateOnly(2025, 8, 1),
+                new DateOnly(2026, 1, 31))
+            ]
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        var expectedStandardElements =
+            result.PracticeCompensationAmount
+            + result.LearningActivitiesAmount
+            + result.ProductivityAmount
+            + result.GuidanceAmount;
+
+        Assert.Equal(
+            expectedStandardElements * 0.05m,
+            result.FacilitationAmount);
+    }
+
+    [Fact]
+    public void Facilitation_IsZero_WhenStandardElementsAreZero()
+    {
+        var service = new GrantCalculationService();
+
+        var input = new GrantCalculationInput
+        {
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            EmploymentPeriods = []
+        };
+
+        var rateSet = CreateRateSet();
+
+        var result = service.Calculate(input, rateSet);
+
+        Assert.Equal(0m, result.FacilitationAmount);
+    }
 }
