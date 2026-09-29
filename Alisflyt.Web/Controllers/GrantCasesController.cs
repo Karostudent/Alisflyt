@@ -12,7 +12,6 @@ namespace Alisflyt.Web.Controllers
     public class GrantCasesController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
-
         public GrantCasesController(IGrantCaseApplicationService svc)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
@@ -112,8 +111,40 @@ namespace Alisflyt.Web.Controllers
                 CreatedAtUtc = d.CreatedAtUtc,
                 LastModifiedAtUtc = d.LastModifiedAtUtc,
                 ReturnReason = d.ReturnReason,
-                ReturnedAtUtc = d.ReturnedAtUtc
+                ReturnedAtUtc = d.ReturnedAtUtc,
+                ApplicationData = d.ApplicationData
             };
+
+            // Try to fetch calculation (resolve per-request so ctor doesn't require it)
+            try
+            {
+                var calcSvc = (Alisflyt.Application.Services.IGrantCalculationApplicationService?)HttpContext?.RequestServices.GetService(typeof(Alisflyt.Application.Services.IGrantCalculationApplicationService));
+                if (calcSvc != null)
+                {
+                    var calc = await calcSvc.CalculateForCaseAsync(d.Id, cancellationToken).ConfigureAwait(false);
+                    // Calculation property is init-only; create a new VM instance
+                    vm = new GrantCaseDetailsViewModel
+                    {
+                        Id = vm.Id,
+                        CaseNumber = vm.CaseNumber,
+                        HprNumber = vm.HprNumber,
+                        EmploymentPercentage = vm.EmploymentPercentage,
+                        EmploymentStartDate = vm.EmploymentStartDate,
+                        EmploymentEndDate = vm.EmploymentEndDate,
+                        Status = vm.Status,
+                        CreatedAtUtc = vm.CreatedAtUtc,
+                        LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReturnReason = vm.ReturnReason,
+                        ReturnedAtUtc = vm.ReturnedAtUtc,
+                        ApplicationData = vm.ApplicationData,
+                        Calculation = calc
+                    };
+                }
+            }
+            catch
+            {
+                // Swallow to keep details view stable; calculation not critical
+            }
 
             // Return explicit Details view so MVC does not search for a Submit.cshtml view.
             return View("Details", vm);

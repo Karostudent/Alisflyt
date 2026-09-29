@@ -1,0 +1,24 @@
+@model Alisflyt.Application.Models.GrantCalculationDetailsDto
+
+<div class="calculation-result">
+	<h3>Beregningsresultat</h3>
+	@if (Model is null || !Model.IsAvailable)
+	{
+		<div class="alert alert-info">@((Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.")</div>
+	}
+	else
+	{
+		<table class="table table-sm">
+			<tbody>
+				<tr><th>Kompensasjon ved fravær</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr</td></tr>
+				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
+				<tr><th>Produktivitetselement</th><td>@Model.ProductivityAmount.ToString("N0") kr</td></tr>
+				<tr><th>Veiledning</th><td>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
+				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
+				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>
+				<tr class="table-primary"><th>Totalt beregnet tilskudd</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
+			</tbody>
+		</table>
+		<div class="small text-muted">Satssett: @Model.RateSetName (@Model.RateSetValidFrom?.ToString("dd.MM.yyyy") - @Model.RateSetValidTo?.ToString("dd.MM.yyyy"))</div>
+	}
+</div>

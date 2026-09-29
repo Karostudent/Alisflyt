@@ -203,7 +203,10 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                     || name === "GrantType" || name.endsWith(".PositionType")) {
                     value = value === "" ? null : input.type === "date" ? value : Number(value);
                 }
-                if (name === "HasAdditionalSupervisionCosts") value = value === "true";
+                if (name === "HasAdditionalSupervisionCosts"
+                    || name === "IsCentralityGrade6") {
+                    value = value === "true";
+                }
                 setValue(payload, name, value);
             }
             payload.EmploymentPeriods = payload.EmploymentPeriods.filter(Boolean);

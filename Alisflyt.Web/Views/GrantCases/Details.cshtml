@@ -35,6 +35,10 @@
 		<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
 	</dl>
 
+	@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
+
+	@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
+
 	@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
 	{
 		<div class="alert alert-warning">

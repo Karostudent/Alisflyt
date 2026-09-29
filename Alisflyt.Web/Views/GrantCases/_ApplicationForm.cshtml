@@ -149,6 +149,55 @@
                 <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control amount-input mb-4" />
             </fieldset>
         </div>
+            <div class="mb-4">
+                <label class="form-label">
+                    Har kommunen sentralitetsgrad 6?
+                </label>
+
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           asp-for="IsCentralityGrade6"
+                           value="true"
+                           id="centralityYes" />
+
+                    <label class="form-check-label"
+                           for="centralityYes">
+                        Ja
+                    </label>
+                </div>
+
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="radio"
+                           asp-for="IsCentralityGrade6"
+                           value="false"
+                           id="centralityNo" />
+
+                    <label class="form-check-label"
+                           for="centralityNo">
+                        Nei
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-4"
+                 id="centralitySupplementSection">
+                <label asp-for="CentralitySupplementRequestedAmount"
+                       class="form-label">
+                    Søkt beløp for sentralitetstillegg
+                </label>
+
+                <input asp-for="CentralitySupplementRequestedAmount"
+                       class="form-control"
+                       type="number"
+                       min="0"
+                       step="1" />
+
+                <div class="form-text">
+                    Oppgi beløpet kommunen søker om i sentralitetstillegg.
+                </div>
+            </div>
         <div class="form-actions">
             <span>Du kan lagre utkastet når som helst.</span>
             
@@ -181,4 +230,20 @@
         <td><button type="button" class="btn btn-outline-danger remove-employment">Fjern</button></td>
     </tr>
 </template>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const yes = document.getElementById("centralityYes");
+        const no = document.getElementById("centralityNo");
+        const section = document.getElementById("centralitySupplementSection");
+
+        function updateCentralityVisibility() {
+            section.style.display = yes.checked ? "block" : "none";
+        }
+
+        yes.addEventListener("change", updateCentralityVisibility);
+        no.addEventListener("change", updateCentralityVisibility);
+
+        updateCentralityVisibility();
+    });
+</script>
 
