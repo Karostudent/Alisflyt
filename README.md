@@ -1,6 +1,8 @@
 # ALISflyt
 
-ALISflyt er en prototype for digital søknad og behandling av kommunale ALIS-tilskudd. Målet er at informasjon skal registreres én gang og gjenbrukes gjennom prosessen, slik at brukerne får bedre oversikt og koordinator kan bruke mer tid på kontroll og behandling.
+ALISflyt er en prototype for digital søknad og behandling av kommunale ALIS-tilskudd.
+
+Målet er å samle søknadsopplysninger, beregningsgrunnlag og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang og gjenbrukes videre i prosessen. Dette skal gi ALIS bedre oversikt og redusere manuelt arbeid for kommunens koordinator.
 
 Løsningen er under utvikling og skal foreløpig bare brukes med syntetiske testdata.
 
@@ -8,56 +10,144 @@ Løsningen er under utvikling og skal foreløpig bare brukes med syntetiske test
 
 ### Implementert
 
-- Rolleportal for ALIS, koordinator og veileder
-- ALIS-dashboard med oversikt over utkast og innsendte søknader
-- Koordinator-dashboard med skrivebeskyttet visning av saker
+#### Portal og roller
+
+- Felles demoportal med inngang for ALIS, koordinator og veileder
+- ALIS-dashboard med oversikt over saker
+- Koordinator-dashboard med oversikt over mottatte saker
 - Presentasjon av planlagt veilederområde
+- Rollemarkering i relevante visninger
+- Sortering på saksnummer, HPR, status og sist endret i saksoversiktene
+
+Veilederrollen er foreløpig kun representert som planlagt funksjonalitet. Egen innlogging og arbeidsflyt for veileder er ikke implementert.
+
+#### Søknad og utkast
+
 - Opprettelse og lagring av ufullstendige utkast
-- Redigering, validering og innsending av søknader
-- Koordinator kan starte behandling av innsendte søknader
+- Totrinnsskjema for søknadsopplysninger og veiledningsattest
+- Registrering av:
+  - lege- og spesialiseringsopplysninger
+  - type tilskudd
+  - stillingstyper
+  - én eller flere stillingsperioder
+  - ALIS-avtale
+  - refusjons- og kostnadsopplysninger
+  - sentralitetsopplysninger
+  - veiledningsattest og veiledningsøkter
+- Redigering og gjenåpning av lagrede utkast
+- Validering før innsending
+- Innsending av ferdig søknad
+
+Søknadsdata lagres samlet i `GrantCases.ApplicationDataJson`.
+
+#### Saksflyt
+
+- Koordinator kan åpne og lese innsendte søknader
+- Koordinator kan starte behandling
 - Koordinator kan returnere en sak for korrigering med obligatorisk begrunnelse
-- ALIS kan se returbegrunnelse og tidspunkt
-- ALIS kan redigere en returnert søknad og sende den inn på nytt
-- Norske statusetiketter i brukergrensesnittet (Utkast, Innsendt, Under behandling, Returnert for korrigering)
-- Lagring av returbegrunnelse og returtidspunkt i databasen
-- Entity Framework Core, migrasjoner og demodata
-- Automatiserte tester for Domain, Application, Infrastructure og Web (kjøres i CI)
-- GitHub Actions for automatisk bygging og testing
+- Returbegrunnelse og returtidspunkt lagres
+- ALIS kan se hvorfor saken er returnert
+- ALIS kan korrigere og sende saken inn på nytt
+- Samme søknadsdata brukes videre gjennom arbeidsflyten
 
-### Planlagt
+#### Automatisk beregning av tilskudd
 
+Det er implementert automatisk beregning basert på opplysningene i søknaden.
+
+Beregningen omfatter foreløpig:
+
+- kompensasjon ved fravær
+- læringsaktiviteter
+- produktivitetselement
+- veiledning
+- tilrettelegging
+- sentralitetstillegg
+- samlet beregnet tilskuddsbeløp
+
+Beregningen bruker et versjonert satssett som velges ut fra tilskuddsperioden.
+
+ALIS kan se en forhåndsvisning av beregningen før søknaden sendes inn. Beregningsresultatet vises også i detaljvisningen av saken.
+
+Dersom beregningen ikke kan gjennomføres, vises en forklaring i brukergrensesnittet. For sentralitetstillegg vises det også forklaring når beløpet blir 0 på grunn av gjeldende beregningsforutsetninger.
+
+### Rammer for beregningen i prototypen
+
+Prototypen bruker foreløpig satssettet:
+
+**01.06.2025–31.05.2026**
+
+Hvis tilskuddsperioden starter utenfor denne perioden, finnes det ikke et gyldig satssett i prototypen, og beregningen blir derfor ikke tilgjengelig.
+
+Sentralitetstillegg beregnes i dagens prototype når:
+
+- kommunen er registrert med sentralitetsgrad 6
+- søknaden gjelder tilskudd til ALIS-avtale inkl. veiledning
+- det er registrert et søkt beløp
+- tilskuddsperioden gir et beregningsgrunnlag
+
+Registrerte merkostnader til veiledning inngår foreløpig ikke i automatisk beregning fordi beregningsregelen ikke er endelig avklart.
+
+Dette beskriver hva prototypen støtter nå, og skal ikke forstås som en fullstendig eller autoritativ implementasjon av endelig regelverk.
+
+### Planlagt videre
 
 - Autentisering og rollebasert tilgangsstyring
 - Avgrensning slik at ALIS bare ser egne saker
+- Egen innlogging og arbeidsflate for veileder
+- Veilederstyrt registrering og bekreftelse av veiledningsattest
 - Registrering og avstemming av veiledningstimer
-- Utvidede veilederfunksjoner
-- Sakshistorikk og sporbarhet
-- Dokumentopplasting og beregning av tilskudd
+- Sakshistorikk og utvidet sporbarhet
+- Dokumentopplasting
+- Videre kvalitetssikring av satser og beregningsregler
+- Støtte for flere og historiske satsperioder
+- Håndtering av saker som går over flere satsperioder
 - Revisorgodkjenning
 - Frister og varsling
-- Integrasjoner mot P360 og Helsedirektoratet
+- Rapportering og eksport
+- Arkivering og mulig integrasjon mot P360
+- Integrasjon mot Helsedirektoratet
+- Tilrettelegging for bruk i flere kommuner
 
 ## Teknologi
 
 - .NET 10
-- ASP.NET Core MVC og Razor Views
+- ASP.NET Core MVC
+- Razor Views
 - Entity Framework Core
 - SQL Server Express LocalDB
+- JavaScript
+- Bootstrap
 - xUnit
 - GitHub Actions
 
 ## Prosjektstruktur
 
-- `Alisflyt.Domain` inneholder entiteter, statuser og forretningsregler.
-- `Alisflyt.Application` inneholder brukstilfeller, tjenester, DTO-er og kontrakter.
+- `Alisflyt.Domain` inneholder entiteter, statuser, søknadsmodeller og forretningsregler.
+- `Alisflyt.Application` inneholder brukstilfeller, beregningstjenester, DTO-er og kontrakter.
 - `Alisflyt.Infrastructure` inneholder EF Core, databasekontekst, repositories, migrasjoner og demodata.
 - `Alisflyt.Web` inneholder controllere, ViewModels, Razor Views og statiske filer.
 - `Alisflyt.Integrations` er klargjort for fremtidige integrasjoner mot eksterne systemer.
-- `tests` inneholder enhets- og integrasjonstestprosjektene.
+- `tests` inneholder automatiserte tester for de ulike lagene og integrasjonstestene.
 
 Kort huskeregel:
 
 > Web viser. Application koordinerer. Domain bestemmer. Infrastructure lagrer. Integrations kommuniserer.
+
+## Beregningsarkitektur
+
+Beregningsfunksjonaliteten følger samme lagdeling som resten av løsningen.
+
+Søknadsdata transformeres til et eget beregningsgrunnlag før beregningen utføres. Beregningsreglene ligger på Application-nivå og mottar satssett og søknadsdata som eksplisitte inputverdier.
+
+Valg av satssett skjer på serversiden basert på tidligste registrerte `FundingFrom` i søknaden.
+
+Beregningsresultatet transporteres tilbake til Web-laget som DTO og vises både:
+
+- som forhåndsvisning i søknadsskjemaet
+- i detaljvisningen for saken
+- i koordinatorens detaljvisning
+
+Det gjøres ingen beregning i JavaScript eller Razor Views.
 
 ## Forutsetninger
 
@@ -71,104 +161,3 @@ Kort huskeregel:
 ```powershell
 git clone <repository-url>
 cd Alisflyt
-```
-
-Erstatt `<repository-url>` med repository-adressen fra GitHub.
-
-## Første gangs oppsett
-
-Gjenopprett det lokale .NET-verktøyet og NuGet-pakkene:
-
-```powershell
-dotnet tool restore
-dotnet restore
-```
-
-Kontroller om LocalDB-instansen finnes:
-
-```powershell
-sqllocaldb info
-```
-
-Hvis `MSSQLLocalDB` ikke finnes, oppretter du den:
-
-```powershell
-sqllocaldb create MSSQLLocalDB
-```
-
-Start instansen:
-
-```powershell
-sqllocaldb start MSSQLLocalDB
-```
-
-## Bygg og test
-
-```powershell
-dotnet build Alisflyt.slnx --verbosity minimal
-dotnet test Alisflyt.slnx --no-build --verbosity minimal
-```
-
-Løsningen inneholder automatiserte tester for Domain, Application, Web og Integration som kjøres i CI.
-
-## Database
-
-Lokal utvikling bruker:
-
-- Instans: `(localdb)\MSSQLLocalDB`
-- Database: `AlisflytDevelopment`
-- Konfigurasjon: `Alisflyt.Web/appsettings.Development.json`
-
-I Development-miljøet kjører applikasjonen migrasjoner automatisk ved oppstart. Demodata legges inn når `SeedDemoData` er satt til `true`. Integrasjonstestene bruker egne midlertidige LocalDB-databaser og skal ikke bruke `AlisflytDevelopment`.
-
-Databasen kan også oppdateres manuelt:
-
-```powershell
-dotnet ef database update --project Alisflyt.Infrastructure/Alisflyt.Infrastructure.csproj --startup-project Alisflyt.Web/Alisflyt.Web.csproj --context Alisflyt.Infrastructure.Persistence.ApplicationDbContext
-```
-
-## Starte løsningen
-
-```powershell
-dotnet run --project Alisflyt.Web/Alisflyt.Web.csproj
-```
-
-Terminalen viser adressen applikasjonen lytter på. Stopp den med `Ctrl+C`.
-
-Du kan også starte `Alisflyt.Web` som oppstartsprosjekt fra Visual Studio.
-
-## Søknadsskjema
-
-Velg **Gå til ALIS → Ny søknad** for samme totrinnsskjema som i Tilskuddsapp:
-
-1. Søknadsopplysninger med lege, ALIS-avtale, stillingsperioder og refusjonsutgifter.
-2. Veiledningsattest med veileder, veiledningsøkter, timeoversikt og sted/dato.
-
-**Lagre utkast** lagrer begge trinnene. Lenken **Til saksoversikt og innsending** åpner saken for innsending. **Rediger** åpner begge trinnene igjen, også når saken er returnert for korrigering. ALIS og koordinator kan bruke **Vis hele søknaden og veiledningsattesten** for lesetilgang.
-
-Eksisterende utkast beholder HPR-nummer og ansettelsesperiode, som vises som første stillingsrad. Nye skjemadata lagres i `GrantCases.ApplicationDataJson`. Migrasjonen `AddGrantApplicationData` kjøres automatisk ved oppstart i Development; i andre miljøer brukes migrasjonskommandoen ovenfor.
-
-HPR-oppslag, tilskuddsberegning og elektronisk signering er fortsatt ikke tilgjengelig.
-
-## GitHub Actions
-
-Ved push til `main` og pull requests mot `main` kjører GitHub Actions automatisk:
-
-- Domain-, Application- og Web-tester på Ubuntu
-- LocalDB-integrasjonstester på Windows
-
-Begge jobbene skal normalt være grønne før en pull request merges.
-
-## Sikkerhet og testdata
-
-- Ikke legg secrets, passord eller produksjons-connection strings i Git.
-- Ikke bruk ekte personopplysninger i utvikling eller demonstrasjon.
-- Bruk kun syntetiske testdata.
-- Produksjonsklar autentisering og autorisasjon er ikke implementert.
-
-Merk: Dette er en prototype. ALIS ser foreløpig demo-/testdata og er ikke filtrert på innlogget bruker. Autentisering, autorisasjon og produksjonsintegrasjoner er ikke ferdigstilt.
-
-## Videre lesing
-
-- [Bidra til ALISflyt](CONTRIBUTING.md)
-- [Arkitektur](docs/architecture.md)
