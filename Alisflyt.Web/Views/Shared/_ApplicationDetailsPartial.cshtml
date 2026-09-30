@@ -1,0 +1,141 @@
+@model Alisflyt.Domain.Forms.GrantApplicationData
+
+<div class="application-details">
+	<h3>Søknadsdetaljer</h3>
+
+@{
+	// Local helpers for presentation (small, view-local utilities)
+	string EnumDisplay(object? v)
+	{
+		if (v is null) return "-";
+		if (v is System.Enum e)
+		{
+			var name = e.ToString();
+			var mem = v.GetType().GetMember(name);
+			if (mem != null && mem.Length > 0)
+			{
+				var attrs = mem[0].GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false);
+				if (attrs != null && attrs.Length > 0)
+				{
+					var da = (System.ComponentModel.DataAnnotations.DisplayAttribute)attrs[0];
+					if (!string.IsNullOrWhiteSpace(da.Name)) return da.Name;
+				}
+			}
+			return name;
+		}
+		return v.ToString() ?? "-";
+	}
+
+	string DateOnlyDisplay(DateOnly? d) => d.HasValue ? d.Value.ToString("dd.MM.yyyy") : "-";
+	string AmountDisplay(decimal? v) => v.HasValue ? v.Value.ToString("N0") : "-";
+	string PercentDisplay(decimal? v) => v.HasValue ? string.Format("{0:0.##}%", v.Value) : "-";
+}
+	@if (Model is null)
+	{
+		<p class="text-muted">Ingen søknadsdata tilgjengelig.</p>
+	}
+	else
+	{
+		<dl class="row">
+			<dt class="col-sm-3">Navn</dt>
+			<dd class="col-sm-9">@Model.DoctorName</dd>
+
+			<dt class="col-sm-3">Tilskuddstype</dt>
+			<dd class="col-sm-9">@EnumDisplay(Model.GrantType)</dd>
+
+			<dt class="col-sm-3">Første gang som fastlege/fastlegevikar</dt>
+			<dd class="col-sm-9">@DateOnlyDisplay(Model.FirstRegularGpOrLocumDate)</dd>
+
+			<dt class="col-sm-3">Valgte stillingstyper</dt>
+			<dd class="col-sm-9">
+				@if (Model.SelectedPositionTypes != null && Model.SelectedPositionTypes.Count > 0)
+				{
+					<ul>
+						@foreach (var t in Model.SelectedPositionTypes)
+						{
+							<li>@EnumDisplay(t)</li>
+						}
+					</ul>
+				}
+				else { <span>-</span> }
+			</dd>
+
+			<dt class="col-sm-3">Stillingsperioder</dt>
+			<dd class="col-sm-9">
+				@if (Model.EmploymentPeriods != null && Model.EmploymentPeriods.Count > 0)
+				{
+					<table class="table table-sm">
+						<thead><tr><th>Type</th><th>%</th><th>Ansatt fra</th><th>Tilskudd fra</th><th>Tilskudd til</th></tr></thead>
+						<tbody>
+							@foreach (var p in Model.EmploymentPeriods)
+							{
+								<tr>
+									<td>@(p.PositionType.HasValue ? EnumDisplay(p.PositionType) : "-")</td>
+									<td>@PercentDisplay(p.PositionPercentage)</td>
+									<td>@DateOnlyDisplay(p.EmploymentStartDate)</td>
+									<td>@DateOnlyDisplay(p.FundingFrom)</td>
+									<td>@DateOnlyDisplay(p.FundingThrough)</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+				else { <span>-</span> }
+			</dd>
+
+			<dt class="col-sm-3">Fraværskompensering</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.AbsenceCompensation)</dd>
+
+			<dt class="col-sm-3">Kurs-/aktivitetskostnader</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.LearningActivityExpenses)</dd>
+
+			<dt class="col-sm-3">Veiledningskostnader</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.SupervisionExpenses)</dd>
+
+			<dt class="col-sm-3">Har merkostnader for veiledning?</dt>
+			<dd class="col-sm-9">@(Model.HasAdditionalSupervisionCosts.HasValue ? (Model.HasAdditionalSupervisionCosts.Value ? "Ja" : "Nei") : "-")</dd>
+
+			<dt class="col-sm-3">Merkostnader (beløp)</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.AdditionalSupervisionCosts)</dd>
+
+			<dt class="col-sm-3">Sentralitetsgrad 6</dt>
+			<dd class="col-sm-9">@(Model.IsCentralityGrade6.HasValue ? (Model.IsCentralityGrade6.Value ? "Ja" : "Nei") : "-")</dd>
+
+			<dt class="col-sm-3">Sentralitetstillegg (ønsket beløp)</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.CentralitySupplementRequestedAmount)</dd>
+
+			<dt class="col-sm-3">Veileder</dt>
+			<dd class="col-sm-9">@(Model.Certificate?.SupervisorName ?? "-")</dd>
+
+			<dt class="col-sm-3">ALIS-lege (i attest)</dt>
+			<dd class="col-sm-9">@(Model.Certificate?.DoctorName ?? "-")</dd>
+
+			<dt class="col-sm-3">Veiledningsøkter</dt>
+			<dd class="col-sm-9">
+				@if (Model.Certificate?.Sessions != null && Model.Certificate.Sessions.Count > 0)
+				{
+					<table class="table table-sm">
+						<thead><tr><th>Dato</th><th>Timer</th><th>Emne</th></tr></thead>
+						<tbody>
+							@foreach (var s in Model.Certificate.Sessions)
+							{
+								<tr>
+									<td>@DateOnlyDisplay(s.Date)</td>
+									<td>@(s.Hours.HasValue ? s.Hours.Value.ToString("0.##") : "-")</td>
+									<td>@(string.IsNullOrWhiteSpace(s.Topic) ? "-" : s.Topic)</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+				else { <span>-</span> }
+			</dd>
+
+			<dt class="col-sm-3">Signering</dt>
+			<dd class="col-sm-9">
+				<div><strong>ALIS:</strong> @(Model.Certificate?.DoctorSigningPlace ?? "-") — @(DateOnlyDisplay(Model.Certificate?.DoctorSigningDate))</div>
+				<div><strong>Veileder:</strong> @(Model.Certificate?.SupervisorSigningPlace ?? "-") — @(DateOnlyDisplay(Model.Certificate?.SupervisorSigningDate))</div>
+			</dd>
+		</dl>
+	}
+</div>

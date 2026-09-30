@@ -83,8 +83,38 @@ namespace Alisflyt.Web.Controllers
                 LastModifiedAtUtc = d.LastModifiedAtUtc
                 ,
                 ReturnReason = d.ReturnReason,
-                ReturnedAtUtc = d.ReturnedAtUtc
+                ReturnedAtUtc = d.ReturnedAtUtc,
+                ApplicationData = d.ApplicationData
             };
+
+            try
+            {
+                var calcSvc = HttpContext?.RequestServices.GetService(typeof(Alisflyt.Application.Services.IGrantCalculationApplicationService)) as Alisflyt.Application.Services.IGrantCalculationApplicationService;
+                if (calcSvc is not null)
+                {
+                    var calc = await calcSvc.CalculateForCaseAsync(d.Id, cancellationToken).ConfigureAwait(false);
+                    vm = new CoordinatorCaseDetailsViewModel
+                    {
+                        Id = vm.Id,
+                        CaseNumber = vm.CaseNumber,
+                        HprNumber = vm.HprNumber,
+                        EmploymentPercentage = vm.EmploymentPercentage,
+                        EmploymentStartDate = vm.EmploymentStartDate,
+                        EmploymentEndDate = vm.EmploymentEndDate,
+                        Status = vm.Status,
+                        CreatedAtUtc = vm.CreatedAtUtc,
+                        LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReturnReason = vm.ReturnReason,
+                        ReturnedAtUtc = vm.ReturnedAtUtc,
+                        ApplicationData = vm.ApplicationData,
+                        Calculation = calc
+                    };
+                }
+            }
+            catch
+            {
+                // Ignore calculation errors and render details without calculation.
+            }
 
             return View("~/Views/Coordinator/Details.cshtml", vm);
         }

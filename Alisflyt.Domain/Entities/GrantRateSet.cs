@@ -20,6 +20,7 @@ namespace Alisflyt.Domain.Entities
 
         // Lower productivity
         public decimal ProductivityMaxAmount { get; private set; }
+        public int ProductivityEligibilityMonths { get; private set; }
 
         // Guidance
         public decimal GuidanceRate { get; private set; }
@@ -46,6 +47,7 @@ namespace Alisflyt.Domain.Entities
             decimal practiceCompensationMaxHours,
             decimal learningActivitiesMaxAmount,
             decimal productivityMaxAmount,
+            int productivityEligibilityMonths,
             decimal guidanceRate,
             decimal guidanceHoursPerYear,
             decimal facilitationRate,
@@ -63,6 +65,7 @@ namespace Alisflyt.Domain.Entities
 
             LearningActivitiesMaxAmount = learningActivitiesMaxAmount;
             ProductivityMaxAmount = productivityMaxAmount;
+            ProductivityEligibilityMonths = productivityEligibilityMonths;
 
             GuidanceRate = guidanceRate;
             GuidanceHoursPerYear = guidanceHoursPerYear;
@@ -86,6 +89,7 @@ namespace Alisflyt.Domain.Entities
             decimal practiceCompensationMaxHours,
             decimal learningActivitiesMaxAmount,
             decimal productivityMaxAmount,
+            int productivityEligibilityMonths,
             decimal guidanceRate,
             decimal guidanceHoursPerYear,
             decimal facilitationRate,
@@ -125,6 +129,11 @@ namespace Alisflyt.Domain.Entities
             if (productivityMaxAmount < 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(productivityMaxAmount));
+            
+            if (productivityEligibilityMonths <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(productivityEligibilityMonths),
+                    "Productivity eligibility months must be greater than zero.");
 
             if (guidanceRate < 0)
                 throw new ArgumentOutOfRangeException(
@@ -152,6 +161,7 @@ namespace Alisflyt.Domain.Entities
                 practiceCompensationMaxHours,
                 learningActivitiesMaxAmount,
                 productivityMaxAmount,
+                productivityEligibilityMonths,
                 guidanceRate,
                 guidanceHoursPerYear,
                 facilitationRate,

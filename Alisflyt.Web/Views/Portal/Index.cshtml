@@ -1,140 +1,300 @@
 @model Alisflyt.Web.ViewModels.Portals.PortalEntryViewModel
 
 @{
-	ViewData["Title"] = "Portal";
+    ViewData["Title"] = "Portal";
 }
 
 <div class="container">
-	<div class="row mb-4">
-		<div class="col-12">
-			<h1 class="display-6">ALISflyt — Demoportal</h1>
-			<p class="lead">ALISflyt er et forslag til en digital arbeidsflate for søknad og behandling av kommunale ALIS-tilskudd. Informasjon registreres én gang og gjenbrukes gjennom prosessen, slik at brukerne får bedre oversikt og koordinator kan bruke mer tid på kontroll og behandling.</p>
-			<p class="text-muted">Dette er en tidlig prototype med testdata.</p>
-			<div class="alert alert-warning" role="alert">@Model.DemoNotice</div>
-		</div>
-	</div>
 
-	<!-- Role cards -->
-	<div class="row g-3 mb-4">
-		<div class="col-12 col-md-4 d-flex">
-			<div class="card w-100 shadow-sm d-flex flex-column">
-				<div class="card-body d-flex flex-column">
-				<h5 class="card-title">ALIS</h5>
-				<ul class="card-text mb-3">
-					<li>Opprett søknad og lagre utkast</li>
-					<li>Rediger og send inn søknad</li>
-					<li>Se returbegrunnelse og tidspunkt ved retur</li>
-				</ul>
-					<div class="mt-auto">
-						<a asp-controller="Alis" asp-action="Index" class="btn btn-primary">Gå til ALIS</a>
-					</div>
-				</div>
-			</div>
-		</div>
+    <!-- Intro -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6">ALISflyt — Demoportal</h1>
 
-		<div class="col-12 col-md-4 d-flex">
-			<div class="card w-100 shadow-sm d-flex flex-column">
-				<div class="card-body d-flex flex-column">
-				<h5 class="card-title">Koordinator</h5>
-				<ul class="card-text mb-3">
-					<li>Oversikt over mottatte søknader</li>
-					<li>Start behandling av innsendte saker</li>
-					<li>Returner sak for korrigering (med begrunnelse)</li>
-				</ul>
-					<div class="mt-auto">
-						<a asp-controller="Coordinator" asp-action="Index" class="btn btn-primary">Gå til koordinator</a>
-					</div>
-				</div>
-			</div>
-		</div>
+            <p class="lead">
+                ALISflyt er en prototype på en digital arbeidsflate for søknad og behandling av
+                kommunale ALIS-tilskudd. Målet er å samle søknadsopplysninger, beregningsgrunnlag
+                og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang
+                og gjenbrukes videre i prosessen.
+            </p>
 
-		<div class="col-12 col-md-4 d-flex">
-			<div class="card w-100 shadow-sm d-flex flex-column">
-				<div class="card-body d-flex flex-column">
-				<h5 class="card-title">Veileder <span class="badge bg-secondary">Planlagt funksjonalitet</span></h5>
-				<ul class="card-text mb-3">
-					<li>Registrer/bekreft veiledningstimer</li>
-					<li>Følg relevante oppgaver</li>
-				</ul>
-					<div class="mt-auto">
-						<a asp-controller="Guidance" asp-action="Index" class="btn btn-outline-primary">Se veilederområdet</a>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+            <p class="text-muted">
+                Løsningen er under utvikling og bruker testdata. Den skal ikke forstås som et ferdig produksjonssystem.
+            </p>
 
-	<!-- Planned main process -->
-	<div class="row mb-4">
-		<div class="col-12">
-			<h3>Planlagt hovedprosess</h3>
-			<p class="text-muted">Dette viser målbildet for hele løpet fra søknad til utbetaling. Ikke alle trinn er implementert ennå.</p>
-		</div>
+            <div class="alert alert-warning" role="alert">
+                @Model.DemoNotice
+            </div>
+        </div>
+    </div>
 
-		<div class="col-12">
-			<div class="d-flex flex-column flex-md-row align-items-start gap-3">
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>ALIS søker</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Registrering og avstemming av veiledning</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Kontroll og avvik</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Beregning av tilskudd</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Revisorgodkjenning av beregningsgrunnlag</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Innsending til Helsedirektoratet</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Mottak av vedtak</strong>
-				</div>
-				<div class="border rounded p-3 flex-grow-1 text-center">
-					<strong>Fordeling og utbetaling</strong>
-				</div>
-			</div>
-		</div>
+    <!-- Role cards -->
+    <div class="row g-3 mb-4">
 
-		<div class="col-12 mt-3">
-			<div class="card shadow-sm">
-				<div class="card-body">
-					<h5 class="card-title">Planlagt funksjonalitet</h5>
-					<ul class="mb-0">
-						<li>Automatisk avstemming av veiledningstimer og varsling ved avvik</li>
-						<li>Regelstyrt beregning og fordelingsgrunnlag for tilskudd</li>
-						<li>Sporbar revisorgodkjenning med dokumentasjon i saken</li>
-						<li>Varsling til relevante roller og økonomiavdeling ved vedtak</li>
-						<li>Rapportering og eksport</li>
-					</ul>
-				</div>
-			</div>
-		</div>
-	</div>
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card w-100 shadow-sm d-flex flex-column">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">ALIS</h5>
 
-	<!-- Demonstrable features -->
-	<div class="row mb-4">
-		<div class="col-12 col-md-8">
-			<h3>Dette kan demonstreres nå</h3>
-			<ul>
-				<li>Opprette og lagre utkast</li>
-				<li>Redigere søknadsopplysninger</li>
-				<li>Validere og sende inn søknad</li>
-				<li>Se samme sak fra ALIS- og koordinatorperspektiv</li>
-				<li>Koordinator kan starte behandling av innsendinger</li>
-				<li>Koordinator kan returnere en sak for korrigering med obligatorisk begrunnelse</li>
-				<li>ALIS ser returbegrunnelse og tidspunkt, kan redigere og sende inn på nytt</li>
-				<li>Norske statusetiketter vises i grensesnittet</li>
-			</ul>
-		</div>
-		<div class="col-12 col-md-4">
-			<h5>Prototype</h5>
-			<p class="small text-muted">Dette er en prototype med testdata. Innlogging, tilgangsstyring og full saksbehandling er ikke implementert.</p>
-		</div>
-	</div>
+                    <ul class="card-text mb-3">
+                        <li>Opprett og lagre søknadsutkast</li>
+                        <li>Registrer søknads- og beregningsgrunnlag</li>
+                        <li>Se beregnet tilskudd før innsending</li>
+                        <li>Rediger og send inn søknad</li>
+                        <li>Se returbegrunnelse ved korrigering</li>
+                    </ul>
+
+                    <div class="mt-auto">
+                        <a asp-controller="Alis"
+                           asp-action="Index"
+                           class="btn btn-primary">
+                            Gå til ALIS
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card w-100 shadow-sm d-flex flex-column">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">Koordinator</h5>
+
+                    <ul class="card-text mb-3">
+                        <li>Se oversikt over mottatte søknader</li>
+                        <li>Se søknadsopplysninger og beregningsresultat</li>
+                        <li>Start behandling av innsendte saker</li>
+                        <li>Returner sak for korrigering med begrunnelse</li>
+                    </ul>
+
+                    <div class="mt-auto">
+                        <a asp-controller="Coordinator"
+                           asp-action="Index"
+                           class="btn btn-primary">
+                            Gå til koordinator
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card w-100 shadow-sm d-flex flex-column">
+                <div class="card-body d-flex flex-column">
+
+                    <h5 class="card-title">
+                        Veileder
+                        <span class="badge bg-secondary">Planlagt funksjonalitet</span>
+                    </h5>
+
+                    <ul class="card-text mb-3">
+                        <li>Egen innlogging og arbeidsflate</li>
+                        <li>Registrere og bekrefte veiledning</li>
+                        <li>Følge relevante saker og oppgaver</li>
+                    </ul>
+
+                    <div class="mt-auto">
+                        <a asp-controller="Guidance"
+                           asp-action="Index"
+                           class="btn btn-outline-primary">
+                            Se veilederområdet
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Current status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3>Dette fungerer i prototypen nå</h3>
+
+            <p class="text-muted">
+                Følgende deler av søknads- og beregningsflyten er implementert og kan demonstreres.
+            </p>
+        </div>
+
+        <div class="col-12 col-lg-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Søknad og saksflyt</h5>
+
+                    <ul class="mb-0">
+                        <li>Opprette og lagre ufullstendige utkast</li>
+                        <li>Redigere lagrede søknadsopplysninger</li>
+                        <li>Registrere stillingsperioder og spesialiseringsopplysninger</li>
+                        <li>Registrere kostnader og opplysninger om sentralitet</li>
+                        <li>Validere søknaden før innsending</li>
+                        <li>Sende inn søknad</li>
+                        <li>Se samme sak fra ALIS- og koordinatorperspektiv</li>
+                        <li>Returnere sak for korrigering og sende inn på nytt</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Automatisk beregning</h5>
+
+                    <ul class="mb-0">
+                        <li>Valg av satssett ut fra søknadsperioden</li>
+                        <li>Beregning av kompensasjon ved fravær</li>
+                        <li>Beregning av læringsaktiviteter</li>
+                        <li>Beregning av produktivitetselement</li>
+                        <li>Beregning av veiledning</li>
+                        <li>Beregning av tilrettelegging</li>
+                        <li>Beregning av sentralitetstillegg</li>
+                        <li>Samlet beregnet tilskuddsbeløp</li>
+                        <li>Forhåndsvisning av beregningen før innsending</li>
+                        <li>Forklaring når enkelte beregningselementer ikke er aktuelle</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prototype limitations -->
+    <div class="row mb-4">
+        <div class="col-12">
+
+            <div class="alert alert-info" role="note">
+                <h5 class="alert-heading">Rammer for beregningen i denne prototypen</h5>
+
+                <p>
+                    Beregningen bruker foreløpig satssettet for perioden
+                    <strong>01.06.2025–31.05.2026</strong>.
+                    Dersom tilskuddsperioden starter utenfor denne perioden,
+                    kan systemet ikke beregne tilskudd.
+                </p>
+
+                <p>
+                    Sentralitetstillegg beregnes bare når søknaden gjelder
+                    <strong>ALIS-avtale inkl. veiledning</strong>
+                    og kommunen er registrert med sentralitetsgrad 6.
+                </p>
+
+                <p class="mb-0">
+                    Enkelte regler og satser er fortsatt under avklaring og kan bli justert i senere versjoner.
+                    Rammene beskriver derfor hva prototypen støtter nå, og ikke nødvendigvis endelig regelverk.
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Planned main process -->
+    <div class="row mb-4">
+
+        <div class="col-12">
+            <h3>Planlagt hovedprosess</h3>
+
+            <p class="text-muted">
+                Dette viser målbildet for hele løpet fra søknad til utbetaling.
+                Ikke alle trinn er implementert ennå.
+            </p>
+        </div>
+
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row align-items-start gap-3">
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>ALIS søker</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Veiledning registreres</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Kontroll og avvik</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Beregning av tilskudd</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Revisorgodkjenning</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Innsending til Helsedirektoratet</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Mottak av vedtak</strong>
+                </div>
+
+                <div class="border rounded p-3 flex-grow-1 text-center">
+                    <strong>Fordeling og utbetaling</strong>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Planned functionality -->
+    <div class="row mb-4">
+
+        <div class="col-12">
+            <div class="card shadow-sm">
+
+                <div class="card-body">
+
+                    <h5 class="card-title">Planlagt videre funksjonalitet</h5>
+
+                    <ul class="mb-0">
+                        <li>Egen innlogging og rollebasert tilgang for ALIS, koordinator og veileder</li>
+                        <li>Egen arbeidsflate for veileder og håndtering av veiledningsattest</li>
+                        <li>Automatisk avstemming av veiledningstimer og varsling ved avvik</li>
+                        <li>Videre kvalitetssikring av satser og beregningsregler</li>
+                        <li>Støtte for flere satsperioder og historiske satssett</li>
+                        <li>Sporbar revisorgodkjenning av beregningsgrunnlag</li>
+                        <li>Arkivering og eventuell integrasjon mot kommunens sak-/arkivsystem</li>
+                        <li>Varsling til relevante roller og økonomiavdeling</li>
+                        <li>Rapportering og eksport</li>
+                        <li>Tilrettelegging for bruk i flere kommuner</li>
+                    </ul>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Prototype note -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8">
+
+            <h3>Om demonstrasjonen</h3>
+
+            <p>
+                Prototypen viser hvordan flere deler av dagens manuelle prosess kan samles
+                i én digital arbeidsflyt. Særlig beregningsgrunnlag og tilskuddsberegning
+                er nå koblet direkte til opplysningene som registreres i søknaden.
+            </p>
+
+            <p class="mb-0">
+                Videre utvikling vil bygge videre på den samme saken og datamodellen,
+                slik at nye roller og prosesstrinn kan kobles på uten å opprette separate
+                parallelle løsninger.
+            </p>
+
+        </div>
+
+        <div class="col-12 col-md-4">
+            <h5>Prototype</h5>
+
+            <p class="small text-muted">
+                Dette er en prototype med testdata.
+                Full innlogging, tilgangsstyring, arkivintegrasjon og komplett produksjonsklar
+                saksbehandling er ikke implementert.
+            </p>
+        </div>
+    </div>
+
 </div>
-
