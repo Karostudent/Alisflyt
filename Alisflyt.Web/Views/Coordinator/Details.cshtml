@@ -2,7 +2,10 @@
 
 @{
 	ViewData["Title"] = "Sak (Koordinator)";
+	ViewData["RoleHelpText"] = "Her behandles innsendte søknader.";
 }
+
+<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model='@("Koordinatorvisning")' />
 
 <h2>Sak @Model.CaseNumber</h2>
 <p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>

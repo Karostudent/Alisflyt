@@ -3,6 +3,10 @@
 @{
 	ViewData["Title"] = "Søknad";
 }
+@{
+	ViewData["RoleHelpText"] = "Her vises den lagrede søknaden og beregningsresultatet.";
+}
+<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "ALIS-visning" )" />
 
 <h2>Søknad @Model.CaseNumber</h2>
 <p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>

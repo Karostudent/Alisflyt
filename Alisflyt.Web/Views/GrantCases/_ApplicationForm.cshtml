@@ -20,7 +20,7 @@
             <p>På denne siden legger dere inn opplysninger om den enkelte lege som dere søker tilskudd for.</p>
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
-                    <label asp-for="HprNumber" class="form-label">HPR-nummer for legen *</label>
+                    <label asp-for="HprNumber" class="form-label">HPR-nummer for legen <span class="text-danger">*</span></label>
                     <input asp-for="HprNumber" class="form-control" />
                 </div>
                 <div class="col-md-8">
@@ -31,9 +31,9 @@
                     <small id="professions-help" class="text-muted">Skill flere profesjoner med komma.</small>
                 </div>
             </div>
-            <div class="form-check mb-4">
+                <div class="form-check mb-4">
                 <input asp-for="ConfirmsSpecialization" class="form-check-input" />
-                <label asp-for="ConfirmsSpecialization" class="form-check-label">Vi bekrefter at legen er under spesialisering i allmennmedisin i ny ordning for spesialistutdanning *</label>
+                <label asp-for="ConfirmsSpecialization" class="form-check-label">Vi bekrefter at legen er under spesialisering i allmennmedisin i ny ordning for spesialistutdanning <span class="text-danger">*</span></label>
             </div>
             <div class="mb-4">
                 <label asp-for="SpecializationStartDate" class="form-label">Når startet legen spesialiseringsløpet? *</label>
@@ -45,7 +45,7 @@
                 <input asp-for="ExpectedCompletionDate" type="date" class="form-control date-input" />
             </div>
             <fieldset class="mb-4">
-                <legend>Tilskuddet gjelder *</legend>
+                <legend>Tilskuddet gjelder <span class="text-danger">*</span></legend>
                 @foreach (var option in Html.GetEnumSelectList<GrantType>())
                 {
                     <div class="form-check">
@@ -58,23 +58,23 @@
                 <legend class="visually-hidden">ALIS-avtale</legend>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsAlisAgreement" class="form-check-input" />
-                    <label asp-for="ConfirmsAlisAgreement" class="form-check-label">Vi bekrefter at det er inngått ALIS-avtale mellom legen og kommunen. *</label>
+                    <label asp-for="ConfirmsAlisAgreement" class="form-check-label">Vi bekrefter at det er inngått ALIS-avtale mellom legen og kommunen. <span class="text-danger">*</span></label>
                 </div>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-input" />
-                    <label asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-label">Vi bekrefter at vi har benyttet Helsedirektoratets mal for ALIS-avtale. *</label>
+                    <label asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-label">Vi bekrefter at vi har benyttet Helsedirektoratets mal for ALIS-avtale. <span class="text-danger">*</span></label>
                 </div>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-input" />
-                    <label asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-label">Vi bekrefter at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet. *</label>
+                    <label asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-label">Vi bekrefter at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet. <span class="text-danger">*</span></label>
                 </div>
                 <div class="mb-4">
-                    <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? *</label>
+                    <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? <span class="text-danger">*</span></label>
                     <input asp-for="AgreementEffectiveFrom" type="date" class="form-control date-input" />
                 </div>
             </fieldset>
             <fieldset class="mb-4">
-                <legend>Hvilke stillinger har legen hatt i perioden det søkes tilskudd for? *</legend>
+                <legend>Hvilke stillinger har legen hatt i perioden det søkes tilskudd for? <span class="text-danger">*</span></legend>
                 @foreach (var option in Html.GetEnumSelectList<PositionType>())
                 {
                     <div class="form-check">
@@ -83,6 +83,7 @@
                     </div>
                 }
             </fieldset>
+            <div class="form-text mb-3">Du må legge til minst én komplett stillingsperiode før søknaden kan sendes inn.</div>
                 <div class="mb-4">
                     <label asp-for="FirstRegularGpOrLocumDate" class="form-label">
                         Når startet legen første gang som fastlege eller fastlegevikar?
@@ -184,9 +185,7 @@
             <div class="mb-4"
                  id="centralitySupplementSection">
                 <label asp-for="CentralitySupplementRequestedAmount"
-                       class="form-label">
-                    Søkt beløp for sentralitetstillegg
-                </label>
+                       class="form-label">Søkt beløp for sentralitetstillegg <span class="text-danger">*</span></label>
 
                 <input asp-for="CentralitySupplementRequestedAmount"
                        class="form-control"
@@ -195,7 +194,7 @@
                        step="1" />
 
                 <div class="form-text">
-                    Oppgi beløpet kommunen søker om i sentralitetstillegg.
+                    Oppgi beløpet kommunen søker om i sentralitetstillegg. Dette feltet er obligatorisk når kommunen har sentralitetsgrad 6.
                 </div>
             </div>
         <div class="form-actions">

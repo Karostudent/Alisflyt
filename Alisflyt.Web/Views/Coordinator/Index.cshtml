@@ -4,6 +4,10 @@
 	ViewData["Title"] = "Koordinator Dashboard";
 }
 
+@{
+	ViewData["RoleHelpText"] = "Her behandles innsendte søknader.";
+}
+<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "Koordinatorvisning" )" />
 <h2>Koordinator Dashboard</h2>
 
 <form method="get">
