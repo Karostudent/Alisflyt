@@ -21,13 +21,13 @@
 	</select>
 </form>
 
-<table class="table mt-3">
+<table class="table mt-3 sortable-table">
 	<thead>
 		<tr>
-			<th>Saksnummer</th>
-			<th>HPR</th>
-			<th>Status</th>
-			<th>Sist endret</th>
+			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
+			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Sist endret <span class="sort-indicator"></span></th>
 			<th></th>
 		</tr>
 	</thead>
@@ -38,7 +38,7 @@
 			<td>@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
 		<td>@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</td>
-			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+		<td data-sort-value="@c.LastModifiedAtUtc.ToLocalTime().ToString("o")">@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
 			<td><a asp-controller="Coordinator" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
 		</tr>
 }
