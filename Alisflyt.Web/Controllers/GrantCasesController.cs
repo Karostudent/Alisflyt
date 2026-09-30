@@ -151,6 +151,20 @@ namespace Alisflyt.Web.Controllers
         }
 
         [HttpGet]
+        public async Task<IActionResult> CalculationPreview(Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var calcSvc = (Alisflyt.Application.Services.IGrantCalculationApplicationService?)HttpContext?.RequestServices.GetService(typeof(Alisflyt.Application.Services.IGrantCalculationApplicationService));
+                if (calcSvc == null) return StatusCode(500);
+                var calc = await calcSvc.CalculateForCaseAsync(id, cancellationToken).ConfigureAwait(false);
+                return PartialView("_CalculationResultPartial", calc);
+            }
+            catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(); }
+            catch { return StatusCode(500); }
+        }
+
+        [HttpGet]
         public async Task<IActionResult> Edit(Guid id, CancellationToken cancellationToken)
         {
             Alisflyt.Application.Models.GrantCaseDto d;

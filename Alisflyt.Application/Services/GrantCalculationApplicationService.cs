@@ -80,12 +80,32 @@ namespace Alisflyt.Application.Services
                 GuidanceAmount = result.GuidanceAmount,
                 FacilitationAmount = result.FacilitationAmount,
                 CentralitySupplementAmount = result.CentralitySupplementAmount,
+                CentralityExplanation = DetermineCentralityExplanation(input, result),
 
                 RateSetId = chosen.Id,
                 RateSetName = chosen.Name,
                 RateSetValidFrom = chosen.ValidFrom,
                 RateSetValidTo = chosen.ValidTo
             };
+        }
+
+        private static string? DetermineCentralityExplanation(GrantCalculationInput input, Alisflyt.Application.Models.GrantCalculationResult result)
+        {
+            // Reasons centrality supplement ends up zero according to GrantCalculationService.CalculateCentralitySupplement
+            // 1) Not centrality grade 6
+            if (!input.IsCentralityGrade6)
+                return "Sentralitetstillegg er ikke aktuelt fordi kommunen ikke er registrert med sentralitetsgrad 6.";
+
+            // 2) Grant type does not grant centrality supplement
+            if (input.GrantType != Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision)
+                return "Sentralitetstillegg er bare aktuelt ved tilskudd til ALIS-avtale inkl. veiledning.";
+
+            // 3) Requested amount missing or zero
+            if (input.CentralitySupplementRequestedAmount <= 0)
+                return "Sentralitetstillegg kan ikke beregnes fordi søkt beløp ikke er oppgitt.";
+
+            // 4) Otherwise no explanation (either positive amount or capped by max but non-zero)
+            return null;
         }
     }
 }

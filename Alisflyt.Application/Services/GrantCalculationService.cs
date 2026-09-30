@@ -40,8 +40,40 @@ public class GrantCalculationService
             ProductivityAmount = productivity,
             GuidanceAmount = guidance,
             FacilitationAmount = facilitation,
-            CentralitySupplementAmount = centralitySupplement
+            CentralitySupplementAmount = centralitySupplement,
+            CentralityExplanation = DetermineCentralityExplanation(input, centralitySupplement)
         };
+    }
+
+    private static string? DetermineCentralityExplanation(GrantCalculationInput input, decimal centralitySupplement)
+    {
+        // Mirror the same conditions used by CalculateCentralitySupplement
+        if (!input.IsCentralityGrade6)
+            return "Sentralitetstillegg er ikke aktuelt fordi kommunen ikke er registrert med sentralitetsgrad 6.";
+
+        if (input.GrantType != Domain.Forms.GrantType.AlisAgreementIncludingSupervision)
+            return "Sentralitetstillegg er bare aktuelt ved tilskudd til ALIS-avtale inkl. veiledning.";
+
+        if (input.CentralitySupplementRequestedAmount <= 0)
+            return "Sentralitetstillegg kan ikke beregnes fordi søkt beløp ikke er oppgitt.";
+
+        // If supplement computed to a positive value, provide a short explanation
+        if (centralitySupplement > 0)
+        {
+            if (input.CentralitySupplementRequestedAmount >= centralitySupplement)
+            {
+                // Requested amount used (or equal to capped amount)
+                return "Sentralitetstillegg basert på søkt beløp eller maksgrense for perioden.";
+            }
+            else
+            {
+                // Capped by maximum
+                return "Sentralitetstillegg er begrenset av maksimalgrensen for perioden.";
+            }
+        }
+
+        // Otherwise no specific explanation available here
+        return null;
     }
 
     private static decimal CalculatePracticeCompensation(

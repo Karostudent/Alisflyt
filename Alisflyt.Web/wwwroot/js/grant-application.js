@@ -18,6 +18,39 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
         toggleFields("additional-costs-fields",
             form.querySelector('input[name="HasAdditionalSupervisionCosts"]:checked')?.value === "true");
     };
+
+    // Update conditional required markers
+    const updateConditionalRequired = () => {
+        // Agreement fields: show/hide conditional * markers
+        const agreementVisible = form.querySelector('input[name="GrantType"]:checked')?.value === "1";
+        form.querySelectorAll('.conditional-required').forEach(el => {
+            if (agreementVisible) el.classList.remove('d-none'); else el.classList.add('d-none');
+        });
+
+        // Additional supervision costs
+        const addCostsVisible = form.querySelector('input[name="HasAdditionalSupervisionCosts"]:checked')?.value === "true";
+        document.querySelectorAll('[asp-for="AdditionalSupervisionCosts"], #additional-costs-fields .conditional-required').forEach(el => {
+            // No-op: additional-costs-fields uses its own markup; handled by visibility of the fieldset
+        });
+
+        // Centrality supplement required marker handled by existing show/hide logic for section
+        const centralityYes = document.getElementById('centralityYes');
+        const centralityRequiredMarkers = document.querySelectorAll('#centralitySupplementSection .text-danger');
+        if (centralityYes && centralityYes.checked) {
+            centralityRequiredMarkers.forEach(m => m.classList.remove('d-none'));
+        } else {
+            centralityRequiredMarkers.forEach(m => m.classList.add('d-none'));
+        }
+
+        // FirstRegularGpOrLocumDate required when RegularGpOrLocum position type is selected
+        const regularCheckbox = Array.from(form.querySelectorAll('input[name="SelectedPositionTypes"]')).some(cb => cb.value === '1' && cb.checked);
+        const firstRegularMarker = document.querySelector('label[for="FirstRegularGpOrLocumDate"] .conditional-required');
+        if (firstRegularMarker) {
+            if (regularCheckbox) firstRegularMarker.classList.remove('d-none'); else firstRegularMarker.classList.add('d-none');
+        }
+    };
+    form.addEventListener('change', updateConditionalRequired);
+    updateConditionalRequired();
     form.addEventListener("change", updateSections);
     updateSections();
 
@@ -231,6 +264,19 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                 window.history.replaceState(null, "", result.editUrl);
                 dirty = changeVersion !== savedChangeVersion;
                 status.textContent = dirty ? "Utkastet er lagret, men du har nye endringer som ikke er lagret." : result.message;
+                    // After saving draft, attempt to refresh calculation preview
+                    try {
+                        const previewContainer = document.getElementById('calculation-preview');
+                        if (previewContainer && result.id) {
+                            const url = new URL(window.location.origin + '/GrantCases/CalculationPreview');
+                            url.searchParams.set('id', result.id);
+                            const pv = await fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                            if (pv.ok) {
+                                const html = await pv.text();
+                                previewContainer.innerHTML = html;
+                            }
+                        }
+                    } catch (e) { /* ignore preview errors */ }
             } catch (error) {
                 status.textContent = error.message || "Lagring feilet. Prøv igjen.";
             } finally {

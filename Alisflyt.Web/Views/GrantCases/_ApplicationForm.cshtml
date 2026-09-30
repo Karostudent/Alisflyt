@@ -58,18 +58,18 @@
                 <legend class="visually-hidden">ALIS-avtale</legend>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsAlisAgreement" class="form-check-input" />
-                    <label asp-for="ConfirmsAlisAgreement" class="form-check-label">Vi bekrefter at det er inngått ALIS-avtale mellom legen og kommunen. <span class="text-danger">*</span></label>
+                    <label asp-for="ConfirmsAlisAgreement" class="form-check-label">Vi bekrefter at det er inngått ALIS-avtale mellom legen og kommunen. <span class="text-danger conditional-required d-none">*</span></label>
                 </div>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-input" />
-                    <label asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-label">Vi bekrefter at vi har benyttet Helsedirektoratets mal for ALIS-avtale. <span class="text-danger">*</span></label>
+                    <label asp-for="ConfirmsOfficialAgreementTemplate" class="form-check-label">Vi bekrefter at vi har benyttet Helsedirektoratets mal for ALIS-avtale. <span class="text-danger conditional-required d-none">*</span></label>
                 </div>
                 <div class="form-check mb-4">
                     <input asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-input" />
-                    <label asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-label">Vi bekrefter at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet. <span class="text-danger">*</span></label>
+                    <label asp-for="ConfirmsNoCommercialAgencyAffiliation" class="form-check-label">Vi bekrefter at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet. <span class="text-danger conditional-required d-none">*</span></label>
                 </div>
                 <div class="mb-4">
-                    <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? <span class="text-danger">*</span></label>
+                    <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? <span class="text-danger conditional-required d-none">*</span></label>
                     <input asp-for="AgreementEffectiveFrom" type="date" class="form-control date-input" />
                 </div>
             </fieldset>
@@ -79,14 +79,14 @@
                 {
                     <div class="form-check">
                         <input type="checkbox" name="SelectedPositionTypes" value="@option.Value" id="position-type-@option.Value" class="form-check-input" />
-                        <label for="position-type-@option.Value" class="form-check-label">@option.Text</label>
+                        <label for="position-type-@option.Value" class="form-check-label ms-2">@option.Text</label>
                     </div>
                 }
             </fieldset>
             <div class="form-text mb-3">Du må legge til minst én komplett stillingsperiode før søknaden kan sendes inn.</div>
                 <div class="mb-4">
                     <label asp-for="FirstRegularGpOrLocumDate" class="form-label">
-                        Når startet legen første gang som fastlege eller fastlegevikar?
+                        Når startet legen første gang som fastlege eller fastlegevikar? <span class="text-danger conditional-required d-none">*</span>
                     </label>
 
                     <p class="text-muted">
@@ -137,20 +137,20 @@
                 <legend>Har dere hatt merkostnader som følge av økt antall veiledningstimer for ALIS? *</legend>
                 <div class="form-check">
                     <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="true" id="additional-costs-yes" class="form-check-input" />
-                    <label for="additional-costs-yes" class="form-check-label">Ja</label>
+                    <label for="additional-costs-yes" class="form-check-label ms-2">Ja</label>
                 </div>
                 <div class="form-check">
                     <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="false" id="additional-costs-no" class="form-check-input" />
-                    <label for="additional-costs-no" class="form-check-label">Nei</label>
+                    <label for="additional-costs-no" class="form-check-label ms-2">Nei</label>
                 </div>
             </fieldset>
             <fieldset id="additional-costs-fields" hidden disabled>
                 <legend class="visually-hidden">Merkostnader</legend>
-                <label asp-for="AdditionalSupervisionCosts" class="form-label">Merkostnader for veiledning (kr)</label>
+                <label asp-for="AdditionalSupervisionCosts" class="form-label">Merkostnader for veiledning (kr) <span class="text-danger conditional-required d-none">*</span></label>
                 <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control amount-input mb-4" />
             </fieldset>
-        </div>
-            <div class="mb-4">
+        
+                <div class="mb-4">
                 <label class="form-label">
                     Har kommunen sentralitetsgrad 6?
                 </label>
@@ -162,7 +162,7 @@
                            value="true"
                            id="centralityYes" />
 
-                    <label class="form-check-label"
+                    <label class="form-check-label ms-2"
                            for="centralityYes">
                         Ja
                     </label>
@@ -175,7 +175,7 @@
                            value="false"
                            id="centralityNo" />
 
-                    <label class="form-check-label"
+                    <label class="form-check-label ms-2"
                            for="centralityNo">
                         Nei
                     </label>
@@ -185,7 +185,7 @@
             <div class="mb-4"
                  id="centralitySupplementSection">
                 <label asp-for="CentralitySupplementRequestedAmount"
-                       class="form-label">Søkt beløp for sentralitetstillegg <span class="text-danger">*</span></label>
+                       class="form-label">Søkt beløp for sentralitetstillegg <span class="text-danger conditional-required d-none">*</span></label>
 
                 <input asp-for="CentralitySupplementRequestedAmount"
                        class="form-control"
@@ -197,11 +197,58 @@
                     Oppgi beløpet kommunen søker om i sentralitetstillegg. Dette feltet er obligatorisk når kommunen har sentralitetsgrad 6.
                 </div>
             </div>
+                <div class="alert alert-info mb-4" role="note">
+                    <strong>Om beregningen i denne prototypen</strong>
+
+                    <p class="mb-2 mt-2">
+                        Beregningen bruker foreløpig satssettet for perioden
+                        <strong>01.06.2025–31.05.2026</strong>.
+                        Dersom tilskuddsperioden starter utenfor denne perioden,
+                        kan systemet ikke beregne tilskudd.
+                    </p>
+
+                    <p class="mb-2">
+                        Sentralitetstillegg beregnes bare når søknaden gjelder
+                        <strong>ALIS-avtale inkl. veiledning</strong> og kommunen
+                        er registrert med sentralitetsgrad 6.
+                    </p>
+
+                    <p class="mb-0">
+                        Dette beskriver hva prototypen støtter nå. Enkelte regler og
+                        satser kan bli justert i senere versjoner.
+                    </p>
+                </div>
+            <div class="mb-4" id="calculation-preview-section">
+                <h3>Beregnet tilskudd</h3>
+                <p class="text-muted">Dette er en forhåndsvisning basert på opplysningene som er registrert. Endelig behandling skjer etter innsending.</p>
+
+                <div class="mb-2 small">
+                    For å beregne tilskudd må søknaden minst inneholde:
+                    <ul>
+                        <li>type tilskudd</li>
+                        <li>minst én komplett stillingsperiode</li>
+                        <li>tilskuddsperiode (fra / til)</li>
+                        <li>stillingsprosent</li>
+                        <li>stillingstype</li>
+                    </ul>
+                </div>
+
+                <div id="calculation-preview">
+                    @* Filled by AJAX preview call. *@
+                </div>
+            </div>
+        </div>
         <div class="form-actions">
             <span>Du kan lagre utkastet når som helst.</span>
-            
-            <button type="button" class="btn btn-outline-primary save-draft">Lagre utkast</button>
-<button type="button" id="next-step" class="btn btn-outline-primary">NESTE →</button>
+            <button type="button"
+                    class="btn btn-outline-primary save-draft">
+                Lagre utkast
+            </button>
+            <button type="button"
+                    id="next-step"
+                    class="btn btn-outline-primary">
+                NESTE →
+            </button>
         </div>
     </section>
     <p class="mt-3"><em>Felt merket med * må fylles ut før innsending.</em></p>

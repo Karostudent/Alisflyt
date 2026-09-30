@@ -6,6 +6,7 @@ namespace Alisflyt.Application.Models
     {
         public bool IsAvailable { get; init; }
         public string? UnavailableReason { get; init; }
+        public string? CentralityExplanation { get; init; }
 
         public decimal PracticeCompensationAmount { get; init; }
         public decimal LearningActivitiesAmount { get; init; }

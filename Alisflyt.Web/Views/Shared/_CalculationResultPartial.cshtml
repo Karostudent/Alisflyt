@@ -16,6 +16,10 @@
 				<tr><th>Veiledning</th><td>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
 				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>
+		@if (!string.IsNullOrWhiteSpace(Model.CentralityExplanation))
+		{
+			<tr><td></td><td><div class="small text-muted">@Model.CentralityExplanation</div></td></tr>
+		}
 				<tr class="table-primary"><th>Totalt beregnet tilskudd</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
 			</tbody>
 		</table>

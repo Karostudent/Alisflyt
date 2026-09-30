@@ -460,6 +460,7 @@ public class GrantCalculationServiceTests
         var result = service.Calculate(input, rateSet);
 
         Assert.Equal(35_000m, result.CentralitySupplementAmount);
+        Assert.True(!string.IsNullOrWhiteSpace(result.CentralityExplanation));
     }
 
     [Fact]
@@ -488,6 +489,7 @@ public class GrantCalculationServiceTests
         var result = service.Calculate(input, rateSet);
 
         Assert.Equal(50_000m, result.CentralitySupplementAmount);
+        Assert.True(!string.IsNullOrWhiteSpace(result.CentralityExplanation));
     }
 
     [Fact]

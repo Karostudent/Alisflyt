@@ -17,6 +17,7 @@ public sealed class GrantCalculationResult
     public decimal FacilitationAmount { get; init; }
 
     public decimal CentralitySupplementAmount { get; init; }
+    public string? CentralityExplanation { get; init; }
 
     public decimal TotalAmount =>
         PracticeCompensationAmount
