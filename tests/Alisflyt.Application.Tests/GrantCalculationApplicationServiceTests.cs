@@ -116,6 +116,77 @@ namespace Alisflyt.Application.Tests
         }
 
         [Fact]
+        public async Task InactiveRateSet_IsIgnored()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+
+            var appData = new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods = new List<Alisflyt.Domain.Forms.EmploymentPeriodInputModel>
+                {
+                    new() { PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new DateOnly(2023,1,1), FundingFrom = new DateOnly(2023,1,1), FundingThrough = new DateOnly(2023,12,31) }
+                },
+                AbsenceCompensation = 10000m
+            };
+
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CASE-4", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(appData, DateTimeOffset.UtcNow);
+            caseRepo.Case = grantCase;
+
+            var rsActive = CreateRateSet("RS-active", new DateOnly(2023,1,1), new DateOnly(2023,12,31));
+            var rsInactive = CreateRateSet("RS-inactive", new DateOnly(2023,1,1), new DateOnly(2023,12,31));
+            // set IsActive = false via reflection since model has private setter
+            var prop = typeof(Alisflyt.Domain.Entities.GrantRateSet).GetProperty("IsActive");
+            prop.SetValue(rsInactive, false);
+
+            rateRepo.Items.Add(rsInactive);
+            rateRepo.Items.Add(rsActive);
+
+            var svc = new GrantCalculationApplicationService(caseRepo, rateRepo);
+
+            var res = await svc.CalculateForCaseAsync(grantCase.Id);
+
+            Assert.True(res.IsAvailable);
+            Assert.Equal(rsActive.Id, res.RateSetId);
+        }
+
+        [Fact]
+        public async Task OnlyInactiveRateSet_Matches_ReturnsUnavailable()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+
+            var appData = new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods = new List<Alisflyt.Domain.Forms.EmploymentPeriodInputModel>
+                {
+                    new() { PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new DateOnly(2023,1,1), FundingFrom = new DateOnly(2023,1,1), FundingThrough = new DateOnly(2023,12,31) }
+                },
+                AbsenceCompensation = 10000m
+            };
+
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CASE-5", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(appData, DateTimeOffset.UtcNow);
+            caseRepo.Case = grantCase;
+
+            var rsInactive = CreateRateSet("RS-inactive", new DateOnly(2023,1,1), new DateOnly(2023,12,31));
+            var prop = typeof(Alisflyt.Domain.Entities.GrantRateSet).GetProperty("IsActive");
+            prop.SetValue(rsInactive, false);
+
+            rateRepo.Items.Add(rsInactive);
+
+            var svc = new GrantCalculationApplicationService(caseRepo, rateRepo);
+
+            var res = await svc.CalculateForCaseAsync(grantCase.Id);
+
+            Assert.False(res.IsAvailable);
+            Assert.Equal("Ingen gyldig sats for valgt periode", res.UnavailableReason);
+        }
+
+        [Fact]
         public async Task NoMatchingRateSet_ReturnsUnavailable()
         {
             var caseRepo = new FakeCaseRepo();

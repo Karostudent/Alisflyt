@@ -134,7 +134,8 @@ namespace Alisflyt.Application.Tests
 
             Assert.True(res.IsAvailable);
             Assert.True(res.CentralitySupplementAmount > 0);
-            Assert.True(string.IsNullOrWhiteSpace(res.CentralityExplanation));
+            // Centrality explanation is produced by GrantCalculationService for positive amounts
+            Assert.False(string.IsNullOrWhiteSpace(res.CentralityExplanation));
         }
     }
 }
