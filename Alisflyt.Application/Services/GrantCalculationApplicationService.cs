@@ -58,9 +58,9 @@ namespace Alisflyt.Application.Services
             if (relevantDate == default)
                 return new GrantCalculationDetailsDto { IsAvailable = false, UnavailableReason = "Mangler dato for tilskuddsperiode" };
 
-            // Find rate sets and apply policy
+            // Find rate sets and apply policy (only active rate sets)
             var rateSets = await _rateSetRepository.ListAsync(cancellationToken).ConfigureAwait(false);
-            var matching = rateSets.Where(r => r.ValidFrom <= relevantDate && r.ValidTo >= relevantDate).OrderByDescending(r => r.ValidFrom).ToList();
+            var matching = rateSets.Where(r => r.IsActive && r.ValidFrom <= relevantDate && r.ValidTo >= relevantDate).OrderByDescending(r => r.ValidFrom).ToList();
             if (matching.Count == 0)
             {
                 return new GrantCalculationDetailsDto { IsAvailable = false, UnavailableReason = "Ingen gyldig sats for valgt periode" };
@@ -80,7 +80,7 @@ namespace Alisflyt.Application.Services
                 GuidanceAmount = result.GuidanceAmount,
                 FacilitationAmount = result.FacilitationAmount,
                 CentralitySupplementAmount = result.CentralitySupplementAmount,
-                CentralityExplanation = DetermineCentralityExplanation(input, result),
+                CentralityExplanation = result.CentralityExplanation,
 
                 RateSetId = chosen.Id,
                 RateSetName = chosen.Name,
@@ -89,23 +89,6 @@ namespace Alisflyt.Application.Services
             };
         }
 
-        private static string? DetermineCentralityExplanation(GrantCalculationInput input, Alisflyt.Application.Models.GrantCalculationResult result)
-        {
-            // Reasons centrality supplement ends up zero according to GrantCalculationService.CalculateCentralitySupplement
-            // 1) Not centrality grade 6
-            if (!input.IsCentralityGrade6)
-                return "Sentralitetstillegg er ikke aktuelt fordi kommunen ikke er registrert med sentralitetsgrad 6.";
-
-            // 2) Grant type does not grant centrality supplement
-            if (input.GrantType != Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision)
-                return "Sentralitetstillegg er bare aktuelt ved tilskudd til ALIS-avtale inkl. veiledning.";
-
-            // 3) Requested amount missing or zero
-            if (input.CentralitySupplementRequestedAmount <= 0)
-                return "Sentralitetstillegg kan ikke beregnes fordi søkt beløp ikke er oppgitt.";
-
-            // 4) Otherwise no explanation (either positive amount or capped by max but non-zero)
-            return null;
-        }
+        // Centrality explanation is provided by GrantCalculationService.Calculate(...) -> GrantCalculationResult.CentralityExplanation
     }
 }
