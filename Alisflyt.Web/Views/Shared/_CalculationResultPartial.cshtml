@@ -10,10 +10,10 @@
 	{
 		<table class="table table-sm">
 			<tbody>
-				<tr><th>Kompensasjon ved fravær</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr</td></tr>
+				<tr><th>Praksiskompensasjon</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
 				<tr><th>Produktivitetselement</th><td>@Model.ProductivityAmount.ToString("N0") kr</td></tr>
-				<tr><th>Veiledning</th><td>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
+				<tr><th>Veilederhonorar</th><td data-guidance-amount>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
 				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>
 		@if (!string.IsNullOrWhiteSpace(Model.CentralityExplanation))

@@ -83,21 +83,14 @@
 				else { <span>-</span> }
 			</dd>
 
-			<dt class="col-sm-3">Fraværskompensering</dt>
+			<dt class="col-sm-3">Praksiskompensasjon</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.AbsenceCompensation)</dd>
 
 			<dt class="col-sm-3">Kurs-/aktivitetskostnader</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.LearningActivityExpenses)</dd>
 
-			<dt class="col-sm-3">Veiledningskostnader</dt>
-			<dd class="col-sm-9">@AmountDisplay(Model.SupervisionExpenses)</dd>
-
-			<dt class="col-sm-3">Har merkostnader for veiledning?</dt>
-			<dd class="col-sm-9">@(Model.HasAdditionalSupervisionCosts.HasValue ? (Model.HasAdditionalSupervisionCosts.Value ? "Ja" : "Nei") : "-")</dd>
-
-			<dt class="col-sm-3">Merkostnader (beløp)</dt>
-			<dd class="col-sm-9">@AmountDisplay(Model.AdditionalSupervisionCosts)</dd>
-
+            <dt class="col-sm-3">Lavere produktivitet (søkt beløp)</dt>
+            <dd class="col-sm-9">@AmountDisplay(Model.ProductivityRequestedAmount)</dd>
 			<dt class="col-sm-3">Sentralitetsgrad 6</dt>
 			<dd class="col-sm-9">@(Model.IsCentralityGrade6.HasValue ? (Model.IsCentralityGrade6.Value ? "Ja" : "Nei") : "-")</dd>
 
@@ -136,6 +129,17 @@
 				<div><strong>ALIS:</strong> @(Model.Certificate?.DoctorSigningPlace ?? "-") — @(DateOnlyDisplay(Model.Certificate?.DoctorSigningDate))</div>
 				<div><strong>Veileder:</strong> @(Model.Certificate?.SupervisorSigningPlace ?? "-") — @(DateOnlyDisplay(Model.Certificate?.SupervisorSigningDate))</div>
 			</dd>
-		</dl>
+            <dt class="col-sm-3">Veileders godkjenning</dt>
+            <dd class="col-sm-9">@(Model.SupervisorApprovedAtUtc.HasValue ? "Godkjent (demo)" : "Ikke godkjent")</dd>
+            <dt class="col-sm-3">Vedlegg</dt>
+            <dd class="col-sm-9">
+                <ul>
+                @foreach (var attachment in Model.Attachments)
+                {
+                    <li><a asp-controller="GrantCases" asp-action="DownloadAttachment" asp-route-id="@ViewContext.RouteData.Values["id"]" asp-route-attachmentId="@attachment.Id">@attachment.FileName</a></li>
+                }
+                </ul>
+            </dd>
+        </dl>
 	}
 </div>

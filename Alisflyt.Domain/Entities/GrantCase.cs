@@ -61,10 +61,52 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateApplication(Alisflyt.Domain.Forms.GrantApplicationData data, DateTimeOffset now)
         {
+            var existing = ApplicationDataJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
+            if (existing is not null)
+            {
+                data.IsCentralityGrade6 = existing.IsCentralityGrade6;
+                data.CentralitySupplementRequestedAmount = existing.CentralitySupplementRequestedAmount;
+                data.SupervisionExpenses = existing.SupervisionExpenses;
+                data.HasAdditionalSupervisionCosts = existing.HasAdditionalSupervisionCosts;
+                data.AdditionalSupervisionCosts = existing.AdditionalSupervisionCosts;
+            }
+            data.SupervisorApprovedAtUtc = existing is not null
+                && System.Text.Json.JsonSerializer.Serialize(existing.Certificate) == System.Text.Json.JsonSerializer.Serialize(data.Certificate)
+                ? existing.SupervisorApprovedAtUtc : null;
             data.ValidateDraft();
             var first = data.EmploymentPeriods.FirstOrDefault();
             UpdateDraft(data.HprNumber, first?.PositionPercentage, first?.EmploymentStartDate, first?.FundingThrough, now);
             ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+        }
+
+        public void ApproveCertificate(DateTimeOffset now)
+        {
+            if (Status is not (GrantCaseStatus.Draft or GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview or GrantCaseStatus.ReturnedForCorrection))
+                throw new InvalidOperationException("Attesten kan ikke godkjennes i denne statusen.");
+            var data = ApplicationDataJson is null ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+            var certificate = data.Certificate;
+            if (string.IsNullOrWhiteSpace(certificate.SupervisorName) || string.IsNullOrWhiteSpace(certificate.DoctorName)
+                || certificate.Sessions.Count == 0 || certificate.Sessions.Any(s => !s.Date.HasValue || !s.Hours.HasValue || string.IsNullOrWhiteSpace(s.Topic)))
+                throw new ArgumentException("Fyll inn navn, dato, timer og tema for veiledningsøktene før godkjenning.");
+            data.ValidateDraft();
+            data.SupervisorApprovedAtUtc = now;
+            ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+            LastModifiedAtUtc = now;
+        }
+
+        public void UpdateCentrality(bool grade6, decimal? amount, DateTimeOffset now)
+        {
+            if (Status is not (GrantCaseStatus.Draft or GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview or GrantCaseStatus.ReturnedForCorrection))
+                throw new InvalidOperationException("Saken kan ikke redigeres i denne statusen.");
+            if (amount < 0 || (grade6 && !amount.HasValue))
+                throw new ArgumentException("Oppgi et gyldig beløp for sentralitetstillegg.");
+            var data = ApplicationDataJson is null ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+            data.IsCentralityGrade6 = grade6;
+            data.CentralitySupplementRequestedAmount = grade6 ? amount : null;
+            ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+            LastModifiedAtUtc = now;
         }
 
         public void Submit(DateTimeOffset now)

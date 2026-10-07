@@ -8,14 +8,15 @@ public class GrantApplicationData
 {
     public void ValidateDraft()
     {
-        if (Certificate is null || Certificate.Sessions is null || EmploymentPeriods is null
+        if (Attachments is null || Certificate is null || Certificate.Sessions is null || EmploymentPeriods is null
             || DoctorProfessions is null || SelectedPositionTypes is null)
             throw new ArgumentException("Skjemaet mangler opplysninger.");
         if (HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
             || SelectedPositionTypes.Any(p => !Enum.IsDefined(p)))
             throw new ArgumentException("Kontroller HPR-nummer og valgte typer.");
-        if (AbsenceCompensation < 0 || LearningActivityExpenses < 0 || SupervisionExpenses < 0 || AdditionalSupervisionCosts < 0 || CentralitySupplementRequestedAmount < 0)
+        if (ProductivityRequestedAmount < 0 || AbsenceCompensation < 0 || LearningActivityExpenses < 0 || SupervisionExpenses < 0 || AdditionalSupervisionCosts < 0 || CentralitySupplementRequestedAmount < 0)
             throw new ArgumentException("Beløp kan ikke være negative.");
+        ApplicationAttachment.ValidateAll(Attachments);
         foreach (var period in EmploymentPeriods)
         {
             if (period is null || period.PositionPercentage is <= 0 or > 100
@@ -37,22 +38,10 @@ public class GrantApplicationData
         ValidateDraft();
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(HprNumber)) errors.Add("Oppgi HPR-nummer for legen.");
-        if (!ConfirmsSpecialization) errors.Add("Bekreft at legen er under spesialisering i allmennmedisin i ny ordning.");
+        if (!ConfirmsSpecialization) errors.Add("Kryss av for at du er under spesialisering i allmennmedisin, og lagre utkastet før innsending.");
         if (!SpecializationStartDate.HasValue) errors.Add("Oppgi når legen startet spesialiseringsløpet.");
         if (!ExpectedCompletionDate.HasValue) errors.Add("Oppgi når legen forventes å avslutte spesialiseringsløpet.");
         if (!GrantType.HasValue) errors.Add("Velg hva tilskuddet gjelder: ALIS-avtale eller veiledning av ALIS.");
-        if (!HasAdditionalSupervisionCosts.HasValue)
-            errors.Add("Svar ja eller nei på om dere har hatt merkostnader for økt antall veiledningstimer.");
-        if (IsCentralityGrade6 == true
-    && !CentralitySupplementRequestedAmount.HasValue)
-        {
-            errors.Add("Oppgi beløp for sentralitetstillegg.");
-        }
-        if (!IsCentralityGrade6.HasValue)
-        {
-            errors.Add("Oppgi om kommunen har sentralitetsgrad 6.");
-        }
-
         if (SelectedPositionTypes.Count == 0)
             errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
 
@@ -72,8 +61,6 @@ public class GrantApplicationData
             if (!ConfirmsNoCommercialAgencyAffiliation) errors.Add("Bekreft at legen ikke er ansatt eller tilknyttet vikarbyrå eller annen privat kommersiell aktør innen medisinsk virksomhet.");
             if (!AgreementEffectiveFrom.HasValue) errors.Add("Oppgi når ALIS-avtalen gjelder fra.");
         }
-        if (HasAdditionalSupervisionCosts == true && !AdditionalSupervisionCosts.HasValue)
-            errors.Add("Oppgi beløpet for merkostnader for veiledning.");
         for (var i = 0; i < EmploymentPeriods.Count; i++)
         {
             var p = EmploymentPeriods[i];
@@ -97,6 +84,7 @@ public class GrantApplicationData
         }
         if (errors.Count > 0) throw new SubmissionValidationException(errors);
     }
+    public DateTimeOffset? SupervisorApprovedAtUtc { get; set; }
     public SupervisionCertificateViewModel Certificate { get; set; } = new();
     public string? HprNumber { get; set; }
 
@@ -122,6 +110,8 @@ public class GrantApplicationData
     public List<PositionType> SelectedPositionTypes { get; set; } = [];
     public List<EmploymentPeriodInputModel> EmploymentPeriods { get; set; } = [];
 
+    public List<ApplicationAttachment> Attachments { get; set; } = [];
+    public decimal? ProductivityRequestedAmount { get; set; }
     public decimal? AbsenceCompensation { get; set; }
     public decimal? LearningActivityExpenses { get; set; }
     public decimal? SupervisionExpenses { get; set; }

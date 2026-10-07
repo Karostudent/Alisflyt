@@ -8,13 +8,14 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
 
     const toggleFields = (id, visible) => {
         const fields = document.getElementById(id);
+        if (!fields) return;
         fields.hidden = !visible;
         fields.disabled = !visible;
     };
 
     const updateSections = () => {
         toggleFields("agreement-fields",
-            form.querySelector('input[name="GrantType"]:checked')?.value === "1");
+            form.querySelector('input[name="GrantType"]')?.value === "1");
         toggleFields("additional-costs-fields",
             form.querySelector('input[name="HasAdditionalSupervisionCosts"]:checked')?.value === "true");
     };
@@ -22,7 +23,7 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
     // Update conditional required markers
     const updateConditionalRequired = () => {
         // Agreement fields: show/hide conditional * markers
-        const agreementVisible = form.querySelector('input[name="GrantType"]:checked')?.value === "1";
+        const agreementVisible = form.querySelector('input[name="GrantType"]')?.value === "1";
         form.querySelectorAll('.conditional-required').forEach(el => {
             if (agreementVisible) el.classList.remove('d-none'); else el.classList.add('d-none');
         });
@@ -146,6 +147,61 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
     const form = document.getElementById("grant-application-form");
     if (!form) return;
     const status = document.getElementById("draft-status");
+    let attachments = structuredClone(initialDraft.Attachments || []);
+    let uploadsPending = 0;
+    const renderAttachments = () => {
+        const list = document.getElementById("attachment-list");
+        list.replaceChildren();
+        for (const item of attachments) {
+            const row = document.createElement("li");
+            const link = document.createElement("a");
+            link.textContent = ({Agreement: "ALIS-avtale", CalculationBasis: "Beregningsgrunnlag", Receipt: "Bilag"}[item.Kind] || "Vedlegg") + ": " + item.FileName;
+            link.href = "#";
+            link.addEventListener("click", event => {
+                event.preventDefault();
+                const bytes = Uint8Array.from(atob(item.ContentBase64), ch => ch.charCodeAt(0));
+                const url = URL.createObjectURL(new Blob([bytes], {type: "application/octet-stream"}));
+                const download = document.createElement("a");
+                download.href = url; download.download = item.FileName; download.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+            row.append(link);
+            if (form.dataset.readonly !== "true") {
+                const remove = document.createElement("button");
+                remove.type = "button"; remove.className = "btn btn-sm btn-outline-danger ms-2";
+                remove.textContent = "Fjern";
+                remove.addEventListener("click", () => {
+                    attachments = attachments.filter(a => a.Id !== item.Id);
+                    renderAttachments(); markDirty();
+                });
+                row.append(remove);
+            }
+            list.append(row);
+        }
+    };
+    form.querySelectorAll("[data-attachment-kind]").forEach(input => input.addEventListener("change", async () => {
+        uploadsPending++;
+        try {
+            const files = [...input.files];
+            const total = attachments.reduce((sum, a) => sum + atob(a.ContentBase64).length, 0) + files.reduce((sum, f) => sum + f.size, 0);
+            if (total > 15 * 1024 * 1024 || attachments.length + files.length > 30)
+                throw new Error("Maksimalt 15 MB og 30 vedlegg totalt.");
+            for (const file of files) {
+                if (!/\.(pdf|png|jpe?g)$/i.test(file.name) || file.size === 0 || file.size > 5 * 1024 * 1024)
+                    throw new Error("Velg PDF, PNG eller JPEG på maksimalt 5 MB per fil.");
+            }
+            const added = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error("Kunne ikke lese vedlegget."));
+                reader.onload = () => resolve({Id: crypto.randomUUID(), Kind: input.dataset.attachmentKind,
+                    FileName: file.name, ContentBase64: String(reader.result).split(",")[1]});
+                reader.readAsDataURL(file);
+            })));
+            attachments.push(...added); renderAttachments(); markDirty();
+        } catch (error) { status.textContent = error.message; }
+        finally { uploadsPending--; input.value = ""; }
+    }));
+    renderAttachments();
     let dirty = false;
     let changeVersion = 0;
     const markDirty = () => {
@@ -171,7 +227,7 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
     const getValue = name => pathParts(name).reduce((value, key) => value?.[key], initialDraft);
     for (const input of form.querySelectorAll("input[name],select[name],textarea[name]")) {
         if (input.name === "__RequestVerificationToken" || input.name.endsWith(".Index")) continue;
-        const value = getValue(input.name);
+        const value = input.name === "GrantType" && form.dataset.readonly !== "true" ? 1 : getValue(input.name);
         if (value === undefined || value === null) continue;
         if (input.type === "checkbox") {
             input.checked = Array.isArray(value) ? value.map(String).includes(input.value) : value === true;
@@ -183,6 +239,26 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
     }
     form.dispatchEvent(new Event("change"));
     document.getElementById("supervision-rows").dispatchEvent(new Event("input", { bubbles: true }));
+
+    const refreshCalculation = async id => {
+        const preview = document.getElementById("calculation-preview");
+        const guidance = document.getElementById("guidance-preview");
+        try {
+            const url = new URL("/GrantCases/CalculationPreview", window.location.origin);
+            url.searchParams.set("id", id);
+            const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            if (!response.ok) throw new Error("Kunne ikke hente beregningen.");
+            const html = await response.text();
+            preview.innerHTML = html;
+            guidance.textContent = preview.querySelector("[data-guidance-amount]")?.textContent
+                || preview.querySelector(".alert")?.textContent || "Beregning er ikke tilgjengelig.";
+        } catch (error) {
+            preview.textContent = error.message;
+            guidance.textContent = error.message;
+        }
+    };
+    if (initialDraft.Id && initialDraft.Id !== "00000000-0000-0000-0000-000000000000")
+        refreshCalculation(initialDraft.Id);
 
     if (form.dataset.readonly === "true") {
         form.querySelectorAll("input,select,textarea,button").forEach(input => {
@@ -304,10 +380,12 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                 invalid.reportValidity();
                 return;
             }
+            if (uploadsPending) { status.textContent = "Vent til vedleggene er ferdig lest."; return; }
             const payload = { DoctorProfessions: document.getElementById("doctor-professions").value.split(",").map(value => value.trim()).filter(Boolean),
                 SelectedPositionTypes: [], EmploymentPeriods: [], Certificate: { Sessions: [] } };
             for (const input of form.querySelectorAll("input[name],select[name],textarea[name]")) {
                 const name = input.name;
+                if (input.type === "file") continue;
                 if (name === "__RequestVerificationToken" || name.endsWith(".Index")) continue;
                 if (input.type === "hidden" && input.value === "false") continue;
                 if (input.type === "radio" && !input.checked) continue;
@@ -326,6 +404,11 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                 }
                 setValue(payload, name, value);
             }
+            payload.Attachments = attachments;
+            // Keep existing calculation inputs until the calculation form is updated.
+            payload.SupervisionExpenses = initialDraft.SupervisionExpenses ?? null;
+            payload.HasAdditionalSupervisionCosts = initialDraft.HasAdditionalSupervisionCosts ?? null;
+            payload.AdditionalSupervisionCosts = initialDraft.AdditionalSupervisionCosts ?? null;
             payload.EmploymentPeriods = payload.EmploymentPeriods.filter(Boolean);
             payload.Certificate.Sessions = payload.Certificate.Sessions.filter(Boolean);
             const savedChangeVersion = changeVersion;
@@ -345,22 +428,13 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                 const details = document.getElementById("case-details");
                 details.href = result.detailsUrl;
                 details.hidden = false;
+                const supervisorLink = document.getElementById("supervisor-review-link");
+                supervisorLink.href = "/Supervisor/Details/" + encodeURIComponent(result.id);
+                supervisorLink.hidden = false;
                 window.history.replaceState(null, "", result.editUrl);
                 dirty = changeVersion !== savedChangeVersion;
                 status.textContent = dirty ? "Utkastet er lagret, men du har nye endringer som ikke er lagret." : result.message;
-                    // After saving draft, attempt to refresh calculation preview
-                    try {
-                        const previewContainer = document.getElementById('calculation-preview');
-                        if (previewContainer && result.id) {
-                            const url = new URL(window.location.origin + '/GrantCases/CalculationPreview');
-                            url.searchParams.set('id', result.id);
-                            const pv = await fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                            if (pv.ok) {
-                                const html = await pv.text();
-                                previewContainer.innerHTML = html;
-                            }
-                        }
-                    } catch (e) { /* ignore preview errors */ }
+                await refreshCalculation(result.id);
             } catch (error) {
                 status.textContent = error.message || "Lagring feilet. Prøv igjen.";
             } finally {

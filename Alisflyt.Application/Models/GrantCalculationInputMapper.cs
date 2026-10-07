@@ -36,6 +36,14 @@ public static class GrantCalculationInputMapper
         return new GrantCalculationInput
         {
             GrantType = grantType,
+            ProductivityRequestedAmount = applicationData.ProductivityRequestedAmount,
+            // Count each dated session once, even when employment periods overlap.
+            // Retain the expense input for older applications without certificate rows.
+            SupervisionHours = applicationData.Certificate.Sessions.Count == 0 ? null
+                : applicationData.Certificate.Sessions
+                    .Where(s => s.Date.HasValue && employmentPeriods.Any(p =>
+                        s.Date.Value >= p.FundingFrom && s.Date.Value <= p.FundingThrough))
+                    .Sum(s => s.Hours ?? 0m),
 
             FirstRegularGpOrLocumDate =
                 applicationData.FirstRegularGpOrLocumDate,

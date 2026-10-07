@@ -207,7 +207,8 @@ public class GrantCalculationService
                 * periodFraction;
         }
 
-        return amount;
+        return input.ProductivityRequestedAmount.HasValue
+            ? Math.Min(input.ProductivityRequestedAmount.Value, amount) : amount;
     }
 
     private static decimal CalculateGuidance(
@@ -245,7 +246,9 @@ public class GrantCalculationService
         }
 
         return Math.Min(
-            input.SupervisionExpenses,
+            input.SupervisionHours.HasValue
+                ? input.SupervisionHours.Value * rateSet.SalaryRate * rateSet.GuidanceRate
+                : input.SupervisionExpenses,
             maximumAmount);
     }
     private static decimal CalculateCentralitySupplement(

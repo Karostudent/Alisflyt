@@ -6,7 +6,7 @@
     <p class="alert alert-info">Fyll inn navn én gang og legg til øktene nedenfor. Velg «Lagre utkast» når du vil beholde opplysningene.</p>
     <div class="mb-3">
         <strong>Veiledningsattest</strong>
-        <div class="form-text">Veiledningsattesten vil i ferdig løsning fylles ut av veileder via egen innlogging. I denne demoen registreres opplysningene foreløpig som en del av søknaden.</div>
+        <div class="form-text">ALIS fører veiledningsøktene. Veileder kontrollerer og godkjenner attesten i veiledervisningen.</div>
     </div>
     <section class="application-section">
         <h2>Veileder og ALIS-lege</h2>
@@ -29,6 +29,11 @@
                 <button type="button" id="add-supervision" class="btn btn-outline-primary">+ Legg til en veiledningsøkt</button>
                 <p>Totalt: <output id="total-supervision-hours" aria-live="polite">0</output> timer</p>
             </div>
+            <h3>Beregnet veilederhonorar</h3>
+            <p class="text-muted">Timer innenfor tilskuddsperiodene beregnes med satssettets timepris, begrenset av maksimum for stilling og periode. Lagre utkastet for å oppdatere beløpet.</p>
+
+            <p id="guidance-preview" aria-live="polite">Lagre et komplett utkast for å se beregnet veilederhonorar.</p>
+            <p><a id="supervisor-review-link" hidden="@(Model.Id == Guid.Empty)" asp-controller="Supervisor" asp-action="Details" asp-route-id="@Model.Id">Til veileders kontroll og godkjenning (demo)</a></p>
             <details class="signing-details">
                 <summary>Sted, dato og signering</summary>
                 <p class="text-muted mt-3">Dette kan fylles ut senere. Elektronisk signering er ikke tilgjengelig.</p>

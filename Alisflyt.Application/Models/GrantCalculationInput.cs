@@ -11,6 +11,8 @@ public sealed class GrantCalculationInput
         EmploymentPeriods
     { get; init; } = [];
 
+    public decimal? ProductivityRequestedAmount { get; init; }
+    public decimal? SupervisionHours { get; init; }
     public decimal AbsenceCompensation { get; init; }
 
     public decimal LearningActivityExpenses { get; init; }

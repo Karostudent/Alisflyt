@@ -15,11 +15,14 @@ namespace Alisflyt.Web.Tests
             var fake = new FakeGrantCaseApplicationService
             {
                 SubmitException = new Alisflyt.Domain.Forms.SubmissionValidationException(errors),
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = Guid.NewGuid() }
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = Guid.NewGuid(), ApplicationData = new() { DoctorName = "Lege" }, ReturnReason = "Kontroller attest" }
             };
             var controller = new Alisflyt.Web.Controllers.GrantCasesController(fake);
             var result = Assert.IsType<ViewResult>(await controller.Submit(fake.GetByIdResponse.Id, default));
             Assert.Equal("Details", result.ViewName);
+            var model = Assert.IsType<Alisflyt.Web.ViewModels.GrantCases.GrantCaseDetailsViewModel>(result.Model);
+            Assert.Same(fake.GetByIdResponse.ApplicationData, model.ApplicationData);
+            Assert.Equal("Kontroller attest", model.ReturnReason);
             Assert.Equal(errors, controller.ModelState[string.Empty]!.Errors.Select(e => e.ErrorMessage));
         }
 

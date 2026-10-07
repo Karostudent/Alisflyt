@@ -10,6 +10,25 @@
 <h2>Sak @Model.CaseNumber</h2>
 <p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
 
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+<section class="card card-body mb-4">
+    <h3>Sentralitetstillegg ? koordinator</h3>
+    <form asp-action="SaveCentrality" method="post">
+        <input type="hidden" name="id" value="@Model.Id" />
+        <fieldset class="mb-3">
+            <legend>Har kommunen sentralitetsgrad 6?</legend>
+            <label><input type="radio" name="grade6" value="true" checked="@(Model.ApplicationData?.IsCentralityGrade6 == true)" required /> Ja</label>
+            <label class="ms-3"><input type="radio" name="grade6" value="false" checked="@(Model.ApplicationData?.IsCentralityGrade6 == false)" required /> Nei</label>
+        </fieldset>
+        <label for="centrality-amount" class="form-label">Søkt beløp for sentralitetstillegg (kr)</label>
+        <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control mb-3" />
+        <p class="form-text">Beløp må oppgis når kommunen har sentralitetsgrad 6.</p>
+        <button class="btn btn-primary" type="submit">Lagre sentralitetsopplysninger</button>
+    </form>
+</section>
 <dl class="row">
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
 	<dd class="col-sm-9">@Model.CaseNumber</dd>

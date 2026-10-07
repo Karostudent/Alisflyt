@@ -110,7 +110,7 @@ public class GrantApplicationFormTests
         var created = await service.CreateDraftAsync(new() { ApplicationData = new() });
         Assert.NotNull((await service.GetByIdAsync(created.Id)).ApplicationData);
         var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
-        Assert.Equal(9, error.Errors.Count);
+        Assert.Equal(7, error.Errors.Count);
         Assert.Contains("Oppgi HPR-nummer for legen.", error.Errors);
         Assert.Contains("Oppgi når legen startet spesialiseringsløpet.", error.Errors);
     }
@@ -198,32 +198,21 @@ public class GrantApplicationFormTests
     }
 
     [Fact]
-    public void Submission_requires_centrality_grade_answer()
+    public void Submission_leaves_centrality_grade_to_coordinator()
     {
         var data = CompleteForm();
         data.IsCentralityGrade6 = null;
 
-        var error = Assert.Throws<SubmissionValidationException>(
-            () => data.ValidateSubmission());
-
-        Assert.Contains(
-            "Oppgi om kommunen har sentralitetsgrad 6.",
-            error.Errors);
+        data.ValidateSubmission();
     }
 
     [Fact]
-    public void Grade6_requires_centrality_supplement_amount()
+    public void Submission_leaves_centrality_amount_to_coordinator()
     {
         var data = CompleteForm();
         data.IsCentralityGrade6 = true;
         data.CentralitySupplementRequestedAmount = null;
-
-        var error = Assert.Throws<SubmissionValidationException>(
-            () => data.ValidateSubmission());
-
-        Assert.Contains(
-            "Oppgi beløp for sentralitetstillegg.",
-            error.Errors);
+        data.ValidateSubmission();
     }
 
     [Fact]

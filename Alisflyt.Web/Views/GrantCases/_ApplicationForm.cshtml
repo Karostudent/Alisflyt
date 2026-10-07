@@ -11,7 +11,7 @@
 <div id="application-step">
 <p class="text-muted">Trinn 1 av 2 · Søknadsopplysninger</p>
 <h1 id="application-heading" tabindex="-1" class="mb-4">Opplysninger om lege i spesialisering</h1>
-<p class="alert alert-info">Fyll ut søknadsopplysningene og velg «Neste» for å fylle ut veiledningsattesten. Velg «Lagre utkast» for å beholde opplysningene til neste gang. HPR-oppslag og beregning av tilskudd er ikke tilgjengelig ennå.</p>
+<p class="alert alert-info">Fyll ut søknadsopplysningene og velg «Neste» for å fylle ut veiledningsattesten. Velg «Lagre utkast» for å beholde opplysningene til neste gang. Beregnet tilskudd oppdateres når utkastet lagres. HPR-oppslag er ikke tilgjengelig ennå.</p>
 
 
     <section class="application-section">
@@ -33,7 +33,7 @@
             </div>
                 <div class="form-check mb-4">
                 <input asp-for="ConfirmsSpecialization" class="form-check-input" />
-                <label asp-for="ConfirmsSpecialization" class="form-check-label">Vi bekrefter at legen er under spesialisering i allmennmedisin i ny ordning for spesialistutdanning <span class="text-danger">*</span></label>
+                <label asp-for="ConfirmsSpecialization" class="form-check-label">Jeg bekrefter at jeg er under spesialisering i allmennmedisin <span class="text-danger">*</span></label>
             </div>
             <div class="mb-4">
                 <label asp-for="SpecializationStartDate" class="form-label">Når startet legen spesialiseringsløpet? *</label>
@@ -44,16 +44,7 @@
                 <p>Datoen er et estimat som kan endres underveis i utdanningsløpet.</p>
                 <input asp-for="ExpectedCompletionDate" type="date" class="form-control date-input" />
             </div>
-            <fieldset class="mb-4">
-                <legend>Tilskuddet gjelder <span class="text-danger">*</span></legend>
-                @foreach (var option in Html.GetEnumSelectList<GrantType>())
-                {
-                    <div class="form-check">
-                        <input asp-for="GrantType" type="radio" value="@option.Value" id="grant-type-@option.Value" class="form-check-input" />
-                        <label for="grant-type-@option.Value" class="form-check-label">@option.Text</label>
-                    </div>
-                }
-            </fieldset>
+            <input asp-for="GrantType" type="hidden" />
             <fieldset id="agreement-fields" hidden disabled>
                 <legend class="visually-hidden">ALIS-avtale</legend>
                 <div class="form-check mb-4">
@@ -71,6 +62,10 @@
                 <div class="mb-4">
                     <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? <span class="text-danger conditional-required d-none">*</span></label>
                     <input asp-for="AgreementEffectiveFrom" type="date" class="form-control date-input" />
+                </div>
+                <div class="mb-4">
+                    <label for="agreement-upload" class="form-label">Last opp ALIS-avtale</label>
+                    <input id="agreement-upload" type="file" data-attachment-kind="Agreement" accept=".pdf,.png,.jpg,.jpeg" class="form-control" />
                 </div>
             </fieldset>
             <fieldset class="mb-4">
@@ -121,7 +116,7 @@
             <h3>Refusjon for ALIS</h3>
             <div class="row g-4 mb-4">
                 <div class="col-md-4">
-                    <label asp-for="AbsenceCompensation" class="form-label">Kompensasjon ved fravær</label>
+                    <label asp-for="AbsenceCompensation" class="form-label">Praksiskompensasjon</label>
                     <input asp-for="AbsenceCompensation" type="number" min="0" step="0.01" class="form-control" />
                 </div>
                 <div class="col-md-4">
@@ -129,72 +124,9 @@
                     <input asp-for="LearningActivityExpenses" type="number" min="0" step="0.01" class="form-control" />
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="SupervisionExpenses" class="form-label">Kommunens utgifter til veiledning</label>
-                    <input asp-for="SupervisionExpenses" type="number" min="0" step="0.01" class="form-control" />
-                </div>
-            </div>
-            <fieldset class="mb-4">
-                <legend>Har dere hatt merkostnader som følge av økt antall veiledningstimer for ALIS? *</legend>
-                <div class="form-check">
-                    <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="true" id="additional-costs-yes" class="form-check-input" />
-                    <label for="additional-costs-yes" class="form-check-label ms-2">Ja</label>
-                </div>
-                <div class="form-check">
-                    <input asp-for="HasAdditionalSupervisionCosts" type="radio" value="false" id="additional-costs-no" class="form-check-input" />
-                    <label for="additional-costs-no" class="form-check-label ms-2">Nei</label>
-                </div>
-            </fieldset>
-            <fieldset id="additional-costs-fields" hidden disabled>
-                <legend class="visually-hidden">Merkostnader</legend>
-                <label asp-for="AdditionalSupervisionCosts" class="form-label">Merkostnader for veiledning (kr) <span class="text-danger conditional-required d-none">*</span></label>
-                <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control amount-input mb-4" />
-            </fieldset>
-        
-                <div class="mb-4">
-                <label class="form-label">
-                    Har kommunen sentralitetsgrad 6?
-                </label>
-
-                <div class="form-check">
-                    <input class="form-check-input"
-                           type="radio"
-                           asp-for="IsCentralityGrade6"
-                           value="true"
-                           id="centralityYes" />
-
-                    <label class="form-check-label ms-2"
-                           for="centralityYes">
-                        Ja
-                    </label>
-                </div>
-
-                <div class="form-check">
-                    <input class="form-check-input"
-                           type="radio"
-                           asp-for="IsCentralityGrade6"
-                           value="false"
-                           id="centralityNo" />
-
-                    <label class="form-check-label ms-2"
-                           for="centralityNo">
-                        Nei
-                    </label>
-                </div>
-            </div>
-
-            <div class="mb-4"
-                 id="centralitySupplementSection">
-                <label asp-for="CentralitySupplementRequestedAmount"
-                       class="form-label">Søkt beløp for sentralitetstillegg <span class="text-danger conditional-required d-none">*</span></label>
-
-                <input asp-for="CentralitySupplementRequestedAmount"
-                       class="form-control"
-                       type="number"
-                       min="0"
-                       step="1" />
-
-                <div class="form-text">
-                    Oppgi beløpet kommunen søker om i sentralitetstillegg. Dette feltet er obligatorisk når kommunen har sentralitetsgrad 6.
+                    <label asp-for="ProductivityRequestedAmount" class="form-label">Lavere produktivitet (søkt beløp)</label>
+                    <input asp-for="ProductivityRequestedAmount" type="number" min="0" step="0.01" class="form-control" aria-describedby="productivity-help" />
+                    <small id="productivity-help" class="text-muted">Søkt beløp begrenses av satsen for stilling, periode og retten til produktivitetselementet.</small>
                 </div>
             </div>
                 <div class="alert alert-info mb-4" role="note">
@@ -218,6 +150,14 @@
                         satser kan bli justert i senere versjoner.
                     </p>
                 </div>
+            <div class="mb-4">
+                <label for="basis-upload" class="form-label">Last opp beregningsgrunnlag</label>
+                <input id="basis-upload" type="file" data-attachment-kind="CalculationBasis" accept=".pdf,.png,.jpg,.jpeg" multiple class="form-control mb-3" />
+                <label for="receipts-upload" class="form-label">Last opp bilag (flere filer)</label>
+                <input id="receipts-upload" type="file" data-attachment-kind="Receipt" accept=".pdf,.png,.jpg,.jpeg" multiple class="form-control" />
+                <p class="form-text">PDF, PNG eller JPEG. Maksimalt 5 MB per fil og 15 MB totalt. Filene lagres med utkastet.</p>
+                <ul id="attachment-list"></ul>
+            </div>
             <div class="mb-4" id="calculation-preview-section">
                 <h3>Beregnet tilskudd</h3>
                 <p class="text-muted">Dette er en forhåndsvisning basert på opplysningene som er registrert. Endelig behandling skjer etter innsending.</p>
@@ -276,20 +216,3 @@
         <td><button type="button" class="btn btn-outline-danger remove-employment">Fjern</button></td>
     </tr>
 </template>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const yes = document.getElementById("centralityYes");
-        const no = document.getElementById("centralityNo");
-        const section = document.getElementById("centralitySupplementSection");
-
-        function updateCentralityVisibility() {
-            section.style.display = yes.checked ? "block" : "none";
-        }
-
-        yes.addEventListener("change", updateCentralityVisibility);
-        no.addEventListener("change", updateCentralityVisibility);
-
-        updateCentralityVisibility();
-    });
-</script>
-
