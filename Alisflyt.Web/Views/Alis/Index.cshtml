@@ -1,33 +1,39 @@
 @model Alisflyt.Web.ViewModels.Dashboards.AlisDashboardViewModel
 
 @{
-	ViewData["Title"] = "ALIS Dashboard";
+	ViewData["Title"] = "ALIS – søknadsoversikt";
 }
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-	<h2 class="m-0">ALIS Dashboard</h2>
+<link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
+<div class="public-dashboard">
+<nav aria-label="Brødsmuler" class="public-breadcrumb"><a asp-controller="Portal" asp-action="Index">Portal</a><span aria-hidden="true"> / </span><span>ALIS</span></nav>
+<header class="public-page-heading">
+	<div><p class="public-role">ALIS</p><h1>Søknadsoversikt</h1><p>Her finner du lagrede søknader og følger status på sakene.</p></div>
 	<a asp-controller="GrantCases" asp-action="Create" class="btn btn-primary">Ny søknad</a>
-</div>
+</header>
 
-<p class="text-muted">Oversikt over saker</p>
+<div class="public-information" role="note"><strong>Om demoversjonen</strong><p>I denne demoversjonen vises testdata. I ferdig løsning skal ALIS bare se egne søknader.</p></div>
 
-<div class="alert alert-info small">I denne demoversjonen vises testdata. I ferdig løsning skal ALIS bare se egne søknader.</div>
-
-<form method="get" class="mb-3">
-	<label>Filter:</label>
-	<select name="status" class="form-select d-inline-block w-auto ms-2" onchange="this.form.submit()">
+<section class="public-case-section" aria-labelledby="case-list-heading">
+<h2 id="case-list-heading">Søknader</h2>
+<form method="get" class="public-filter">
+	<label for="case-status">Vis saker med status</label>
+	<select id="case-status" name="status" class="form-select">
 		<option value="All" selected='@(Model.Filter == "All" ? "selected" : null)'>Alle</option>
 		<option value="Draft" selected='@(Model.Filter == "Draft" ? "selected" : null)'>Utkast</option>
 		<option value="Submitted" selected='@(Model.Filter == "Submitted" ? "selected" : null)'>Innsendt</option>
 		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under behandling</option>
 		<option value="ReturnedForCorrection" selected='@(Model.Filter == "ReturnedForCorrection" ? "selected" : null)'>Returnert for korrigering</option>
 	</select>
+<button type="submit" class="btn btn-outline-primary">Vis saker</button>
 </form>
 
-<table class="table">
+<div class="table-responsive">
+<table class="table public-case-table">
+<caption class="visually-hidden">Søknader med valgt status</caption>
 	<thead>
 		<tr>
-			<th>Saksnummer</th>
+			<th scope="col">Saksnummer</th>
 			<th>HPR</th>
 			<th>Status</th>
 			<th>Sist endret</th>
@@ -38,12 +44,20 @@
 @foreach(var c in Model.Cases)
 {
 		<tr>
-			<td>@c.CaseNumber</td>
+			<td class="public-case-number">@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
-		<td>@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</td>
+		<td><span class="public-status public-status-@c.Status">@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</span></td>
 			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
-			<td><a asp-controller="GrantCases" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
+			<td><a asp-controller="GrantCases" asp-action="Details" asp-route-id="@c.Id" aria-label="Åpne søknad @c.CaseNumber">Åpne søknad</a></td>
 		</tr>
+}
+@if (!Model.Cases.Any())
+{
+    <tr><td colspan="5" class="public-empty">Ingen søknader med valgt status. Velg en annen status eller opprett en ny søknad.</td></tr>
 }
 	</tbody>
 </table>
+
+</div>
+</section>
+</div>

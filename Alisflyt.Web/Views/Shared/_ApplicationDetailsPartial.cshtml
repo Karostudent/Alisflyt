@@ -119,6 +119,12 @@
 								</tr>
 							}
 						</tbody>
+						<tfoot>
+							<tr>
+								<th scope="row">Totalt</th>
+								<td colspan="2"><strong>@Model.Certificate.Sessions.Sum(s => s.Hours ?? 0m).ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")) timer</strong></td>
+							</tr>
+						</tfoot>
 					</table>
 				}
 				else { <span>-</span> }
@@ -136,7 +142,7 @@
                 <ul>
                 @foreach (var attachment in Model.Attachments)
                 {
-                    <li><a asp-controller="GrantCases" asp-action="DownloadAttachment" asp-route-id="@ViewContext.RouteData.Values["id"]" asp-route-attachmentId="@attachment.Id">@attachment.FileName</a></li>
+                    <li><a asp-controller="GrantCases" asp-action="DownloadAttachment" asp-route-id="@(ViewData["AttachmentCaseId"] ?? ViewContext.RouteData.Values["id"])" asp-route-attachmentId="@attachment.Id">@attachment.FileName</a></li>
                 }
                 </ul>
             </dd>

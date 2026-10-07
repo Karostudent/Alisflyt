@@ -1,70 +1,44 @@
 @model Alisflyt.Web.ViewModels.GrantCases.GrantCaseDetailsViewModel
-
+@using Alisflyt.Domain.Enums
 @{
-	ViewData["Title"] = "Søknad";
+    ViewData["Title"] = "Søknad " + Model.CaseNumber;
+    var editable = Model.Status is GrantCaseStatus.Draft or GrantCaseStatus.ReturnedForCorrection;
+    var status = Model.Status switch { GrantCaseStatus.Draft => "Utkast", GrantCaseStatus.Submitted => "Innsendt", GrantCaseStatus.UnderReview => "Under behandling", GrantCaseStatus.ReturnedForCorrection => "Returnert for korrigering", _ => Model.Status.ToString() };
+    var periods = Model.ApplicationData?.EmploymentPeriods;
+    var from = periods?.Where(p => p.FundingFrom.HasValue).Select(p => p.FundingFrom).Min();
+    var through = periods?.Where(p => p.FundingThrough.HasValue).Select(p => p.FundingThrough).Max();
+    ViewData["AttachmentCaseId"] = Model.Id;
 }
-@{
-	ViewData["RoleHelpText"] = "Her vises den lagrede søknaden og beregningsresultatet.";
-}
-<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "ALIS-visning" )" />
-
-<h2>Søknad @Model.CaseNumber</h2>
-<p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
-
-@using (Html.BeginForm("Submit", "GrantCases", FormMethod.Post))
-{
-	@Html.AntiForgeryToken()
-	<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-	<dl class="row">
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
-		<dd class="col-sm-9">@Model.CaseNumber</dd>
-
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.HprNumber)</dt>
-		<dd class="col-sm-9">@Model.HprNumber</dd>
-
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.EmploymentPercentage)</dt>
-		<dd class="col-sm-9">@((Model.EmploymentPercentage.HasValue) ? $"{Model.EmploymentPercentage.Value:0.##} %" : "-")</dd>
-
-		<dt class="col-sm-3">Periode</dt>
-		<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
-
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
-		<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : Model.Status.ToString())</dd>
-
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
-		<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
-
-		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.LastModifiedAtUtc)</dt>
-		<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
-	</dl>
-
-	@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
-
-	@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
-
-	@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
-	{
-		<div class="alert alert-warning">
-			<h5>Søknaden er returnert for korrigering</h5>
-			<p><strong>Begrunnelse:</strong> @Model.ReturnReason</p>
-			<p><strong>Returnert:</strong> @Model.ReturnedAtUtc?.ToLocalTime().ToString("g")</p>
-			<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger søknad</a>
-			<input type="hidden" name="id" value="@Model.Id" />
-			<button type="submit" class="btn btn-success">Send inn på nytt</button>
-			<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
-		</div>
-	}
-	else
-	{
-		<div class="mt-3">
-			@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft)
-			{
-				<a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
-				<input type="hidden" name="id" value="@Model.Id" />
-				<button type="submit" class="btn btn-success">Send inn</button>
-			}
-			<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
-		</div>
-	}
-}
+<link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/case-details.css" asp-append-version="true" />
+<div class="public-dashboard case-details-page">
+    <nav aria-label="Brødsmuler" class="public-breadcrumb"><a asp-action="Index">Søknader</a><span aria-hidden="true"> / </span><span>@Model.CaseNumber</span></nav>
+    <header class="public-page-heading"><div><p class="public-role">ALIS · SØKNAD</p><h1>@Model.CaseNumber</h1><p>@(string.IsNullOrWhiteSpace(Model.ApplicationData?.DoctorName) ? "Søknadsoversikt og beregnet tilskudd" : Model.ApplicationData.DoctorName)</p></div><span class="public-status public-status-@Model.Status">@status</span></header>
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <section class="case-error" role="alert" aria-labelledby="error-heading"><h2 id="error-heading">Søknaden kunne ikke sendes inn</h2><div asp-validation-summary="ModelOnly"></div>@if (editable) { <p><a asp-action="Edit" asp-route-id="@Model.Id">Åpne skjemaet for å rette opplysningene</a>. Husk å lagre utkastet før du sender inn på nytt.</p> }</section>
+    }
+    @if (Model.Status == GrantCaseStatus.ReturnedForCorrection)
+    {
+        <section class="case-return" aria-labelledby="return-heading"><h2 id="return-heading">Du må korrigere søknaden</h2><p>@Model.ReturnReason</p><p class="text-muted">Returnert @Model.ReturnedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
+    }
+    <section class="case-overview" aria-labelledby="overview-heading"><h2 id="overview-heading">Saksopplysninger</h2><dl class="case-facts">
+        <div><dt>HPR-nummer</dt><dd>@(Model.HprNumber ?? "Ikke oppgitt")</dd></div>
+        <div><dt>Tilskuddsperiode</dt><dd>@(from.HasValue && through.HasValue ? $"{from:dd.MM.yyyy} – {through:dd.MM.yyyy}" : "Ikke oppgitt")</dd></div>
+        <div><dt>Sist lagret</dt><dd>@Model.LastModifiedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd></div>
+        <div><dt>Opprettet</dt><dd>@Model.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy")</dd></div>
+    </dl></section>
+    <section class="case-next-step" aria-labelledby="next-heading"><div><h2 id="next-heading">@(editable ? "Kontroller før innsending" : "Søknaden er levert")</h2><p>@(editable ? "Se gjennom opplysningene og beregningen. Du kan redigere utkastet før du sender inn." : "Du kan lese søknaden og følge status her. Redigering er tilgjengelig hvis saken returneres for korrigering.")</p></div>
+        <div class="case-actions">
+            @if (editable)
+            {
+                <a class="btn btn-outline-primary" asp-action="Edit" asp-route-id="@Model.Id">Rediger søknad</a>
+                <form asp-action="Submit" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-primary">@(Model.Status == GrantCaseStatus.ReturnedForCorrection ? "Send inn på nytt" : "Send inn søknad")</button></form>
+            }
+            else { <a class="btn btn-outline-primary" asp-action="Application" asp-route-id="@Model.Id">Les søknaden</a> }
+        </div>
+    </section>
+    <section class="case-calculation" aria-label="Beregnet tilskudd"><p class="case-section-help">Forhåndsberegning basert på lagrede opplysninger og satssettet for perioden.</p>@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)</section>
+    <details class="case-disclosure" open="@(!ViewData.ModelState.IsValid)"><summary>Søknadsopplysninger, veiledning og vedlegg</summary><div class="case-disclosure-content">@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)<p><a asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p></div></details>
+    <p class="case-back"><a asp-action="Index">Tilbake til søknadsoversikten</a></p>
+</div>
