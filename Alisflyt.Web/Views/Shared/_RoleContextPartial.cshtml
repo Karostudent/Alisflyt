@@ -1,0 +1,10 @@
+@model string?
+<div class="role-context mb-3">
+	@if (!string.IsNullOrWhiteSpace(Model))
+	{
+		<div class="d-flex align-items-center">
+			<span class="badge bg-info text-dark me-2">@Model</span>
+			<small class="text-muted">@ViewData["RoleHelpText"]</small>
+		</div>
+	}
+</div>

@@ -35,6 +35,7 @@ namespace Alisflyt.Infrastructure.Development
                     160m,      // PracticeCompensationMaxHours
                     14000m,    // LearningActivitiesMaxAmount
                     125000m,   // ProductivityMaxAmount
+                    24,         // ProductivityEligibilityMonths
                     1.15m,     // GuidanceRate
                     57.75m,    // GuidanceHoursPerYear
                     0.05m,     // FacilitationRate

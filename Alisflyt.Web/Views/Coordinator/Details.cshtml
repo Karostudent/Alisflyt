@@ -2,7 +2,10 @@
 
 @{
 	ViewData["Title"] = "Sak (Koordinator)";
+	ViewData["RoleHelpText"] = "Her behandles innsendte søknader.";
 }
+
+<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model='@("Koordinatorvisning")' />
 
 <h2>Sak @Model.CaseNumber</h2>
 <p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
@@ -29,6 +32,10 @@
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.LastModifiedAtUtc)</dt>
 	<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
 </dl>
+
+	@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
+
+	@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
 
 <div class="mt-3">
 	<a asp-action="Index" class="btn btn-secondary">Tilbake</a>

@@ -15,5 +15,6 @@ namespace Alisflyt.Application.Services
         Task SubmitAsync(Guid id, CancellationToken cancellationToken = default);
         Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default);
         Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default);
+        // Calculation helper (implemented in separate service) -- left here commented to avoid interface drift
     }
 }

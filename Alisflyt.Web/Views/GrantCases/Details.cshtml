@@ -3,6 +3,10 @@
 @{
 	ViewData["Title"] = "Søknad";
 }
+@{
+	ViewData["RoleHelpText"] = "Her vises den lagrede søknaden og beregningsresultatet.";
+}
+<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "ALIS-visning" )" />
 
 <h2>Søknad @Model.CaseNumber</h2>
 <p><a asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis hele søknaden og veiledningsattesten</a></p>
@@ -34,6 +38,10 @@
 		<dt class="col-sm-3">@Html.DisplayNameFor(m => m.LastModifiedAtUtc)</dt>
 		<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
 	</dl>
+
+	@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
+
+	@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
 
 	@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
 	{

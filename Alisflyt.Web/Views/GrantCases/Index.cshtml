@@ -19,13 +19,13 @@
 }
 else
 {
-	<table class="table table-striped">
+	<table class="table table-striped sortable-table">
 		<thead>
 			<tr>
-				<th>Saksnummer</th>
-				<th>HPR</th>
-				<th>Status</th>
-				<th>Endret</th>
+				<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+				<th data-sortable="true" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
+				<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+				<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Endret <span class="sort-indicator"></span></th>
 				<th></th>
 			</tr>
 		</thead>
@@ -36,7 +36,7 @@ else
 				<td>@item.CaseNumber</td>
 				<td>@item.HprNumber</td>
 		<td>@(item.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : item.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : item.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : item.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : item.Status.ToString())</td>
-				<td>@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+				<td data-sort-value="@item.LastModifiedAtUtc.ToLocalTime().ToString("o")">@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
 				<td>
 					<a class="btn btn-sm btn-link" asp-action="Details" asp-route-id="@item.Id">Vis</a>
 				</td>
