@@ -11,7 +11,7 @@ public class GrantApplicationData
         if (Attachments is null || Certificate is null || Certificate.Sessions is null || EmploymentPeriods is null
             || DoctorProfessions is null || SelectedPositionTypes is null)
             throw new ArgumentException("Skjemaet mangler opplysninger.");
-        if (HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
+        if (Certificate.SupervisorHprNumber?.Length > 50 || HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
             || SelectedPositionTypes.Any(p => !Enum.IsDefined(p)))
             throw new ArgumentException("Kontroller HPR-nummer og valgte typer.");
         if (ProductivityRequestedAmount < 0 || AbsenceCompensation < 0 || LearningActivityExpenses < 0 || SupervisionExpenses < 0 || AdditionalSupervisionCosts < 0 || CentralitySupplementRequestedAmount < 0)

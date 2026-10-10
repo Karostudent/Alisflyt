@@ -85,9 +85,9 @@ namespace Alisflyt.Domain.Entities
             var data = ApplicationDataJson is null ? throw new InvalidOperationException("Saken mangler søknadsdata.")
                 : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
             var certificate = data.Certificate;
-            if (string.IsNullOrWhiteSpace(certificate.SupervisorName) || string.IsNullOrWhiteSpace(certificate.DoctorName)
+            if (string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber) || string.IsNullOrWhiteSpace(certificate.DoctorName)
                 || certificate.Sessions.Count == 0 || certificate.Sessions.Any(s => !s.Date.HasValue || !s.Hours.HasValue || string.IsNullOrWhiteSpace(s.Topic)))
-                throw new ArgumentException("Fyll inn navn, dato, timer og tema for veiledningsøktene før godkjenning.");
+                throw new ArgumentException("Fyll inn veileders HPR-nummer, ALIS-legens navn, dato, timer og tema for veiledningsøktene før godkjenning.");
             data.ValidateDraft();
             data.SupervisorApprovedAtUtc = now;
             ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);

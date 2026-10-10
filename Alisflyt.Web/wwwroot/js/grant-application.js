@@ -411,6 +411,7 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
             payload.AdditionalSupervisionCosts = initialDraft.AdditionalSupervisionCosts ?? null;
             payload.EmploymentPeriods = payload.EmploymentPeriods.filter(Boolean);
             payload.Certificate.Sessions = payload.Certificate.Sessions.filter(Boolean);
+            payload.Certificate.SupervisorName = initialDraft.Certificate?.SupervisorName ?? "";
             const savedChangeVersion = changeVersion;
             const buttons = form.querySelectorAll(".save-draft");
             buttons.forEach(b => b.disabled = true);

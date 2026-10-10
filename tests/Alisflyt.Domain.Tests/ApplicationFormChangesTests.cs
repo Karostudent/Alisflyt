@@ -34,7 +34,7 @@ public class ApplicationFormChangesTests
     [Fact]
     public void Certificate_changes_invalidate_approval_but_other_form_changes_preserve_it()
     {
-        var c = Create(new() { Certificate = new() { DoctorName = "Lege", SupervisorName = "Veileder",
+        var c = Create(new() { Certificate = new() { DoctorName = "Lege", SupervisorHprNumber = "1234567",
             Sessions = [new() { Date = new(2026, 10, 1), Hours = 1, Topic = "Tema" }] } });
         c.ApproveCertificate(DateTimeOffset.UtcNow);
         var form = Read(c);

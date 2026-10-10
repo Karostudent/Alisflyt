@@ -14,13 +14,13 @@ public class GrantApplicationFormTests
     public async Task Edit_reopens_full_application_and_certificate()
     {
         var dto = new GrantCaseDto { Id = Guid.NewGuid(), Status = GrantCaseStatus.Draft,
-            ApplicationData = new() { DoctorName = "Lege", Certificate = new() { SupervisorName = "Veileder", Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } } };
+            ApplicationData = new() { DoctorName = "Lege", Certificate = new() { SupervisorHprNumber = "1234567", Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } } };
         var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto });
         var result = Assert.IsType<ViewResult>(await controller.Edit(dto.Id, default));
         var model = Assert.IsType<GrantApplicationFormViewModel>(result.Model);
         Assert.Equal(dto.Id, model.Id);
         Assert.Equal("Lege", model.DoctorName);
-        Assert.Equal("Veileder", model.Certificate.SupervisorName);
+        Assert.Equal("1234567", model.Certificate.SupervisorHprNumber);
         Assert.Equal(1.5m, Assert.Single(model.Certificate.Sessions).Hours);
     }
 

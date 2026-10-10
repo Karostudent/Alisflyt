@@ -97,8 +97,8 @@
 			<dt class="col-sm-3">Sentralitetstillegg (ønsket beløp)</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.CentralitySupplementRequestedAmount)</dd>
 
-			<dt class="col-sm-3">Veileder</dt>
-			<dd class="col-sm-9">@(Model.Certificate?.SupervisorName ?? "-")</dd>
+			<dt class="col-sm-3">Veileders HPR-nummer</dt>
+			<dd class="col-sm-9">@(Model.Certificate?.SupervisorHprNumber ?? "-")</dd>
 
 			<dt class="col-sm-3">ALIS-lege (i attest)</dt>
 			<dd class="col-sm-9">@(Model.Certificate?.DoctorName ?? "-")</dd>
