@@ -16,14 +16,14 @@ public class ApplicationFormChangesTests
     }
 
     [Fact]
-    public void Form_updates_preserve_calculation_inputs_and_coordinator_values()
+    public void Form_updates_save_guidance_expenses_and_preserve_coordinator_values()
     {
         var c = Create(new() { SupervisionExpenses = 123, HasAdditionalSupervisionCosts = true, AdditionalSupervisionCosts = 45 });
         c.UpdateCentrality(true, 1000, DateTimeOffset.UtcNow);
         c.UpdateApplication(new() { ProductivityRequestedAmount = 250, SupervisionExpenses = 999, IsCentralityGrade6 = false }, DateTimeOffset.UtcNow);
         var saved = Read(c);
         Assert.Equal(250, saved.ProductivityRequestedAmount);
-        Assert.Equal(123, saved.SupervisionExpenses);
+        Assert.Equal(999, saved.SupervisionExpenses);
         Assert.True(saved.HasAdditionalSupervisionCosts);
         Assert.Equal(45, saved.AdditionalSupervisionCosts);
         Assert.True(saved.IsCentralityGrade6);

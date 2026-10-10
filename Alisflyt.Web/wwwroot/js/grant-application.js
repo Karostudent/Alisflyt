@@ -405,8 +405,8 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
                 setValue(payload, name, value);
             }
             payload.Attachments = attachments;
-            // Keep existing calculation inputs until the calculation form is updated.
-            payload.SupervisionExpenses = initialDraft.SupervisionExpenses ?? null;
+            // Retain the historical requested amount; productivity is calculated automatically.
+            payload.ProductivityRequestedAmount = initialDraft.ProductivityRequestedAmount ?? null;
             payload.HasAdditionalSupervisionCosts = initialDraft.HasAdditionalSupervisionCosts ?? null;
             payload.AdditionalSupervisionCosts = initialDraft.AdditionalSupervisionCosts ?? null;
             payload.EmploymentPeriods = payload.EmploymentPeriods.filter(Boolean);

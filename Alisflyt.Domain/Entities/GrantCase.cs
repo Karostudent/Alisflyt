@@ -66,7 +66,6 @@ namespace Alisflyt.Domain.Entities
             {
                 data.IsCentralityGrade6 = existing.IsCentralityGrade6;
                 data.CentralitySupplementRequestedAmount = existing.CentralitySupplementRequestedAmount;
-                data.SupervisionExpenses = existing.SupervisionExpenses;
                 data.HasAdditionalSupervisionCosts = existing.HasAdditionalSupervisionCosts;
                 data.AdditionalSupervisionCosts = existing.AdditionalSupervisionCosts;
             }

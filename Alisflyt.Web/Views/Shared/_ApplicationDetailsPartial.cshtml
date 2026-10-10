@@ -89,8 +89,8 @@
 			<dt class="col-sm-3">Kurs-/aktivitetskostnader</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.LearningActivityExpenses)</dd>
 
-            <dt class="col-sm-3">Lavere produktivitet (søkt beløp)</dt>
-            <dd class="col-sm-9">@AmountDisplay(Model.ProductivityRequestedAmount)</dd>
+            <dt class="col-sm-3">Faktiske veiledningskostnader</dt>
+            <dd class="col-sm-9">@AmountDisplay(Model.SupervisionExpenses)</dd>
 			<dt class="col-sm-3">Sentralitetsgrad 6</dt>
 			<dd class="col-sm-9">@(Model.IsCentralityGrade6.HasValue ? (Model.IsCentralityGrade6.Value ? "Ja" : "Nei") : "-")</dd>
 

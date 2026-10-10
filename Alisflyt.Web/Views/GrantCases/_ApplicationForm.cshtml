@@ -124,9 +124,9 @@
                     <input asp-for="LearningActivityExpenses" type="number" min="0" step="0.01" class="form-control" />
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="ProductivityRequestedAmount" class="form-label">Lavere produktivitet (søkt beløp)</label>
-                    <input asp-for="ProductivityRequestedAmount" type="number" min="0" step="0.01" class="form-control" aria-describedby="productivity-help" />
-                    <small id="productivity-help" class="text-muted">Søkt beløp begrenses av satsen for stilling, periode og retten til produktivitetselementet.</small>
+                    <label asp-for="SupervisionExpenses" class="form-label">Faktiske veiledningskostnader (kr)</label>
+                    <input asp-for="SupervisionExpenses" type="number" min="0" step="0.01" class="form-control" aria-describedby="guidance-expenses-help" />
+                    <small id="guidance-expenses-help" class="text-muted">Oppgi faktiske kostnader. Tilskuddet begrenses av maksimum for stilling og tilskuddsperiode.</small>
                 </div>
             </div>
                 <div class="alert alert-info mb-4" role="note">
