@@ -33,6 +33,8 @@ public class GrantCalculationServiceTests
         var result = service.Calculate(input, rateSet);
 
         Assert.Equal(28_000m, result.PracticeCompensationAmount);
+        Assert.Equal(33_000m, result.PracticeCompensationMaximumAmount);
+        Assert.False(result.IsPracticeCompensationCapped);
     }
 
     [Fact]
@@ -60,6 +62,8 @@ public class GrantCalculationServiceTests
         var result = service.Calculate(input, rateSet);
 
         Assert.Equal(33_000m, result.PracticeCompensationAmount);
+        Assert.Equal(33_000m, result.PracticeCompensationMaximumAmount);
+        Assert.True(result.IsPracticeCompensationCapped);
     }
 
     [Fact]

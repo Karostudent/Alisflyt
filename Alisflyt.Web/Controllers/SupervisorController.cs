@@ -4,11 +4,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Alisflyt.Web.Controllers;
 
-public class SupervisorController(IGrantCaseApplicationService service, IGrantCaseRepository repository, TimeProvider timeProvider) : Controller
+public class SupervisorController(IGrantCaseApplicationService service, IGrantCaseRepository repository, TimeProvider timeProvider, IGrantCalculationApplicationService calculationService) : Controller
 {
     public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
     {
-        try { return View(await service.GetByIdAsync(id, cancellationToken)); }
+        try
+        {
+            var grantCase = await service.GetByIdAsync(id, cancellationToken);
+            ViewData["Calculation"] = await calculationService.CalculateForCaseAsync(id, cancellationToken);
+            return View(grantCase);
+        }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 

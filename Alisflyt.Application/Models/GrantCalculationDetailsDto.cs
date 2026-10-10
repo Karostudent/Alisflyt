@@ -9,6 +9,8 @@ namespace Alisflyt.Application.Models
         public string? CentralityExplanation { get; init; }
 
         public decimal PracticeCompensationAmount { get; init; }
+        public decimal PracticeCompensationMaximumAmount { get; init; }
+        public bool IsPracticeCompensationCapped { get; init; }
         public decimal LearningActivitiesAmount { get; init; }
         public decimal ProductivityAmount { get; init; }
         public decimal GuidanceAmount { get; init; }

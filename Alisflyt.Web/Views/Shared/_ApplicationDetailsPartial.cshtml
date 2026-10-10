@@ -84,7 +84,13 @@
 			</dd>
 
 			<dt class="col-sm-3">Praksiskompensasjon</dt>
-			<dd class="col-sm-9">@AmountDisplay(Model.AbsenceCompensation)</dd>
+			<dd class="col-sm-9">
+                @AmountDisplay(Model.AbsenceCompensation)
+                @if (ViewData["Calculation"] is Alisflyt.Application.Models.GrantCalculationDetailsDto { IsAvailable: true, IsPracticeCompensationCapped: true } calculation)
+                {
+                    <span class="small text-muted ms-2">Maksgrense: @calculation.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
+                }
+            </dd>
 
 			<dt class="col-sm-3">Kurs-/aktivitetskostnader</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.LearningActivityExpenses)</dd>

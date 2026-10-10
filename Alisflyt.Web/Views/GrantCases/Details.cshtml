@@ -8,6 +8,7 @@
     var from = periods?.Where(p => p.FundingFrom.HasValue).Select(p => p.FundingFrom).Min();
     var through = periods?.Where(p => p.FundingThrough.HasValue).Select(p => p.FundingThrough).Max();
     ViewData["AttachmentCaseId"] = Model.Id;
+    ViewData["Calculation"] = Model.Calculation;
 }
 <link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/case-details.css" asp-append-version="true" />

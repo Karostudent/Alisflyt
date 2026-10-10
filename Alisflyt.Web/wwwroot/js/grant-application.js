@@ -240,6 +240,16 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
     form.dispatchEvent(new Event("change"));
     document.getElementById("supervision-rows").dispatchEvent(new Event("input", { bubbles: true }));
 
+    const updatePracticeMaximumHint = () => {
+        const hint = document.getElementById("practice-maximum-hint");
+        const input = document.getElementById("AbsenceCompensation");
+        const row = document.querySelector("#calculation-preview [data-practice-maximum]");
+        if (!hint || !input) return;
+        const maximum = row ? Number(row.dataset.practiceMaximum) : null;
+        hint.hidden = maximum === null || !Number.isFinite(input.valueAsNumber) || input.valueAsNumber <= maximum;
+        hint.textContent = hint.hidden ? "" : "Maksgrense: " + maximum.toLocaleString("nb-NO", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " kr for sist lagrede stilling og periode. Lagre utkastet etter endringer i perioden.";
+    };
+    document.getElementById("AbsenceCompensation")?.addEventListener("input", updatePracticeMaximumHint);
     const refreshCalculation = async id => {
         const preview = document.getElementById("calculation-preview");
         const guidance = document.getElementById("guidance-preview");
@@ -250,10 +260,12 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
             if (!response.ok) throw new Error("Kunne ikke hente beregningen.");
             const html = await response.text();
             preview.innerHTML = html;
+            updatePracticeMaximumHint();
             guidance.textContent = preview.querySelector("[data-guidance-amount]")?.textContent
                 || preview.querySelector(".alert")?.textContent || "Beregning er ikke tilgjengelig.";
         } catch (error) {
             preview.textContent = error.message;
+            updatePracticeMaximumHint();
             guidance.textContent = error.message;
         }
     };

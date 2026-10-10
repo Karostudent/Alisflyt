@@ -75,6 +75,8 @@ namespace Alisflyt.Application.Services
             {
                 IsAvailable = true,
                 PracticeCompensationAmount = result.PracticeCompensationAmount,
+                PracticeCompensationMaximumAmount = result.PracticeCompensationMaximumAmount,
+                IsPracticeCompensationCapped = result.IsPracticeCompensationCapped,
                 LearningActivitiesAmount = result.LearningActivitiesAmount,
                 ProductivityAmount = result.ProductivityAmount,
                 GuidanceAmount = result.GuidanceAmount,

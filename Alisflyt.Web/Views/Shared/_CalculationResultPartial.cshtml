@@ -10,7 +10,12 @@
 	{
 		<table class="table table-sm">
 			<tbody>
-				<tr><th>Praksiskompensasjon</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr</td></tr>
+				<tr data-practice-maximum="@Model.PracticeCompensationMaximumAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)"><th>Praksiskompensasjon</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr
+                    @if (Model.IsPracticeCompensationCapped)
+                    {
+                        <span class="small text-muted ms-2">Maksgrense: @Model.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
+                    }
+                </td></tr>
 				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
 				<tr><th>Produktivitetselement</th><td>@Model.ProductivityAmount.ToString("N0") kr</td></tr>
 				<tr><th>Tilskudd til veiledning</th><td data-guidance-amount>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
