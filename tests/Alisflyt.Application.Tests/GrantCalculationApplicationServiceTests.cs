@@ -12,6 +12,46 @@ namespace Alisflyt.Application.Tests
 {
     public class GrantCalculationApplicationServiceTests
     {
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task Audit_explains_period_limits_eligibility_caps_and_total(bool centrality)
+        {
+            var application = new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                FirstRegularGpOrLocumDate = new DateOnly(2023, 1, 1),
+                AbsenceCompensation = 9000000m,
+                LearningActivityExpenses = 9000000m,
+                SupervisionExpenses = 100m,
+                CentralitySupplementRequestedAmount = 9000000m,
+                IsCentralityGrade6 = centrality,
+                EmploymentPeriods =
+                [
+                    new() { PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum, PositionPercentage = 50, EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 7, 1), FundingThrough = new(2024, 3, 31) },
+                    new() { PositionType = Alisflyt.Domain.Forms.PositionType.GeneralPractitionerOutsideRegularGpScheme, PositionPercentage = 100, EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 7, 1), FundingThrough = new(2023, 12, 31) }
+                ]
+            };
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "AUDIT", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(application, DateTimeOffset.UtcNow);
+            var rateRepo = new FakeRateRepo();
+            rateRepo.Items.Add(CreateRateSet("Audit", new(2023, 1, 1), new(2024, 12, 31)));
+            var result = await new GrantCalculationApplicationService(new FakeCaseRepo { Case = grantCase }, rateRepo).CalculateForCaseAsync(grantCase.Id);
+
+            decimal Amount(string item) => Assert.Single(result.AuditRows.Where(x => x.Item == item)).Amount;
+            Assert.Equal(9m, Amount("Periode 1 – beregningsmåneder"));
+            Assert.Equal(1875000m, Amount("Periode 1 – praksismaks"));
+            Assert.Equal(0m, Amount("Periode 2 – praksismaks"));
+            Assert.Equal(5000m, Amount("Periode 1 – produktivitet"));
+            Assert.Equal(0m, Amount("Periode 2 – produktivitet"));
+            Assert.Equal(8750m, Amount("Læringsaktiviteter"));
+            Assert.Equal(100m, Amount("Veiledning"));
+            Assert.Equal(centrality ? 4375m : 0m, Amount("Sentralitetstillegg"));
+            Assert.Equal(result.TotalAmount, Amount("Totalt beregnet tilskudd"));
+            Assert.Equal((result.PracticeCompensationAmount + result.LearningActivitiesAmount + result.ProductivityAmount + result.GuidanceAmount) * .05m, Amount("Tilrettelegging"));
+            Assert.Contains(result.AuditRows, x => x.Item == "Periode 1 – produktivitet" && x.Substitution.Contains("31.12.2023"));
+        }
+
         private class FakeCaseRepo : IGrantCaseRepository
         {
             public Alisflyt.Domain.Entities.GrantCase? Case;

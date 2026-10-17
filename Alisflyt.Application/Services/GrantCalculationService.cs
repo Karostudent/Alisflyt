@@ -292,7 +292,7 @@ public class GrantCalculationService
             maximumAmount);
     }
 
-    private static int CountWholeMonths(
+    internal static int CountWholeMonths(
         DateOnly from,
         DateOnly through)
     {

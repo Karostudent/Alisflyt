@@ -80,6 +80,7 @@
 
 @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview)
 {
+	<a asp-action="ExportExcel" asp-route-id="@Model.Id" class="btn btn-success">Eksporter til Excel</a>
 	<a asp-action="ReturnForCorrection" asp-route-id="@Model.Id" class="btn btn-warning">Returner for korrigering</a>
 }
 

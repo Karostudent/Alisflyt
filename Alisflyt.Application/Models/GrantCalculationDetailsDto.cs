@@ -4,6 +4,7 @@ namespace Alisflyt.Application.Models
 {
     public sealed class GrantCalculationDetailsDto
     {
+        public IReadOnlyList<GrantCalculationAuditRow> AuditRows { get; init; } = [];
         public bool IsAvailable { get; init; }
         public string? UnavailableReason { get; init; }
         public string? CentralityExplanation { get; init; }

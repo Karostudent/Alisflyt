@@ -74,6 +74,7 @@ namespace Alisflyt.Application.Services
             return new GrantCalculationDetailsDto
             {
                 IsAvailable = true,
+                AuditRows = GrantCalculationAudit.Build(input, chosen, result),
                 PracticeCompensationAmount = result.PracticeCompensationAmount,
                 PracticeCompensationMaximumAmount = result.PracticeCompensationMaximumAmount,
                 IsPracticeCompensationCapped = result.IsPracticeCompensationCapped,
