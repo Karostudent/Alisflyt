@@ -41,9 +41,9 @@ namespace Alisflyt.Application.Tests
                 {
                     SupervisorName = "Supervisor",
                     DoctorName = "Dr Test",
-                    DoctorSigningPlace = "Kommune",
+                    DoctorSigningPlace = "Kristiansand",
                     DoctorSigningDate = new DateOnly(2024,1,1),
-                    SupervisorSigningPlace = "Kommune",
+                    SupervisorSigningPlace = "Kristiansand",
                     SupervisorSigningDate = new DateOnly(2024,1,2),
                     Sessions = new System.Collections.Generic.List<SupervisionSessionInputModel>
                     {
