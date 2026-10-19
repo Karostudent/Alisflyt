@@ -16,19 +16,75 @@ public class ApplicationFormChangesTests
     }
 
     [Fact]
-    public void Form_updates_save_guidance_expenses_and_preserve_coordinator_values()
+    public void Form_updates_save_explicit_cost_values_and_preserve_coordinator_values()
     {
         var c = Create(new() { SupervisionExpenses = 123, HasAdditionalSupervisionCosts = true, AdditionalSupervisionCosts = 45 });
         c.UpdateCentrality(true, 1000, DateTimeOffset.UtcNow);
-        c.UpdateApplication(new() { ProductivityRequestedAmount = 250, SupervisionExpenses = 999, IsCentralityGrade6 = false }, DateTimeOffset.UtcNow);
+        c.UpdateApplication(new()
+        {
+            ProductivityRequestedAmount = 250,
+            SupervisionExpenses = 999,
+            HasAdditionalSupervisionCosts = false,
+            AdditionalSupervisionCosts = 0,
+            IsCentralityGrade6 = false,
+            CentralitySupplementRequestedAmount = 0
+        }, DateTimeOffset.UtcNow);
         var saved = Read(c);
         Assert.Equal(250, saved.ProductivityRequestedAmount);
         Assert.Equal(999, saved.SupervisionExpenses);
-        Assert.True(saved.HasAdditionalSupervisionCosts);
-        Assert.Equal(45, saved.AdditionalSupervisionCosts);
+        Assert.False(saved.HasAdditionalSupervisionCosts);
+        Assert.Equal(0, saved.AdditionalSupervisionCosts);
         Assert.True(saved.IsCentralityGrade6);
         Assert.Equal(1000, saved.CentralitySupplementRequestedAmount);
         Assert.Throws<ArgumentException>(() => c.UpdateCentrality(true, null, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void Form_updates_can_remove_additional_supervision_costs()
+    {
+        var c = Create(new() { HasAdditionalSupervisionCosts = true, AdditionalSupervisionCosts = 45 });
+
+        c.UpdateApplication(new()
+        {
+            HasAdditionalSupervisionCosts = null,
+            AdditionalSupervisionCosts = null
+        }, DateTimeOffset.UtcNow);
+
+        var saved = Read(c);
+        Assert.Null(saved.HasAdditionalSupervisionCosts);
+        Assert.Null(saved.AdditionalSupervisionCosts);
+    }
+
+    [Fact]
+    public void Legacy_partial_update_does_not_clear_application_data()
+    {
+        var c = Create(new()
+        {
+            HasAdditionalSupervisionCosts = true,
+            AdditionalSupervisionCosts = 45,
+            SupervisionExpenses = 123
+        });
+        var applicationData = c.ApplicationDataJson;
+
+        c.UpdateDraft("1234567", 80, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), DateTimeOffset.UtcNow);
+
+        Assert.Equal(applicationData, c.ApplicationDataJson);
+    }
+
+    [Fact]
+    public void Coordinator_can_change_and_clear_centrality_values()
+    {
+        var c = Create(new());
+        c.UpdateCentrality(true, 0, DateTimeOffset.UtcNow);
+
+        var saved = Read(c);
+        Assert.True(saved.IsCentralityGrade6);
+        Assert.Equal(0, saved.CentralitySupplementRequestedAmount);
+
+        c.UpdateCentrality(false, null, DateTimeOffset.UtcNow);
+        saved = Read(c);
+        Assert.False(saved.IsCentralityGrade6);
+        Assert.Null(saved.CentralitySupplementRequestedAmount);
     }
 
     [Fact]

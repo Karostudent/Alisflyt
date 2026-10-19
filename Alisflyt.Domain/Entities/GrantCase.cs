@@ -64,10 +64,9 @@ namespace Alisflyt.Domain.Entities
             var existing = ApplicationDataJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
             if (existing is not null)
             {
+                // Centrality is maintained separately by the coordinator, not by the ALIS form.
                 data.IsCentralityGrade6 = existing.IsCentralityGrade6;
                 data.CentralitySupplementRequestedAmount = existing.CentralitySupplementRequestedAmount;
-                data.HasAdditionalSupervisionCosts = existing.HasAdditionalSupervisionCosts;
-                data.AdditionalSupervisionCosts = existing.AdditionalSupervisionCosts;
             }
             data.SupervisorApprovedAtUtc = existing is not null
                 && System.Text.Json.JsonSerializer.Serialize(existing.Certificate) == System.Text.Json.JsonSerializer.Serialize(data.Certificate)

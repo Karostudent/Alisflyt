@@ -419,8 +419,12 @@ const initialDraft = JSON.parse(document.getElementById("draft-data")?.textConte
             payload.Attachments = attachments;
             // Retain the historical requested amount; productivity is calculated automatically.
             payload.ProductivityRequestedAmount = initialDraft.ProductivityRequestedAmount ?? null;
-            payload.HasAdditionalSupervisionCosts = initialDraft.HasAdditionalSupervisionCosts ?? null;
-            payload.AdditionalSupervisionCosts = initialDraft.AdditionalSupervisionCosts ?? null;
+            const hasAdditionalCosts = form.querySelector('input[name="HasAdditionalSupervisionCosts"]:checked')?.value;
+            payload.HasAdditionalSupervisionCosts = hasAdditionalCosts === undefined
+                ? null : hasAdditionalCosts === "true";
+            const additionalCosts = form.querySelector('[name="AdditionalSupervisionCosts"]');
+            payload.AdditionalSupervisionCosts = hasAdditionalCosts === "true" && additionalCosts?.value !== ""
+                ? Number(additionalCosts.value) : null;
             payload.EmploymentPeriods = payload.EmploymentPeriods.filter(Boolean);
             payload.Certificate.Sessions = payload.Certificate.Sessions.filter(Boolean);
             payload.Certificate.SupervisorName = initialDraft.Certificate?.SupervisorName ?? "";

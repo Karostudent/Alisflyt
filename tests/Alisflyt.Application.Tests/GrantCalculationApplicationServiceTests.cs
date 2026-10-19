@@ -6,6 +6,7 @@ using Alisflyt.Application.Models;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Forms;
 using Xunit;
 
 namespace Alisflyt.Application.Tests
@@ -50,6 +51,48 @@ namespace Alisflyt.Application.Tests
             Assert.Equal(result.TotalAmount, Amount("Totalt beregnet tilskudd"));
             Assert.Equal((result.PracticeCompensationAmount + result.LearningActivitiesAmount + result.ProductivityAmount + result.GuidanceAmount) * .05m, Amount("Tilrettelegging"));
             Assert.Contains(result.AuditRows, x => x.Item == "Periode 1 – produktivitet" && x.Substitution.Contains("31.12.2023"));
+        }
+
+        [Fact]
+        public async Task Calculation_uses_values_saved_by_application_and_coordinator_updates()
+        {
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "SAVED-VALUES", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100,
+                        EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
+                ]
+            }, DateTimeOffset.UtcNow);
+            grantCase.UpdateCentrality(true, 3000m, DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100,
+                        EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
+                ],
+                HasAdditionalSupervisionCosts = true,
+                AdditionalSupervisionCosts = 125m
+            }, DateTimeOffset.UtcNow);
+
+            var saved = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+            var input = GrantCalculationInputMapper.From(saved);
+            Assert.True(input.IsCentralityGrade6);
+            Assert.Equal(3000m, input.CentralitySupplementRequestedAmount);
+            Assert.Equal(125m, input.AdditionalSupervisionCosts);
+
+            var rateRepo = new FakeRateRepo();
+            rateRepo.Items.Add(CreateRateSet("Saved values", new(2023, 1, 1), new(2023, 12, 31)));
+            var result = await new GrantCalculationApplicationService(new FakeCaseRepo { Case = grantCase }, rateRepo)
+                .CalculateForCaseAsync(grantCase.Id);
+            Assert.True(result.IsAvailable);
+            Assert.Equal(3000m, result.CentralitySupplementAmount);
         }
 
         private class FakeCaseRepo : IGrantCaseRepository

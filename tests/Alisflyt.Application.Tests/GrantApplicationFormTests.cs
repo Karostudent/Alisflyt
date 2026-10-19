@@ -98,9 +98,19 @@ public class GrantApplicationFormTests
         Assert.Equal("Diagnostikk", Assert.Single(reviewed.ApplicationData.Certificate.Sessions).Topic);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateDraftAsync(created.Id, new() { ApplicationData = data }));
         await service.ReturnForCorrectionAsync(created.Id, new() { Reason = "Oppdater veiledningen" });
+        data.HasAdditionalSupervisionCosts = false;
+        data.AdditionalSupervisionCosts = null;
+        data.AbsenceCompensation = 0;
         await service.UpdateDraftAsync(created.Id, new() { ApplicationData = data });
+        var corrected = (await service.GetByIdAsync(created.Id)).ApplicationData!;
+        Assert.False(corrected.HasAdditionalSupervisionCosts);
+        Assert.Null(corrected.AdditionalSupervisionCosts);
+        Assert.Equal(0, corrected.AbsenceCompensation);
         await service.SubmitAsync(created.Id);
-        Assert.Equal(2, (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate.Sessions.Count);
+        var resubmitted = (await service.GetByIdAsync(created.Id)).ApplicationData!;
+        Assert.Equal(2, resubmitted.Certificate.Sessions.Count);
+        Assert.False(resubmitted.HasAdditionalSupervisionCosts);
+        Assert.Null(resubmitted.AdditionalSupervisionCosts);
     }
 
     [Fact]
