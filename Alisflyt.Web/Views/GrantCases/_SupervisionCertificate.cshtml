@@ -6,15 +6,15 @@
     <p class="alert alert-info">Fyll inn navn én gang og legg til øktene nedenfor. Velg «Lagre utkast» når du vil beholde opplysningene.</p>
     <div class="mb-3">
         <strong>Veiledningsattest</strong>
-        <div class="form-text">Veiledningsattesten vil i ferdig løsning fylles ut av veileder via egen innlogging. I denne demoen registreres opplysningene foreløpig som en del av søknaden.</div>
+        <div class="form-text">ALIS fører veiledningsøktene. Veileder kontrollerer og godkjenner attesten i veiledervisningen.</div>
     </div>
     <section class="application-section">
         <h2>Veileder og ALIS-lege</h2>
         <div class="section-content">
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
-                    <label asp-for="Certificate.SupervisorName" class="form-label">Veileders navn</label>
-                    <input asp-for="Certificate.SupervisorName" class="form-control" autocomplete="off" />
+                    <label asp-for="Certificate.SupervisorHprNumber" class="form-label">Veileders HPR-nummer</label>
+                    <input asp-for="Certificate.SupervisorHprNumber" class="form-control" autocomplete="off" />
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Certificate.DoctorName" class="form-label">ALIS-legens navn</label>
@@ -29,6 +29,11 @@
                 <button type="button" id="add-supervision" class="btn btn-outline-primary">+ Legg til en veiledningsøkt</button>
                 <p>Totalt: <output id="total-supervision-hours" aria-live="polite">0</output> timer</p>
             </div>
+            <h3>Beregnet tilskudd til veiledning</h3>
+            <p class="text-muted">Tilskuddet beregnes fra oppgitte veiledningskostnader, begrenset av maksimum for stilling og periode. Øktene dokumenterer gjennomført veiledning. Lagre utkastet for å oppdatere beløpet.</p>
+
+            <p id="guidance-preview" aria-live="polite">Lagre et komplett utkast for å se beregnet tilskudd til veiledning.</p>
+            <p><a id="supervisor-review-link" hidden="@(Model.Id == Guid.Empty)" asp-controller="Supervisor" asp-action="Details" asp-route-id="@Model.Id">Til veileders kontroll og godkjenning (demo)</a></p>
             <details class="signing-details">
                 <summary>Sted, dato og signering</summary>
                 <p class="text-muted mt-3">Dette kan fylles ut senere. Elektronisk signering er ikke tilgjengelig.</p>
@@ -37,7 +42,7 @@
                 <fieldset class="col-md-6">
                     <legend>ALIS</legend>
                     <label asp-for="Certificate.DoctorSigningPlace" class="form-label">Kommune</label>
-                    <input asp-for="Certificate.DoctorSigningPlace" class="form-control mb-3" />
+                    <input asp-for="Certificate.DoctorSigningPlace" class="form-control mb-3 municipality-input" list="norwegian-municipalities" autocomplete="off" placeholder="Skriv eller velg kommune" />
                     <label asp-for="Certificate.DoctorSigningDate" class="form-label">Dato</label>
                     <input asp-for="Certificate.DoctorSigningDate" type="date" class="form-control date-input" />
                     <p class="signature-line">Signatur og stempel</p>
@@ -45,13 +50,19 @@
                 <fieldset class="col-md-6">
                     <legend>Veileder</legend>
                     <label asp-for="Certificate.SupervisorSigningPlace" class="form-label">Kommune</label>
-                    <input asp-for="Certificate.SupervisorSigningPlace" class="form-control mb-3" />
+                    <input asp-for="Certificate.SupervisorSigningPlace" class="form-control mb-3 municipality-input" list="norwegian-municipalities" autocomplete="off" placeholder="Skriv eller velg kommune" />
                     <label asp-for="Certificate.SupervisorSigningDate" class="form-label">Dato</label>
                     <input asp-for="Certificate.SupervisorSigningDate" type="date" class="form-control date-input" />
                     <p class="signature-line">Signatur og stempel</p>
                 </fieldset>
             </div>
             </details>
+            <datalist id="norwegian-municipalities">
+                @foreach (var municipality in Alisflyt.Domain.Forms.NorwegianMunicipalities.Names)
+                {
+                    <option value="@municipality"></option>
+                }
+            </datalist>
         </div>
         <div class="form-actions">
             <button type="button" id="previous-step" class="btn btn-outline-primary">← TILBAKE</button>

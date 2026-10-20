@@ -4,11 +4,14 @@ namespace Alisflyt.Application.Models
 {
     public sealed class GrantCalculationDetailsDto
     {
+        public IReadOnlyList<GrantCalculationAuditRow> AuditRows { get; init; } = [];
         public bool IsAvailable { get; init; }
         public string? UnavailableReason { get; init; }
         public string? CentralityExplanation { get; init; }
 
         public decimal PracticeCompensationAmount { get; init; }
+        public decimal PracticeCompensationMaximumAmount { get; init; }
+        public bool IsPracticeCompensationCapped { get; init; }
         public decimal LearningActivitiesAmount { get; init; }
         public decimal ProductivityAmount { get; init; }
         public decimal GuidanceAmount { get; init; }

@@ -32,18 +32,32 @@ namespace Alisflyt.Web.Controllers
         }
 
         [HttpGet]
+        public async Task<IActionResult> DownloadAttachment(Guid id, Guid attachmentId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var data = await _svc.GetByIdAsync(id, cancellationToken);
+                var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
+                if (attachment is null) return NotFound();
+                return File(Convert.FromBase64String(attachment.ContentBase64), "application/octet-stream", System.IO.Path.GetFileName(attachment.FileName));
+            }
+            catch (KeyNotFoundException) { return NotFound(); }
+        }
+
+        [HttpGet]
         public IActionResult Create()
         {
-            return View("Application", new GrantApplicationFormViewModel());
+            return View("Application", new GrantApplicationFormViewModel { GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [RequestSizeLimit(1_048_576)]
+        [RequestSizeLimit(23_000_000)]
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
+            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             try
             {
                 var saved = model.Id == Guid.Empty
@@ -180,7 +194,9 @@ namespace Alisflyt.Web.Controllers
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
-            return View("Application", FormModel(d));
+            var model = FormModel(d);
+            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
+            return View("Application", model);
         }
 
 
@@ -215,31 +231,8 @@ namespace Alisflyt.Web.Controllers
                 ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn i nåværende status. Bare utkast og søknader returnert for korrigering kan sendes inn.");
             }
 
-            Alisflyt.Application.Models.GrantCaseDto d;
-            try
-            {
-                d = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            }
-            catch (System.Collections.Generic.KeyNotFoundException)
-            {
-                return NotFound();
-            }
-
-            var vm = new GrantCaseDetailsViewModel
-            {
-                Id = d.Id,
-                CaseNumber = d.CaseNumber,
-                HprNumber = d.HprNumber,
-                EmploymentPercentage = d.EmploymentPercentage,
-                EmploymentStartDate = d.EmploymentStartDate,
-                EmploymentEndDate = d.EmploymentEndDate,
-                Status = d.Status,
-                CreatedAtUtc = d.CreatedAtUtc,
-                LastModifiedAtUtc = d.LastModifiedAtUtc
-            };
-
-            // Return explicit Details view so MVC does not search for a Submit.cshtml view.
-            return View("Details", vm);
+            // Reuse the complete details model while preserving validation errors.
+            return await Details(id, cancellationToken);
         }
     }
 }

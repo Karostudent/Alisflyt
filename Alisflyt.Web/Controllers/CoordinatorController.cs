@@ -119,6 +119,49 @@ namespace Alisflyt.Web.Controllers
             return View("~/Views/Coordinator/Details.cshtml", vm);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> ExportExcel(System.Guid id,
+            [FromServices] IGrantCalculationApplicationService calculationService,
+            [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
+        {
+            Alisflyt.Application.Models.GrantCaseDto application;
+            try
+            {
+                application = await _svc.GetByIdAsync(id, cancellationToken);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+
+            if (application.Status != GrantCaseStatus.UnderReview)
+                return BadRequest("Eksport er bare tilgjengelig når saken er under behandling.");
+
+            var calculation = await calculationService.CalculateForCaseAsync(id, cancellationToken);
+            var bytes = Alisflyt.Web.Exports.GrantCaseExcelExport.Create(application, calculation, timeProvider.GetUtcNow());
+            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"Soknad-{application.Id}.xlsx");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveCentrality(System.Guid id, bool? grade6, decimal? amount,
+            [FromServices] Alisflyt.Application.Abstractions.IGrantCaseRepository repository,
+            [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (!ModelState.IsValid || !grade6.HasValue) throw new ArgumentException("Velg sentralitetsgrad og kontroller beløpet.");
+                var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
+                grantCase.UpdateCentrality(grade6.Value, amount, timeProvider.GetUtcNow());
+                await repository.SaveChangesAsync(cancellationToken);
+            }
+            catch (KeyNotFoundException) { return NotFound(); }
+            catch (ArgumentException ex) { TempData["Error"] = ex.Message; }
+            catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> StartReview(System.Guid id, CancellationToken cancellationToken)

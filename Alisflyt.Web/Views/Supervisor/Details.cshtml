@@ -1,0 +1,20 @@
+@model Alisflyt.Application.Models.GrantCaseDto
+@{ ViewData["Title"] = "Veileders godkjenning"; }
+<h1>Veileders kontroll og godkjenning</h1>
+<p class="alert alert-info">Demofunksjon: Godkjenningen registreres uten innlogging eller elektronisk signatur. ALIS fører attesten, og veileder kontrollerer opplysningene.</p>
+@if (TempData["Error"] is string error) { <p class="alert alert-danger">@error</p> }
+<p>Sak @Model.CaseNumber</p>
+@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
+@if (Model.ApplicationData?.SupervisorApprovedAtUtc is DateTimeOffset approved)
+{
+    <p class="alert alert-success">Attesten er godkjent (demo). Registrert @approved.ToString("u"). Endringer i attesten krever ny godkjenning.</p>
+}
+else
+{
+    <form asp-action="Approve" method="post">
+        <input type="hidden" name="id" value="@Model.Id" />
+        <label class="form-check"><input class="form-check-input" type="checkbox" name="confirmsAccuracy" value="true" required /> Jeg har kontrollert veiledningsattesten og bekrefter at opplysningene er riktige.</label>
+        <button class="btn btn-primary mt-3" type="submit">Godkjenn attest (demo)</button>
+    </form>
+}
+<a class="btn btn-outline-primary mt-3" asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis søknaden</a>

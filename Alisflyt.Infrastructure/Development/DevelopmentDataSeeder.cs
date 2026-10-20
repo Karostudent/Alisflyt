@@ -3,6 +3,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Forms;
+using Microsoft.EntityFrameworkCore;
 
 namespace Alisflyt.Infrastructure.Development
 {
@@ -23,7 +25,7 @@ namespace Alisflyt.Infrastructure.Development
         public static async Task SeedAsync(Persistence.ApplicationDbContext context, System.TimeProvider timeProvider, CancellationToken cancellationToken = default)
         {
             var now = timeProvider.GetUtcNow();
-            if (!context.GrantRateSets.Any(x => x.Id == GrantRateSet2025_2026Id))
+            if (!await context.GrantRateSets.AnyAsync(x => x.Id == GrantRateSet2025_2026Id, cancellationToken))
             {
                 var rateSet = GrantRateSet.Create(
                     GrantRateSet2025_2026Id,
@@ -47,39 +49,112 @@ namespace Alisflyt.Infrastructure.Development
                     .ConfigureAwait(false);
             }
 
+            // Replace the four fixed demo cases on startup, including older seeded data.
             foreach (var (id, caseNumber) in SeedCases)
             {
-                if (context.GrantCases.Any(c => c.CaseNumber == caseNumber))
+                var existingCase = await context.GrantCases.SingleOrDefaultAsync(
+                    c => c.Id == id && c.CaseNumber == caseNumber, cancellationToken);
+                if (existingCase is null && await context.GrantCases.AnyAsync(
+                    c => c.Id == id || c.CaseNumber == caseNumber, cancellationToken))
                     continue;
 
-                var gc = Domain.Entities.GrantCase.Create(id, caseNumber, now);
+                var gc = GrantCase.Create(id, caseNumber, existingCase?.CreatedAtUtc ?? now);
 
-                // first: a complete draft
-                if (caseNumber.EndsWith("001"))
+                var application = CreateApplication(caseNumber);
+                gc.UpdateApplication(application, now);
+
+                if (caseNumber.EndsWith("003") || caseNumber.EndsWith("004"))
                 {
-                    gc.UpdateDraft("HPR-DEM-1", 50m, new DateOnly(2026,1,1), new DateOnly(2026,12,31), now);
-                }
-                else if (caseNumber.EndsWith("002"))
-                {
-                    // incomplete draft
-                    gc.UpdateDraft(null, null, null, null, now);
-                }
-                else if (caseNumber.EndsWith("003"))
-                {
-                    // submitted case
-                    gc.UpdateDraft("HPR-DEM-3", 80m, new DateOnly(2026,2,1), new DateOnly(2026,10,31), now);
+                    gc.ApproveCertificate(now);
                     gc.Submit(now);
                 }
-                else
-                {
-                    // extra draft
-                    gc.UpdateDraft("HPR-DEM-4", 20m, new DateOnly(2026,3,1), new DateOnly(2026,9,30), now);
-                }
+                if (caseNumber.EndsWith("004"))
+                    gc.StartReview(now);
 
-                await context.GrantCases.AddAsync(gc, cancellationToken).ConfigureAwait(false);
+                if (existingCase is null)
+                    await context.GrantCases.AddAsync(gc, cancellationToken).ConfigureAwait(false);
+                else
+                    context.Entry(existingCase).CurrentValues.SetValues(gc);
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private static GrantApplicationData CreateApplication(string caseNumber)
+        {
+            var isMaximum = caseNumber.EndsWith("003");
+            var isIntroductory = caseNumber.EndsWith("002");
+            var isSupervisionOnly = caseNumber.EndsWith("004");
+            var name = caseNumber[^3..] switch
+            {
+                "001" => "Emma Hansen",
+                "002" => "Sara Berg",
+                "003" => "Martin Nilsen",
+                _ => "Jonas Dahl"
+            };
+            var positionType = isSupervisionOnly
+                ? PositionType.GeneralPractitionerOutsideRegularGpScheme
+                : isIntroductory ? PositionType.IntroductoryDoctor : PositionType.RegularGpOrLocum;
+            var from = isMaximum ? new DateOnly(2025, 6, 1) : new DateOnly(2025, 12, 1);
+            var through = new DateOnly(2026, 5, 31);
+            var agreement = !isSupervisionOnly;
+
+            var data = new GrantApplicationData
+            {
+                HprNumber = $"HPR-DEM-{caseNumber[^1]}",
+                DoctorName = name,
+                DoctorProfessions = ["Lege"],
+                GrantType = agreement ? GrantType.AlisAgreementIncludingSupervision : GrantType.SupervisionOnly,
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = from,
+                ExpectedCompletionDate = from.AddYears(5),
+                ConfirmsAlisAgreement = agreement,
+                ConfirmsOfficialAgreementTemplate = agreement,
+                ConfirmsNoCommercialAgencyAffiliation = agreement,
+                AgreementEffectiveFrom = agreement ? from : null,
+                FirstRegularGpOrLocumDate = positionType == PositionType.RegularGpOrLocum ? from : null,
+                SelectedPositionTypes = [positionType],
+                EmploymentPeriods =
+                [
+                    new()
+                    {
+                        PositionType = positionType,
+                        PositionPercentage = isMaximum ? 100m : isSupervisionOnly ? 80m : 50m,
+                        EmploymentStartDate = from,
+                        FundingFrom = from,
+                        FundingThrough = through
+                    }
+                ],
+                // Full-year, full-time expenses exceed the caps to demonstrate the limits.
+                AbsenceCompensation = isMaximum ? 150000m : isSupervisionOnly ? 0m : 70000m,
+                LearningActivityExpenses = isSupervisionOnly ? 0m : 70000m,
+                ProductivityRequestedAmount = isMaximum ? 125000m : positionType == PositionType.RegularGpOrLocum ? 70000m : 0m,
+                SupervisionExpenses = isMaximum ? 100000m : 70000m,
+                HasAdditionalSupervisionCosts = false,
+                IsCentralityGrade6 = false,
+                CentralitySupplementRequestedAmount = null,
+                Certificate = new()
+                {
+                    DoctorName = name,
+                    SupervisorHprNumber = "HPR-DEM-VEILEDER",
+                    SupervisorName = "Anne Solberg",
+                    DoctorSigningPlace = "Kristiansand",
+                    SupervisorSigningPlace = "Kristiansand",
+                    DoctorSigningDate = through,
+                    SupervisorSigningDate = through,
+                    Sessions = Enumerable.Range(0, isMaximum ? 20 : isIntroductory ? 10 : isSupervisionOnly ? 16 : 12)
+                        .Select(session => new SupervisionSessionInputModel
+                        {
+                            Date = from.AddMonths(session / 4).AddDays(6 * (session % 4) + 3),
+                            Hours = (session % 4) switch { 0 => 1m, 1 => 1m, 2 => 2m, _ => 3m },
+                            Topic = session % 2 == 0 ? "Kliniske problemstillinger og pasientoppfølging" : "Læringsmål og faglig utvikling"
+                        }).ToList()
+                }
+            };
+
+            data.ValidateSubmission();
+
+            return data;
         }
     }
 }

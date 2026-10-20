@@ -36,7 +36,6 @@ public static class GrantCalculationInputMapper
         return new GrantCalculationInput
         {
             GrantType = grantType,
-
             FirstRegularGpOrLocumDate =
                 applicationData.FirstRegularGpOrLocumDate,
 

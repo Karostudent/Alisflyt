@@ -22,7 +22,7 @@ public class GrantCalculationService
         var guidance =
             CalculateGuidance(input, rateSet);
         var standardElements =
-            practiceCompensation
+            practiceCompensation.Amount
             + learningActivities
             + productivity
             + guidance;
@@ -35,7 +35,9 @@ public class GrantCalculationService
 
         return new GrantCalculationResult
         {
-            PracticeCompensationAmount = practiceCompensation,
+            PracticeCompensationAmount = practiceCompensation.Amount,
+            PracticeCompensationMaximumAmount = practiceCompensation.Maximum,
+            IsPracticeCompensationCapped = input.AbsenceCompensation > practiceCompensation.Maximum,
             LearningActivitiesAmount = learningActivities,
             ProductivityAmount = productivity,
             GuidanceAmount = guidance,
@@ -76,7 +78,7 @@ public class GrantCalculationService
         return null;
     }
 
-    private static decimal CalculatePracticeCompensation(
+    private static (decimal Amount, decimal Maximum) CalculatePracticeCompensation(
         GrantCalculationInput input,
         GrantRateSet rateSet)
     {
@@ -117,9 +119,7 @@ public class GrantCalculationService
                 * periodFraction;
         }
 
-        return Math.Min(
-            input.AbsenceCompensation,
-            maximumAmount);
+        return (Math.Min(input.AbsenceCompensation, maximumAmount), maximumAmount);
     }
 
     private static decimal CalculateLearningActivities(
@@ -292,7 +292,7 @@ public class GrantCalculationService
             maximumAmount);
     }
 
-    private static int CountWholeMonths(
+    internal static int CountWholeMonths(
         DateOnly from,
         DateOnly through)
     {

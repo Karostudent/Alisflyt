@@ -2,6 +2,7 @@ namespace Alisflyt.Domain.Forms;
 
 public class SupervisionCertificateViewModel
 {
+    public string SupervisorHprNumber { get; set; } = "";
     public string SupervisorName { get; set; } = "";
     public string DoctorName { get; set; } = "";
     public List<SupervisionSessionInputModel> Sessions { get; set; } = [];

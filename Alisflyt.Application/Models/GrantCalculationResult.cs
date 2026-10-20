@@ -7,6 +7,8 @@ namespace Alisflyt.Application.Models;
 public sealed class GrantCalculationResult
 {
     public decimal PracticeCompensationAmount { get; init; }
+        public decimal PracticeCompensationMaximumAmount { get; init; }
+        public bool IsPracticeCompensationCapped { get; init; }
 
     public decimal LearningActivitiesAmount { get; init; }
 

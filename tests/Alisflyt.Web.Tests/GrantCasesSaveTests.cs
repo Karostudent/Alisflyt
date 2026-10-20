@@ -19,6 +19,7 @@ public class GrantCasesSaveTests
         var model = Assert.IsType<GrantApplicationFormViewModel>(view.Model);
         Assert.Equal(Guid.Empty, model.Id);
         Assert.Null(model.HprNumber);
+        Assert.Equal(Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision, model.GrantType);
         Assert.Empty(model.EmploymentPeriods);
         Assert.Empty(model.Certificate.Sessions);
         Assert.False(model.ReadOnly);
@@ -49,6 +50,7 @@ public class GrantCasesSaveTests
             Assert.Same(model, Assert.Single(fake.CreateDraftCalls).request.ApplicationData);
             Assert.Empty(fake.UpdateDraftCalls);
         }
+        Assert.Equal(Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision, model.GrantType);
         var response = JsonSerializer.SerializeToElement(result.Value);
         Assert.Equal(savedId, response.GetProperty("id").GetGuid());
         Assert.Equal($"/GrantCases/Edit/{savedId}", response.GetProperty("editUrl").GetString());

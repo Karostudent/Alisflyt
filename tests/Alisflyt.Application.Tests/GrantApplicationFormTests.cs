@@ -10,6 +10,40 @@ namespace Alisflyt.Application.Tests;
 
 public class GrantApplicationFormTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Invalid_municipality_cannot_create_or_overwrite_a_draft(bool doctor)
+    {
+        var service = Service();
+        var data = CompleteForm();
+        var created = await service.CreateDraftAsync(new() { ApplicationData = data });
+        if (doctor) data.Certificate.DoctorSigningPlace = "Not a municipality";
+        else data.Certificate.SupervisorSigningPlace = "Not a municipality";
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateDraftAsync(new() { ApplicationData = data }));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateDraftAsync(created.Id, new() { ApplicationData = data }));
+        var saved = (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate;
+        Assert.Equal("Oslo", saved.DoctorSigningPlace);
+        Assert.Equal("Oslo", saved.SupervisorSigningPlace);
+    }
+
+    [Theory]
+    [InlineData("Tromsø", "Haram")]
+    [InlineData("Ålesund", "Bodø")]
+    [InlineData("", "")]
+    public async Task Valid_or_blank_signing_places_survive_saving(string doctor, string supervisor)
+    {
+        var service = Service();
+        var data = CompleteForm();
+        data.Certificate.DoctorSigningPlace = doctor;
+        data.Certificate.SupervisorSigningPlace = supervisor;
+        var created = await service.CreateDraftAsync(new() { ApplicationData = data });
+        var saved = (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate;
+        Assert.Equal(doctor, saved.DoctorSigningPlace);
+        Assert.Equal(supervisor, saved.SupervisorSigningPlace);
+    }
+
     private static GrantCaseApplicationService Service() => new(new FakeGrantCaseRepository(), new FakeCaseNumberGenerator("FORM-1"), TimeProvider.System);
 
     private static GrantApplicationData CompleteForm() => new()
@@ -64,9 +98,19 @@ public class GrantApplicationFormTests
         Assert.Equal("Diagnostikk", Assert.Single(reviewed.ApplicationData.Certificate.Sessions).Topic);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateDraftAsync(created.Id, new() { ApplicationData = data }));
         await service.ReturnForCorrectionAsync(created.Id, new() { Reason = "Oppdater veiledningen" });
+        data.HasAdditionalSupervisionCosts = false;
+        data.AdditionalSupervisionCosts = null;
+        data.AbsenceCompensation = 0;
         await service.UpdateDraftAsync(created.Id, new() { ApplicationData = data });
+        var corrected = (await service.GetByIdAsync(created.Id)).ApplicationData!;
+        Assert.False(corrected.HasAdditionalSupervisionCosts);
+        Assert.Null(corrected.AdditionalSupervisionCosts);
+        Assert.Equal(0, corrected.AbsenceCompensation);
         await service.SubmitAsync(created.Id);
-        Assert.Equal(2, (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate.Sessions.Count);
+        var resubmitted = (await service.GetByIdAsync(created.Id)).ApplicationData!;
+        Assert.Equal(2, resubmitted.Certificate.Sessions.Count);
+        Assert.False(resubmitted.HasAdditionalSupervisionCosts);
+        Assert.Null(resubmitted.AdditionalSupervisionCosts);
     }
 
     [Fact]
@@ -76,7 +120,7 @@ public class GrantApplicationFormTests
         var created = await service.CreateDraftAsync(new() { ApplicationData = new() });
         Assert.NotNull((await service.GetByIdAsync(created.Id)).ApplicationData);
         var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
-        Assert.Equal(9, error.Errors.Count);
+        Assert.Equal(7, error.Errors.Count);
         Assert.Contains("Oppgi HPR-nummer for legen.", error.Errors);
         Assert.Contains("Oppgi når legen startet spesialiseringsløpet.", error.Errors);
     }
@@ -164,32 +208,21 @@ public class GrantApplicationFormTests
     }
 
     [Fact]
-    public void Submission_requires_centrality_grade_answer()
+    public void Submission_leaves_centrality_grade_to_coordinator()
     {
         var data = CompleteForm();
         data.IsCentralityGrade6 = null;
 
-        var error = Assert.Throws<SubmissionValidationException>(
-            () => data.ValidateSubmission());
-
-        Assert.Contains(
-            "Oppgi om kommunen har sentralitetsgrad 6.",
-            error.Errors);
+        data.ValidateSubmission();
     }
 
     [Fact]
-    public void Grade6_requires_centrality_supplement_amount()
+    public void Submission_leaves_centrality_amount_to_coordinator()
     {
         var data = CompleteForm();
         data.IsCentralityGrade6 = true;
         data.CentralitySupplementRequestedAmount = null;
-
-        var error = Assert.Throws<SubmissionValidationException>(
-            () => data.ValidateSubmission());
-
-        Assert.Contains(
-            "Oppgi beløp for sentralitetstillegg.",
-            error.Errors);
+        data.ValidateSubmission();
     }
 
     [Fact]

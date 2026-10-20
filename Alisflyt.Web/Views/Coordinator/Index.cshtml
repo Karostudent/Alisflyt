@@ -1,46 +1,63 @@
 @model Alisflyt.Web.ViewModels.Dashboards.CoordinatorDashboardViewModel
 
 @{
-	ViewData["Title"] = "Koordinator Dashboard";
+	ViewData["Title"] = "Koordinator – saksoversikt";
 }
 
-@{
-	ViewData["RoleHelpText"] = "Her behandles innsendte søknader.";
-}
-<partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "Koordinatorvisning" )" />
-<h2>Koordinator Dashboard</h2>
+<link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
+<div class="public-dashboard">
+<nav aria-label="Brødsmuler" class="public-breadcrumb"><a asp-controller="Portal" asp-action="Index">Portal</a><span aria-hidden="true"> / </span><span>Koordinator</span></nav>
+<header class="public-page-heading">
+	<div><p class="public-role">KOORDINATOR</p><h1>Saksoversikt</h1><p>Få oversikt over søknadene, og følg opp saker som skal behandles.</p></div>
 
-<form method="get">
-	<label>Filter:</label>
-	<select name="status" class="form-select" onchange="this.form.submit()">
+</header>
+
+<div class="public-information" role="note"><strong>Om demoversjonen</strong><p>I denne demoversjonen vises testdata. Bruk statusfilteret for å finne innsendte søknader og saker under behandling.</p></div>
+
+<section class="public-case-section" aria-labelledby="case-list-heading">
+<h2 id="case-list-heading">Saker</h2>
+<form method="get" class="public-filter">
+	<label for="case-status">Vis saker med status</label>
+	<select id="case-status" name="status" class="form-select">
 		<option value="All" selected='@(Model.Filter == "All" ? "selected" : null)'>Alle</option>
 		<option value="Draft" selected='@(Model.Filter == "Draft" ? "selected" : null)'>Utkast</option>
 		<option value="Submitted" selected='@(Model.Filter == "Submitted" ? "selected" : null)'>Innsendt</option>
 		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under behandling</option>
 		<option value="ReturnedForCorrection" selected='@(Model.Filter == "ReturnedForCorrection" ? "selected" : null)'>Returnert for korrigering</option>
 	</select>
+<button type="submit" class="btn btn-outline-primary">Vis saker</button>
 </form>
 
-<table class="table mt-3 sortable-table">
+<div class="table-responsive">
+<table class="table public-case-table sortable-table">
+<caption class="visually-hidden">Søknader med valgt status</caption>
 	<thead>
 		<tr>
-			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
-			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
-			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
-			<th data-sortable="true" tabindex="0" role="button" aria-sort="none">Sist endret <span class="sort-indicator"></span></th>
-			<th></th>
+			<th scope="col" data-sortable="true" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" tabindex="0" role="button" aria-sort="none">Sist endret <span class="sort-indicator"></span></th>
+			<th scope="col"><span class="visually-hidden">Handling</span></th>
 		</tr>
 	</thead>
 	<tbody>
 @foreach(var c in Model.Cases)
 {
 		<tr>
-			<td>@c.CaseNumber</td>
+			<td class="public-case-number">@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
-		<td>@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</td>
-		<td data-sort-value="@c.LastModifiedAtUtc.ToLocalTime().ToString("o")">@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
-			<td><a asp-controller="Coordinator" asp-action="Details" asp-route-id="@c.Id">Vis</a></td>
+		<td><span class="public-status public-status-@c.Status">@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</span></td>
+			<td data-sort-value="@c.LastModifiedAtUtc.ToString("o")">@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+			<td><a asp-controller="Coordinator" asp-action="Details" asp-route-id="@c.Id" aria-label="Åpne sak @c.CaseNumber">Åpne sak</a></td>
 		</tr>
+}
+@if (!Model.Cases.Any())
+{
+    <tr><td colspan="5" class="public-empty">Ingen saker med valgt status. Velg en annen status for å se flere saker.</td></tr>
 }
 	</tbody>
 </table>
+
+</div>
+</section>
+</div>
