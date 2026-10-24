@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
+using Alisflyt.Web.Models;
 using Alisflyt.Web.ViewModels.GrantCases;
 
 namespace Alisflyt.Web.Controllers
@@ -20,6 +21,14 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+            {
+                list = list
+                    .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
             var vm = list.Select(d => new GrantCaseListItemViewModel
             {
                 Id = d.Id,
@@ -47,7 +56,19 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public IActionResult Create()
         {
-            return View("Application", new GrantApplicationFormViewModel { GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision });
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            var model = new GrantApplicationFormViewModel
+            {
+                GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                HprNumber = currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    ? currentUser.HprNumber
+                    : null,
+                DoctorName = currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    ? currentUser.Name
+                    : null
+            };
+
+            return View("Application", model);
         }
 
         [HttpPost]
@@ -55,6 +76,13 @@ namespace Alisflyt.Web.Controllers
         [RequestSizeLimit(23_000_000)]
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+            {
+                model.HprNumber ??= currentUser.HprNumber;
+                model.DoctorName ??= currentUser.Name;
+            }
+
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
             model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
@@ -111,6 +139,13 @@ namespace Alisflyt.Web.Controllers
             catch (System.Collections.Generic.KeyNotFoundException)
             {
                 return NotFound();
+            }
+
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                return Forbid();
             }
 
             var vm = new GrantCaseDetailsViewModel

@@ -15,6 +15,13 @@ if (builder.Environment.IsDevelopment())
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.IdleTimeout = TimeSpan.FromHours(8);
+});
 
 // Infrastructure & Application DI
 builder.Services.AddDbContext<Alisflyt.Infrastructure.Persistence.ApplicationDbContext>((sp, options) =>
@@ -64,6 +71,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseSession();
 
 app.UseAuthorization();
 
@@ -71,7 +79,13 @@ app.MapStaticAssets();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Portal}/{action=Index}/{id?}")
+    pattern: "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+app.MapControllerRoute(
+    name: "portal",
+    pattern: "portal",
+    defaults: new { controller = "Portal", action = "Index" })
     .WithStaticAssets();
 
 app.Run();

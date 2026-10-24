@@ -7,6 +7,7 @@ using Alisflyt.Web.ViewModels.Dashboards;
 using Alisflyt.Application.Models;
 using Alisflyt.Domain.Enums;
 using Alisflyt.Web.ViewModels.GrantCases;
+using Alisflyt.Web.Models;
 
 namespace Alisflyt.Web.Controllers
 {
@@ -24,6 +25,15 @@ namespace Alisflyt.Web.Controllers
             var listResult = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
             var list = listResult ?? new System.Collections.Generic.List<GrantCaseListItemDto>();
             var cases = (list ?? new System.Collections.Generic.List<GrantCaseListItemDto>()).Where(c => c != null).ToList();
+
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+            {
+                cases = cases
+                    .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
             var vm = new AlisDashboardViewModel
             {
                 Cases = cases.Select(c => new GrantCaseListItemViewModel

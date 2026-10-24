@@ -1,8 +1,158 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@model Alisflyt.Web.ViewModels.Home.LandingViewModel
+@{
+    ViewData["Title"] = "Forside";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="row justify-content-center mb-4">
+    <div class="col-xl-10">
+        <div class="hero-panel card border-0">
+            <div class="card-body p-4 p-lg-5">
+                <div class="hero-panel__content d-flex justify-content-between align-items-end flex-wrap gap-3">
+                    <div>
+                        <p class="eyebrow mb-2">ALISflyt</p>
+                        <h1 class="hero-title mb-3">Enklere søknad og behandling av ALIS-tilskudd</h1>
+                    </div>
+                </div>
+
+                <p class="hero-subtitle mb-0">
+                    En felles digital arbeidsflate for ALIS-leger, veiledere og kommunal saksbehandling.
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
+
+@if (Model.CurrentUser is not null)
+{
+    <div class="alert alert-success current-user-alert d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4" role="alert">
+        <div>
+            <strong>Innlogget:</strong> @Model.CurrentUser.Name (@Model.CurrentUser.Role)
+            @if (Model.CurrentUser.Role == "ALIS")
+            {
+                <span class="ms-2 text-muted">HPR: @Model.CurrentUser.HprNumber</span>
+            }
+        </div>
+
+        <div>
+            @switch (Model.CurrentUser.Role)
+            {
+                case "ALIS":
+                    <a class="btn btn-primary" asp-controller="Alis" asp-action="Index">Gå til ALIS-området</a>
+                    break;
+                case "Koordinator":
+                    <a class="btn btn-primary" asp-controller="Coordinator" asp-action="Index">Gå til koordinatorområdet</a>
+                    break;
+                case "Veileder":
+                    <a class="btn btn-primary" asp-controller="Guidance" asp-action="Index">Gå til veilederområdet</a>
+                    break;
+                case "Administrator":
+                    <a class="btn btn-primary" asp-controller="Admin" asp-action="Index">Gå til adminområdet</a>
+                    break;
+            }
+        </div>
+    </div>
+}
+
+<section class="role-picker" aria-labelledby="role-picker-title">
+    <div class="section-header text-center mb-4">
+        <h2 id="role-picker-title" class="section-title">Velg din rolle</h2>
+        <p class="section-subtitle">Velg en demonstrasjonsbruker for å utforske løsningen.</p>
+    </div>
+
+    <div class="row g-4 role-grid">
+        @foreach (var user in Model.DemoUsers)
+        {
+            var buttonText = user.Role switch
+            {
+                "ALIS" => "Logg inn som ALIS",
+                "Koordinator" => "Logg inn som koordinator",
+                "Veileder" => "Logg inn som veileder",
+                "Administrator" => "Logg inn som administrator",
+                _ => "Logg inn"
+            };
+
+            <div class="col-md-6 col-xl-3 d-flex">
+                <article class="role-card w-100 h-100 d-flex flex-column"
+                         aria-label="@user.Role">
+                    <div class="role-card__header">
+                        <div class="role-icon" aria-hidden="true">
+                            @switch (user.Role)
+                            {
+                                case "ALIS":
+                                    <span>🩺</span>
+                                    break;
+                                case "Koordinator":
+                                    <span>📁</span>
+                                    break;
+                                case "Veileder":
+                                    <span>💬</span>
+                                    break;
+                                case "Administrator":
+                                    <span>⚙️</span>
+                                    break;
+                            }
+                        </div>
+                        <span class="role-badge">@user.Role</span>
+                    </div>
+
+                    <div class="role-card__body d-flex flex-column flex-grow-1">Stop-Process -Id 21764 -Force
+                        <h3 class="role-card__title">
+                            @switch (user.Role)
+                            {
+                                case "ALIS":
+                                    <text>ALIS-lege</text>
+                                    break;
+                                case "Koordinator":
+                                    <text>Koordinator</text>
+                                    break;
+                                case "Veileder":
+                                    <text>Veileder</text>
+                                    break;
+                                case "Administrator":
+                                    <text>Administrator</text>
+                                    break;
+                            }
+                        </h3>
+                        <p class="role-card__description">
+                            @switch (user.Role)
+                            {
+                                case "ALIS":
+                                    <text>Opprett og følg opp egne søknader</text>
+                                    break;
+                                case "Koordinator":
+                                    <text>Behandle søknader og beregninger</text>
+                                    break;
+                                case "Veileder":
+                                    <text>Veiledning og oppfølging</text>
+                                    break;
+                                case "Administrator":
+                                    <text>Administrer satssett og systemoppsett</text>
+                                    break;
+                            }
+                        </p>
+
+                        <div class="role-card__meta">
+                            <span class="role-card__label">Demobruker</span>
+                            <span class="role-card__user">@user.Name</span>
+                            @if (user.Role == "ALIS")
+                            {
+                                <span class="role-card__hpr">HPR: @user.HprNumber</span>
+                            }
+                        </div>
+
+                        <div class="mt-auto pt-3">
+                            <form asp-controller="Account" asp-action="Login" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="role" value="@user.Role" />
+                                <button type="submit" class="btn btn-primary role-card__button w-100">
+                                    @buttonText
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+</section>
+
