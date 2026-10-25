@@ -7,6 +7,10 @@ namespace Alisflyt.Web.Controllers
     {
         public IActionResult Index()
         {
+            var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
             var vm = new GuidanceDashboardViewModel
             {
                 Message = "Veilederfunksjonalitet kommer snart. Dette er en test."
@@ -19,7 +23,15 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Applications([FromServices] Alisflyt.Application.Services.IGrantCaseApplicationService service,
             string status = "All", CancellationToken cancellationToken = default)
         {
-            var cases = await service.ListAsync(cancellationToken);
+            var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
+            var allowedDoctors = new HashSet<string>(Alisflyt.Web.Models.DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser.Key), StringComparer.OrdinalIgnoreCase);
+            var cases = (await service.ListAsync(cancellationToken))
+                .Where(c => allowedDoctors.Contains(c.HprNumber ?? string.Empty))
+                .ToList();
+
             if (!new[] { "All", "Draft", "Submitted", "UnderReview", "ReturnedForCorrection" }.Contains(status)) status = "All";
             return View(new GuidanceApplicationsViewModel
             {

@@ -1,4 +1,10 @@
+using System;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Alisflyt.Domain.Enums;
+using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Domain.Entities
 {
@@ -79,13 +85,48 @@ namespace Alisflyt.Domain.Entities
                 attestationSnapshotJson);
         }
 
+        public static string CreateAttestationSnapshotHash(GrantApplicationData data)
+        {
+            if (data is null) throw new ArgumentNullException(nameof(data));
+
+            var cert = data.Certificate ?? throw new ArgumentException("Certificate data is required.", nameof(data));
+            var normalized = new
+            {
+                SupervisorHprNumber = cert.SupervisorHprNumber,
+                SupervisorName = cert.SupervisorName,
+                DoctorName = cert.DoctorName,
+                DoctorSigningPlace = cert.DoctorSigningPlace,
+                DoctorSigningDate = cert.DoctorSigningDate,
+                SupervisorSigningPlace = cert.SupervisorSigningPlace,
+                SupervisorSigningDate = cert.SupervisorSigningDate,
+                Sessions = (cert.Sessions ?? [])
+                    .OrderBy(s => s.Date ?? DateOnly.MinValue)
+                    .Select(s => new
+                    {
+                        Date = s.Date,
+                        Hours = s.Hours,
+                        Topic = s.Topic
+                    })
+                    .ToList()
+            };
+
+            var json = JsonSerializer.Serialize(normalized, new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            });
+            using var sha256 = SHA256.Create();
+            var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(json));
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
         public void Approve(DateTimeOffset approvedAtUtc, string approvedByUserKey)
         {
             if (string.IsNullOrWhiteSpace(approvedByUserKey))
                 throw new ArgumentException("Approved by user identity is required.", nameof(approvedByUserKey));
-
             if (Status == GuidanceApprovalStatus.Superseded)
                 throw new InvalidOperationException("A superseded approval cannot be approved.");
+            if (Status == GuidanceApprovalStatus.Approved)
+                throw new InvalidOperationException("This approval has already been approved.");
 
             Status = GuidanceApprovalStatus.Approved;
             ApprovedAtUtc = approvedAtUtc;
@@ -99,9 +140,10 @@ namespace Alisflyt.Domain.Entities
             var trimmed = reason?.Trim();
             if (string.IsNullOrWhiteSpace(trimmed))
                 throw new ArgumentException("Correction reason must be provided.", nameof(reason));
-
             if (trimmed.Length > 1000)
                 throw new ArgumentException("Correction reason cannot exceed 1000 characters.", nameof(reason));
+            if (Status == GuidanceApprovalStatus.Superseded)
+                throw new InvalidOperationException("A superseded approval cannot be returned for correction.");
 
             RequestedRevisionReason = trimmed;
             Status = GuidanceApprovalStatus.NeedsCorrection;

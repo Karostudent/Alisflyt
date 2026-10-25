@@ -24,7 +24,10 @@ namespace Alisflyt.Infrastructure.Persistence.Repositories
 
         public async Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _context.GrantCases.FirstOrDefaultAsync(c => c.Id == id, cancellationToken).ConfigureAwait(false);
+            return await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default)

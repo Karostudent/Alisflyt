@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text.Json;
 using Alisflyt.Domain.Enums;
 
 namespace Alisflyt.Domain.Entities
@@ -62,20 +64,30 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateApplication(Alisflyt.Domain.Forms.GrantApplicationData data, DateTimeOffset now)
         {
-            var existing = ApplicationDataJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
+            var existing = ApplicationDataJson is null ? null : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
             if (existing is not null)
             {
+                var previousSnapshot = GuidanceApproval.CreateAttestationSnapshotHash(existing);
+                var nextSnapshot = GuidanceApproval.CreateAttestationSnapshotHash(data);
+                if (!string.Equals(previousSnapshot, nextSnapshot, StringComparison.Ordinal))
+                {
+                    foreach (var approval in GuidanceApprovals.Where(a => a.Status != GuidanceApprovalStatus.Superseded).ToList())
+                    {
+                        approval.MarkSuperseded(now);
+                    }
+                }
+
                 // Centrality is maintained separately by the coordinator, not by the ALIS form.
                 data.IsCentralityGrade6 = existing.IsCentralityGrade6;
                 data.CentralitySupplementRequestedAmount = existing.CentralitySupplementRequestedAmount;
             }
             data.SupervisorApprovedAtUtc = existing is not null
-                && System.Text.Json.JsonSerializer.Serialize(existing.Certificate) == System.Text.Json.JsonSerializer.Serialize(data.Certificate)
+                && JsonSerializer.Serialize(existing.Certificate) == JsonSerializer.Serialize(data.Certificate)
                 ? existing.SupervisorApprovedAtUtc : null;
             data.ValidateDraft();
             var first = data.EmploymentPeriods.FirstOrDefault();
             UpdateDraft(data.HprNumber, first?.PositionPercentage, first?.EmploymentStartDate, first?.FundingThrough, now);
-            ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+            ApplicationDataJson = JsonSerializer.Serialize(data);
         }
 
         public void ApproveCertificate(DateTimeOffset now)
@@ -91,6 +103,83 @@ namespace Alisflyt.Domain.Entities
             data.ValidateDraft();
             data.SupervisorApprovedAtUtc = now;
             ApplicationDataJson = System.Text.Json.JsonSerializer.Serialize(data);
+            LastModifiedAtUtc = now;
+        }
+
+        public GuidanceApproval RequestGuidanceApproval(
+            string doctorHprNumber,
+            string supervisorHprNumber,
+            string supervisorUserKey,
+            DateTimeOffset now,
+            string? supervisorName = null)
+        {
+            if (string.IsNullOrWhiteSpace(doctorHprNumber))
+                throw new ArgumentException("Doctor HPR must be provided.", nameof(doctorHprNumber));
+            if (string.IsNullOrWhiteSpace(supervisorHprNumber))
+                throw new ArgumentException("Supervisor HPR must be provided.", nameof(supervisorHprNumber));
+            if (string.IsNullOrWhiteSpace(supervisorUserKey))
+                throw new ArgumentException("Supervisor user key must be provided.", nameof(supervisorUserKey));
+
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+            if (data.Certificate is null || data.Certificate.Sessions is null || data.Certificate.Sessions.Count == 0)
+                throw new InvalidOperationException("Det finnes ingen veiledningstimer som kan sendes til godkjenning.");
+
+            var snapshotHash = GuidanceApproval.CreateAttestationSnapshotHash(data);
+            var existingMatchingApproval = GuidanceApprovals
+                .Where(a => a.Status != GuidanceApprovalStatus.Superseded)
+                .OrderByDescending(a => a.VersionNumber)
+                .FirstOrDefault(a => string.Equals(a.AttestationSnapshotHash, snapshotHash, StringComparison.Ordinal));
+            if (existingMatchingApproval is not null)
+            {
+                return existingMatchingApproval;
+            }
+
+            var nextVersion = GuidanceApprovals.Count == 0 ? 1 : GuidanceApprovals.Max(a => a.VersionNumber) + 1;
+            var approval = GuidanceApproval.Create(
+                Guid.NewGuid(),
+                Id,
+                doctorHprNumber,
+                supervisorHprNumber,
+                supervisorUserKey,
+                nextVersion,
+                snapshotHash,
+                now,
+                supervisorName,
+                JsonSerializer.Serialize(data.Certificate));
+
+            foreach (var currentApproval in GuidanceApprovals.Where(a => a.Status != GuidanceApprovalStatus.Superseded).ToList())
+            {
+                if (!string.Equals(currentApproval.AttestationSnapshotHash, snapshotHash, StringComparison.Ordinal))
+                    currentApproval.MarkSuperseded(now);
+            }
+
+            GuidanceApprovals.Add(approval);
+            data.SupervisorApprovedAtUtc = null;
+            ApplicationDataJson = JsonSerializer.Serialize(data);
+            LastModifiedAtUtc = now;
+            return approval;
+        }
+
+        public GuidanceApproval? GetCurrentGuidanceApproval()
+        {
+            return GuidanceApprovals
+                .Where(a => a.Status != GuidanceApprovalStatus.Superseded)
+                .OrderByDescending(a => a.VersionNumber)
+                .ThenByDescending(a => a.CreatedAtUtc)
+                .FirstOrDefault();
+        }
+
+        public void SynchronizeLegacySupervisorApproval(DateTimeOffset? approvedAtUtc, DateTimeOffset now)
+        {
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)
+                    ?? throw new InvalidOperationException("Saken mangler søknadsdata.");
+
+            data.SupervisorApprovedAtUtc = approvedAtUtc;
+            ApplicationDataJson = JsonSerializer.Serialize(data);
             LastModifiedAtUtc = now;
         }
 

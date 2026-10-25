@@ -32,6 +32,7 @@ builder.Services.AddScoped<Alisflyt.Application.Abstractions.IGrantRateSetReposi
 builder.Services.AddScoped<Alisflyt.Application.Abstractions.ICaseNumberGenerator, Alisflyt.Infrastructure.Services.CaseNumberGenerator>();
 builder.Services.AddScoped<Alisflyt.Application.Services.IGrantCaseApplicationService, Alisflyt.Application.Services.GrantCaseApplicationService>();
 builder.Services.AddScoped<Alisflyt.Application.Services.IGrantCalculationApplicationService, Alisflyt.Application.Services.GrantCalculationApplicationService>();
+builder.Services.AddScoped<Alisflyt.Application.Services.IGuidanceApprovalService, Alisflyt.Application.Services.GuidanceApprovalService>();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Alisflyt.Infrastructure.Development.DevelopmentDataSeeder>();

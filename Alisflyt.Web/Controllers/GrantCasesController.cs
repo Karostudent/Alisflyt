@@ -18,6 +18,11 @@ namespace Alisflyt.Web.Controllers
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
         }
 
+        private bool UserCanAccessCase(string? doctorHprNumber)
+        {
+            return DemoAuthentication.CanAccessCaseForCurrentUser(HttpContext, doctorHprNumber);
+        }
+
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
@@ -26,6 +31,13 @@ namespace Alisflyt.Web.Controllers
             {
                 list = list
                     .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            else if (currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+            {
+                var allowedDoctors = new HashSet<string>(DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser.Key), StringComparer.OrdinalIgnoreCase);
+                list = list
+                    .Where(c => !string.IsNullOrWhiteSpace(c.HprNumber) && allowedDoctors.Contains(c.HprNumber))
                     .ToList();
             }
 
@@ -46,6 +58,9 @@ namespace Alisflyt.Web.Controllers
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
+                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                    return Forbid();
+
                 var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
                 if (attachment is null) return NotFound();
                 return File(Convert.FromBase64String(attachment.ContentBase64), "application/octet-stream", System.IO.Path.GetFileName(attachment.FileName));
@@ -57,15 +72,14 @@ namespace Alisflyt.Web.Controllers
         public IActionResult Create()
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
             var model = new GrantApplicationFormViewModel
             {
                 GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
-                HprNumber = currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                    ? currentUser.HprNumber
-                    : null,
-                DoctorName = currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                    ? currentUser.Name
-                    : null
+                HprNumber = currentUser?.HprNumber,
+                DoctorName = currentUser?.Name
             };
 
             return View("Application", model);
@@ -77,7 +91,10 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
+            if (currentUser is not null)
             {
                 model.HprNumber ??= currentUser.HprNumber;
                 model.DoctorName ??= currentUser.Name;
@@ -121,6 +138,9 @@ namespace Alisflyt.Web.Controllers
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
+                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                    return Forbid();
+
                 var model = FormModel(data);
                 model.ReadOnly = true;
                 return View(model);
@@ -142,8 +162,13 @@ namespace Alisflyt.Web.Controllers
             }
 
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                return Forbid();
+            }
+            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
+                && !DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, d.HprNumber))
             {
                 return Forbid();
             }
@@ -226,6 +251,13 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase)))
+            {
+                return Forbid();
+            }
+
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
@@ -239,8 +271,19 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Submit(Guid id, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
             try
             {
+                if (currentUser is not null)
+                {
+                    var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                    if (!string.Equals(data.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                        return Forbid();
+                }
+
                 await _svc.SubmitAsync(id, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
             }
