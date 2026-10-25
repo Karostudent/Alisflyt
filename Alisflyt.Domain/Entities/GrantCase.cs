@@ -17,6 +17,7 @@ namespace Alisflyt.Domain.Entities
         public GrantCaseStatus Status { get; private set; }
         public DateTimeOffset CreatedAtUtc { get; private set; }
         public DateTimeOffset LastModifiedAtUtc { get; private set; }
+        public ICollection<GuidanceApproval> GuidanceApprovals { get; private set; } = [];
 
         private GrantCase(Guid id, string caseNumber, DateTimeOffset createdAtUtc)
         {

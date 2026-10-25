@@ -145,6 +145,92 @@ namespace Alisflyt.Infrastructure.Persistence.Migrations
 
                     b.ToTable("GrantRateSets", (string)null);
                 });
+
+            modelBuilder.Entity("Alisflyt.Domain.Entities.GuidanceApproval", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ApprovedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("AttestationSnapshotHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("AttestationSnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DoctorHprNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("GrantCaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestedRevisionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupervisorHprNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SupervisorName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SupervisorUserKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantCaseId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("GrantCaseId", "VersionNumber");
+
+                    b.ToTable("GuidanceApprovals");
+                });
+
+            modelBuilder.Entity("Alisflyt.Domain.Entities.GuidanceApproval", b =>
+                {
+                    b.HasOne("Alisflyt.Domain.Entities.GrantCase", "GrantCase")
+                        .WithMany("GuidanceApprovals")
+                        .HasForeignKey("GrantCaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GrantCase");
+                });
+
+            modelBuilder.Entity("Alisflyt.Domain.Entities.GrantCase", b =>
+                {
+                    b.Navigation("GuidanceApprovals");
+                });
 #pragma warning restore 612, 618
         }
     }
