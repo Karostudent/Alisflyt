@@ -58,7 +58,7 @@ namespace Alisflyt.Web.Controllers
             if (grantCase.Status is GrantCaseStatus.Draft or GrantCaseStatus.ReturnedForCorrection)
                 return "Ikke sendt til godkjenning";
 
-            return "Avventer godkjenning";
+            return "Mangler aktiv godkjenningsforespørsel";
         }
 
         public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
@@ -94,9 +94,7 @@ namespace Alisflyt.Web.Controllers
                 if (!shouldBeIncluded && approval is null)
                     continue;
 
-                if (approval is null && hasSessions)
-                    pending++;
-                else if (approval is not null)
+                if (approval is not null)
                 {
                     switch (approval.Status)
                     {
@@ -127,7 +125,7 @@ namespace Alisflyt.Web.Controllers
                     CaseNumber = grantCase.CaseNumber,
                     DoctorName = certificate?.DoctorName ?? string.Empty,
                     HprNumber = grantCase.HprNumber ?? string.Empty,
-                    Status = (approval?.Status ?? GuidanceApprovalStatus.Pending).ToString(),
+                    Status = approval?.Status.ToString() ?? "Missing",
                     StatusText = GetGuidanceStatusLabel(grantCase, approval),
                     PeriodText = periodText,
                     TotalHours = totalHours,

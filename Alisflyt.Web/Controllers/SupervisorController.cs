@@ -6,6 +6,7 @@ using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Alisflyt.Web.ViewModels.Guidance;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 namespace Alisflyt.Web.Controllers;
 
@@ -16,6 +17,17 @@ public class SupervisorController(
     IGrantCalculationApplicationService calculationService,
     IGuidanceApprovalService guidanceApprovalService) : Controller
 {
+    private sealed class EmptyTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext context) => new Dictionary<string, object?>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object?> values) { }
+    }
+
+    private void EnsureTempData()
+    {
+        TempData ??= new TempDataDictionary(HttpContext, new EmptyTempDataProvider());
+    }
+
     private static bool HasRelevantGuidanceSessions(GrantCase grantCase)
     {
         if (string.IsNullOrWhiteSpace(grantCase.ApplicationDataJson))
@@ -45,7 +57,7 @@ public class SupervisorController(
         if (grantCase.Status is GrantCaseStatus.Draft or GrantCaseStatus.ReturnedForCorrection)
             return "Ikke sendt til godkjenning";
 
-        return "Avventer godkjenning";
+        return "Mangler aktiv godkjenningsforespørsel";
     }
 
     private static GuidanceCalculationViewModel ToGuidanceCalculationViewModel(GrantCalculationDetailsDto? calculation)
@@ -104,25 +116,61 @@ public class SupervisorController(
 
         try
         {
-            if (!confirmsAccuracy) throw new ArgumentException("Bekreft at opplysningene er riktige.");
+            if (!confirmsAccuracy)
+                throw new ArgumentException("Bekreft at opplysningene er riktige.");
+
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
                 return Forbid();
 
             var currentApproval = grantCase.GetCurrentGuidanceApproval();
-            if (currentApproval is not null)
-            {
-                await guidanceApprovalService.ApproveAsync(id, currentApproval.Id, currentUser.Key, cancellationToken);
-            }
-            else
-            {
-                grantCase.ApproveCertificate(timeProvider.GetUtcNow());
-                await repository.SaveChangesAsync(cancellationToken);
-            }
+            if (currentApproval is null)
+                throw new InvalidOperationException("Det finnes ingen aktiv godkjenningsforespørsel for denne attestversjonen.");
+            if (currentApproval.Status != GuidanceApprovalStatus.Pending)
+                throw new InvalidOperationException("Kun en ventende attestversjon kan godkjennes.");
+
+            await guidanceApprovalService.ApproveAsync(id, currentApproval.Id, currentUser.Key, cancellationToken);
+            EnsureTempData();
+            TempData["Success"] = "Veiledningstimene er godkjent.";
         }
         catch (KeyNotFoundException) { return NotFound(); }
-        catch (ArgumentException ex) { TempData["Error"] = ex.Message; }
-        catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+        catch (ArgumentException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+        catch (InvalidOperationException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestCorrection(Guid id, string? reason, CancellationToken cancellationToken)
+    {
+        var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
+        if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+            return Forbid();
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Begrunnelse for korrigering er påkrevd.");
+
+            var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
+            if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
+                return Forbid();
+
+            var currentApproval = grantCase.GetCurrentGuidanceApproval();
+            if (currentApproval is null)
+                throw new InvalidOperationException("Det finnes ingen aktiv godkjenningsforespørsel for denne attestversjonen.");
+            if (currentApproval.Status != GuidanceApprovalStatus.Pending)
+                throw new InvalidOperationException("Kun en ventende attestversjon kan sendes tilbake for korrigering.");
+
+            await guidanceApprovalService.RequestCorrectionAsync(id, currentApproval.Id, reason.Trim(), cancellationToken);
+            EnsureTempData();
+            TempData["Success"] = "Korrigering er sendt til ALIS.";
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+        catch (ArgumentException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+        catch (InvalidOperationException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+
         return RedirectToAction(nameof(Details), new { id });
     }
 }

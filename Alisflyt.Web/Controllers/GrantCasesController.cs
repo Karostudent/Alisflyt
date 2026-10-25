@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Alisflyt.Application.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
 using Alisflyt.Web.Models;
@@ -13,12 +15,14 @@ namespace Alisflyt.Web.Controllers
     public class GrantCasesController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
+        private readonly IGrantCaseRepository? _repository;
         private readonly IGuidanceApprovalService? _guidanceApprovalService;
 
-        public GrantCasesController(IGrantCaseApplicationService svc, IGuidanceApprovalService? guidanceApprovalService = null)
+        public GrantCasesController(IGrantCaseApplicationService svc, IGuidanceApprovalService? guidanceApprovalService = null, IGrantCaseRepository? repository = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
             _guidanceApprovalService = guidanceApprovalService;
+            _repository = repository;
         }
 
         private bool UserCanAccessCase(string? doctorHprNumber)
@@ -97,12 +101,21 @@ namespace Alisflyt.Web.Controllers
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
                 return Forbid();
 
+            model ??= new GrantApplicationFormViewModel();
+            model.Attachments ??= [];
+            model.Certificate ??= new();
+            model.Certificate.Sessions ??= [];
+            model.EmploymentPeriods ??= [];
+            model.SelectedPositionTypes ??= [];
+            model.DoctorProfessions ??= [];
+
             if (currentUser is not null)
             {
                 model.HprNumber ??= currentUser.HprNumber;
                 model.DoctorName ??= currentUser.Name;
             }
 
+            model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
             model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
@@ -192,6 +205,18 @@ namespace Alisflyt.Web.Controllers
                 ApplicationData = d.ApplicationData
             };
 
+            if (_repository is not null)
+            {
+                var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                var currentApproval = domainCase?.GetCurrentGuidanceApproval();
+                if (currentApproval is not null && currentApproval.Status == Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                {
+                    ViewData["GuidanceCorrectionStatus"] = "Korrigering nødvendig";
+                    ViewData["GuidanceCorrectionReason"] = currentApproval.RequestedRevisionReason;
+                    ViewData["GuidanceCorrectionLink"] = Url is null ? null : Url.Action(nameof(EditGuidance), new { id });
+                }
+            }
+
             // Try to fetch calculation (resolve per-request so ctor doesn't require it)
             try
             {
@@ -227,6 +252,133 @@ namespace Alisflyt.Web.Controllers
             return View("Details", vm);
         }
 
+        [HttpGet]
+        public async Task<IActionResult> EditGuidance(Guid id, CancellationToken cancellationToken)
+        {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
+            if (_repository is null)
+                return StatusCode(StatusCodes.Status503ServiceUnavailable);
+
+            var grantCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+
+            var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException();
+            var currentApproval = domainCase.GetCurrentGuidanceApproval();
+            if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                return BadRequest();
+
+            var data = domainCase.ApplicationDataJson is null
+                ? new Alisflyt.Domain.Forms.GrantApplicationData()
+                : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(domainCase.ApplicationDataJson)
+                    ?? new Alisflyt.Domain.Forms.GrantApplicationData();
+
+            var vm = new Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel
+            {
+                CaseId = domainCase.Id,
+                CaseNumber = domainCase.CaseNumber,
+                HprNumber = grantCase.HprNumber,
+                DoctorName = data.DoctorName ?? currentUser?.Name ?? string.Empty,
+                CorrectionReason = currentApproval.RequestedRevisionReason,
+                Sessions = data.Certificate?.Sessions ?? []
+            };
+
+            return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateGuidance(Guid id, Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel model, CancellationToken cancellationToken)
+        {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+                return Forbid();
+
+            if (_repository is null)
+                return StatusCode(StatusCodes.Status503ServiceUnavailable);
+
+            try
+            {
+                var grantCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    return Forbid();
+
+                var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                    ?? throw new KeyNotFoundException();
+                var currentApproval = domainCase.GetCurrentGuidanceApproval();
+                if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                    return BadRequest();
+
+                if (model.Sessions is null || model.Sessions.Count == 0)
+                    ModelState.AddModelError(nameof(model.Sessions), "Legg til minst én veiledningsøkt.");
+                else
+                {
+                    foreach (var session in model.Sessions)
+                    {
+                        if (!session.Date.HasValue)
+                            ModelState.AddModelError(nameof(model.Sessions), "Velg dato for hver veiledningsøkt.");
+                        if (!session.Hours.HasValue || session.Hours <= 0m)
+                            ModelState.AddModelError(nameof(model.Sessions), "Oppgi timer større enn 0 for hver veiledningsøkt.");
+                        if (string.IsNullOrWhiteSpace(session.Topic))
+                            ModelState.AddModelError(nameof(model.Sessions), "Legg inn tema for hver veiledningsøkt.");
+                    }
+                }
+
+                if (!ModelState.IsValid)
+                    return View("EditGuidance", model);
+
+                var data = domainCase.ApplicationDataJson is null
+                    ? new Alisflyt.Domain.Forms.GrantApplicationData()
+                    : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(domainCase.ApplicationDataJson)
+                        ?? new Alisflyt.Domain.Forms.GrantApplicationData();
+
+                data.HprNumber ??= grantCase.HprNumber;
+                data.DoctorName ??= currentUser?.Name ?? data.DoctorName;
+                if (data.Certificate is null)
+                    data.Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel();
+                data.Certificate.Sessions = model.Sessions
+                    .Select(s => new Alisflyt.Domain.Forms.SupervisionSessionInputModel
+                    {
+                        Date = s.Date,
+                        Hours = s.Hours,
+                        Topic = s.Topic ?? string.Empty
+                    })
+                    .ToList();
+
+                data.ValidateDraft();
+                var now = DateTimeOffset.UtcNow;
+                domainCase.UpdateApplication(data, now);
+                domainCase.RequestGuidanceApproval(
+                    grantCase.HprNumber ?? data.HprNumber ?? currentUser?.HprNumber ?? string.Empty,
+                    currentApproval.SupervisorHprNumber,
+                    currentApproval.SupervisorUserKey,
+                    now,
+                    currentApproval.SupervisorName);
+                await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+                TempData["Success"] = "Veiledningstimer er oppdatert og sendt til ny godkjenning.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View("EditGuidance", model);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View("EditGuidance", model);
+            }
+        }
+
         private async Task TryCreatePendingGuidanceApprovalAsync(GrantCaseDto grantCase, CancellationToken cancellationToken)
         {
             if (_guidanceApprovalService is null)
@@ -237,32 +389,35 @@ namespace Alisflyt.Web.Controllers
                 return;
 
             if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
-                return;
+                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
 
             var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
             if (string.IsNullOrWhiteSpace(doctorUserKey))
-                return;
+                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
 
             var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
             if (string.IsNullOrWhiteSpace(supervisorUserKey))
-                return;
+                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
 
             var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
                 string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
             if (supervisor is null)
-                return;
+                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
 
             var supervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
                 ? supervisor.HprNumber
                 : certificate.SupervisorHprNumber;
 
-            await _guidanceApprovalService.RequestApprovalAsync(
+            var approval = await _guidanceApprovalService.RequestApprovalAsync(
                 grantCase.Id,
                 grantCase.HprNumber,
                 supervisorHprNumber,
                 supervisorUserKey,
                 supervisor.Name,
                 cancellationToken).ConfigureAwait(false);
+
+            if (approval is null || approval.Status != Domain.Enums.GuidanceApprovalStatus.Pending)
+                throw new InvalidOperationException("Godkjenningsforespørsel ble ikke opprettet som ventende for denne attestversjonen.");
         }
 
         [HttpGet]

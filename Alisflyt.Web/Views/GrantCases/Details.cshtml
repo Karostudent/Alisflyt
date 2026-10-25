@@ -23,6 +23,20 @@
     {
         <section class="case-return" aria-labelledby="return-heading"><h2 id="return-heading">Du må korrigere søknaden</h2><p>@Model.ReturnReason</p><p class="text-muted">Returnert @Model.ReturnedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
     }
+    @if (ViewData["GuidanceCorrectionStatus"] is string guidanceCorrectionStatus)
+    {
+        <section class="case-return" aria-labelledby="guidance-correction-heading">
+            <h2 id="guidance-correction-heading">Korrigering nødvendig</h2>
+            <p>@guidanceCorrectionStatus</p>
+            @if (ViewData["GuidanceCorrectionReason"] is string guidanceCorrectionReason && !string.IsNullOrWhiteSpace(guidanceCorrectionReason))
+            {
+                <p><strong>Veilederens begrunnelse:</strong> @guidanceCorrectionReason</p>
+            }
+            <div class="case-actions">
+                <a class="btn btn-primary" asp-action="EditGuidance" asp-route-id="@Model.Id">Korriger veiledningstimer</a>
+            </div>
+        </section>
+    }
     <section class="case-overview" aria-labelledby="overview-heading"><h2 id="overview-heading">Saksopplysninger</h2><dl class="case-facts">
         <div><dt>HPR-nummer</dt><dd>@(Model.HprNumber ?? "Ikke oppgitt")</dd></div>
         <div><dt>Tilskuddsperiode</dt><dd>@(from.HasValue && through.HasValue ? $"{from:dd.MM.yyyy} – {through:dd.MM.yyyy}" : "Ikke oppgitt")</dd></div>

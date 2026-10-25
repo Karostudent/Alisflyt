@@ -22,6 +22,17 @@ namespace Alisflyt.Application.Tests.Fakes
             return Task.CompletedTask;
         }
 
+        public Task AddGuidanceApprovalAsync(GuidanceApproval approval, CancellationToken cancellationToken = default)
+        {
+            _store.TryGetValue(approval.GrantCaseId, out var grantCase);
+            if (grantCase is not null && !grantCase.GuidanceApprovals.Any(a => a.Id == approval.Id))
+            {
+                grantCase.GuidanceApprovals.Add(approval);
+                _store[grantCase.Id] = grantCase;
+            }
+            return Task.CompletedTask;
+        }
+
         public Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             _store.TryGetValue(id, out var c);

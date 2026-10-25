@@ -64,6 +64,14 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateApplication(Alisflyt.Domain.Forms.GrantApplicationData data, DateTimeOffset now)
         {
+            ArgumentNullException.ThrowIfNull(data);
+            data.Attachments ??= [];
+            data.DoctorProfessions ??= [];
+            data.EmploymentPeriods ??= [];
+            data.SelectedPositionTypes ??= [];
+            data.Certificate ??= new();
+            data.Certificate.Sessions ??= [];
+
             var existing = ApplicationDataJson is null ? null : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
             if (existing is not null)
             {

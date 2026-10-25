@@ -17,6 +17,10 @@
     {
         <div class="alert alert-danger">@error</div>
     }
+    @if (TempData["Success"] is string success)
+    {
+        <div class="alert alert-success">@success</div>
+    }
 
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
@@ -79,6 +83,13 @@
                             <dd class="col-sm-7">@ViewData["GuidanceStatusText"]</dd>
                             <dt class="col-sm-5">Versjon</dt>
                             <dd class="col-sm-7">@approval.VersionNumber</dd>
+                            @if (approval.Status == GuidanceApprovalStatus.Approved)
+                            {
+                                <dt class="col-sm-5">Godkjent av</dt>
+                                <dd class="col-sm-7">@approval.ApprovedBy</dd>
+                                <dt class="col-sm-5">Godkjent tidspunkt</dt>
+                                <dd class="col-sm-7">@(approval.ApprovedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "-")</dd>
+                            }
                             @if (!string.IsNullOrWhiteSpace(approval.RequestedRevisionReason))
                             {
                                 <dt class="col-sm-5">Begrunnelse</dt>
@@ -159,7 +170,7 @@
 
     @if (approval is not null && approval.Status == GuidanceApprovalStatus.Pending)
     {
-        <section class="card card-body border-0 shadow-sm">
+        <section class="card card-body border-0 shadow-sm mb-4">
             <h2 class="h4">Godkjenningshandlinger</h2>
             <form asp-action="Approve" method="post">
                 @Html.AntiForgeryToken()
@@ -170,6 +181,36 @@
                 </div>
                 <button type="submit" class="btn btn-primary">Godkjenn veiledningstimer</button>
             </form>
+
+            <hr class="my-4" />
+
+            <form asp-action="RequestCorrection" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="mb-3">
+                    <label for="reason" class="form-label">Begrunnelse for korrigering</label>
+                    <textarea class="form-control" id="reason" name="reason" rows="4" required placeholder="F.eks. Det er registrert 3 timer 19. oktober, men vi gjennomførte bare 2 timer."></textarea>
+                </div>
+                <button type="submit" class="btn btn-outline-warning">Be om korrigering</button>
+            </form>
+        </section>
+    }
+    else if (approval is not null && approval.Status == GuidanceApprovalStatus.Approved)
+    {
+        <section class="card card-body border-0 shadow-sm mb-4">
+            <h2 class="h4">Godkjenningsstatus</h2>
+            <p class="mb-0">Veiledningstimene er godkjent av @approval.ApprovedBy den @(approval.ApprovedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "-").</p>
+        </section>
+    }
+    else if (approval is not null && approval.Status == GuidanceApprovalStatus.NeedsCorrection)
+    {
+        <section class="card card-body border-0 shadow-sm mb-4">
+            <h2 class="h4">Korrigering nødvendig</h2>
+            <p class="mb-2">ALIS må rette opp veiledningstimmene og sende attesten på nytt til godkjenning.</p>
+            @if (!string.IsNullOrWhiteSpace(approval.RequestedRevisionReason))
+            {
+                <p class="mb-0"><strong>Begrunnelse:</strong> @approval.RequestedRevisionReason</p>
+            }
         </section>
     }
 

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Application.Services
@@ -32,6 +33,7 @@ namespace Alisflyt.Application.Services
                 _timeProvider.GetUtcNow(),
                 supervisorName);
 
+            await _repository.AddGuidanceApprovalAsync(approval, cancellationToken).ConfigureAwait(false);
             await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return approval;
         }
@@ -47,6 +49,9 @@ namespace Alisflyt.Application.Services
 
             var approval = grantCase.GuidanceApprovals.FirstOrDefault(a => a.Id == guidanceApprovalId)
                 ?? throw new KeyNotFoundException($"Guidance approval with id {guidanceApprovalId} not found.");
+
+            if (approval.Status != GuidanceApprovalStatus.Pending)
+                throw new InvalidOperationException("Only a pending guidance approval can be approved.");
 
             if (!string.Equals(approval.SupervisorUserKey, approvedByUserKey, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Only the assigned supervisor can approve this guidance approval.");
@@ -70,6 +75,9 @@ namespace Alisflyt.Application.Services
 
             var approval = grantCase.GuidanceApprovals.FirstOrDefault(a => a.Id == guidanceApprovalId)
                 ?? throw new KeyNotFoundException($"Guidance approval with id {guidanceApprovalId} not found.");
+
+            if (approval.Status != GuidanceApprovalStatus.Pending)
+                throw new InvalidOperationException("Only a pending guidance approval can be returned for correction.");
 
             var now = _timeProvider.GetUtcNow();
             approval.RequestCorrection(reason, now);

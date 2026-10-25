@@ -63,7 +63,11 @@ namespace Alisflyt.Application.Services
             var matching = rateSets.Where(r => r.IsActive && r.ValidFrom <= relevantDate && r.ValidTo >= relevantDate).OrderByDescending(r => r.ValidFrom).ToList();
             if (matching.Count == 0)
             {
-                return new GrantCalculationDetailsDto { IsAvailable = false, UnavailableReason = "Ingen gyldig sats for valgt periode" };
+                return new GrantCalculationDetailsDto
+                {
+                    IsAvailable = false,
+                    UnavailableReason = "Beregningen kan ikke gjennomføres fordi det mangler et gyldig satssett for hele eller deler av den valgte tilskuddsperioden. Søknaden kan fortsatt lagres som utkast."
+                };
             }
 
             var chosen = matching.First();
