@@ -34,7 +34,7 @@ namespace Alisflyt.Web.Tests
                     new Alisflyt.Application.Models.GrantCaseListItemDto { HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted }
                 }
             };
-            var controller = new Alisflyt.Web.Controllers.GuidanceController
+            var controller = new Alisflyt.Web.Controllers.GuidanceController(fake, new FakeGrantCaseRepository())
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
@@ -46,7 +46,7 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
-        public void GuidanceController_Index_ReturnsGuidanceDashboardViewModel()
+        public async Task GuidanceController_Index_ReturnsGuidanceDashboardViewModel()
         {
             var httpContext = new DefaultHttpContext();
             httpContext.Session = new TestSession();
@@ -58,16 +58,18 @@ namespace Alisflyt.Web.Tests
                 HprNumber = "987654321"
             });
 
-            var ctrl = new Alisflyt.Web.Controllers.GuidanceController
+            var repo = new GuidanceRepositoryStub();
+            var ctrl = new Alisflyt.Web.Controllers.GuidanceController(new FakeGrantCaseApplicationService(), repo)
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
 
-            var result = ctrl.Index();
+            var result = await ctrl.Index();
 
             var view = Assert.IsType<ViewResult>(result);
             var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.GuidanceDashboardViewModel>(view.Model);
-            Assert.Contains("Veilederfunksjonalitet kommer snart", model.Message);
+            Assert.Contains("Veiledningsattester", model.Message);
+            Assert.NotNull(model.Cases);
         }
 
         [Fact]
@@ -83,7 +85,7 @@ namespace Alisflyt.Web.Tests
                 HprNumber = "999999999"
             });
 
-            var controller = new Alisflyt.Web.Controllers.GuidanceController
+            var controller = new Alisflyt.Web.Controllers.GuidanceController(new FakeGrantCaseApplicationService(), new FakeGrantCaseRepository())
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
@@ -166,6 +168,41 @@ namespace Alisflyt.Web.Tests
 
             public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
                 => Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>(Array.Empty<Alisflyt.Domain.Entities.GrantCase>());
+
+            public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
+                => Task.CompletedTask;
+
+            public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+                => Task.CompletedTask;
+        }
+
+        private sealed class GuidanceRepositoryStub : Alisflyt.Application.Abstractions.IGrantCaseRepository
+        {
+            public Task<Alisflyt.Domain.Entities.GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+                => Task.FromResult<Alisflyt.Domain.Entities.GrantCase?>(null);
+
+            public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
+            {
+                var now = DateTimeOffset.UtcNow;
+                var case1 = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CASE-01", now);
+                var app = new Alisflyt.Domain.Forms.GrantApplicationData
+                {
+                    HprNumber = "123456789",
+                    DoctorName = "Anna Hansen",
+                    Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                    {
+                        DoctorName = "Anna Hansen",
+                        SupervisorHprNumber = "987654321",
+                        SupervisorName = "Per Olsen",
+                        DoctorSigningPlace = "Oslo",
+                        SupervisorSigningPlace = "Oslo",
+                        Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 1, 10), Hours = 2m, Topic = "Veiledning" }]
+                    }
+                };
+                case1.UpdateApplication(app, now);
+                case1.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now, "Per Olsen");
+                return Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([case1]);
+            }
 
             public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
                 => Task.CompletedTask;

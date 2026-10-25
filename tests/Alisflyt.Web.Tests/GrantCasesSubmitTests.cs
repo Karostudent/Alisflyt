@@ -30,7 +30,30 @@ namespace Alisflyt.Web.Tests
         public async Task GrantCasesController_Submit_RedirectsToDetails_When_SubmissionSucceeds()
         {
             var id = Guid.NewGuid();
-            var fake = new FakeGrantCaseApplicationService();
+            var fake = new FakeGrantCaseApplicationService
+            {
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto
+                {
+                    Id = id,
+                    HprNumber = "123456789",
+                    CaseNumber = "CASE-01",
+                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    LastModifiedAtUtc = DateTimeOffset.UtcNow,
+                    ApplicationData = new Alisflyt.Domain.Forms.GrantApplicationData
+                    {
+                        HprNumber = "123456789",
+                        DoctorName = "Anna Hansen",
+                        Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                        {
+                            DoctorName = "Anna Hansen",
+                            SupervisorHprNumber = "987654321",
+                            SupervisorName = "Per Olsen",
+                            Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 1, 10), Hours = 2m, Topic = "Veiledning" }]
+                        }
+                    }
+                }
+            };
             var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake);
 
             var result = await ctrl.Submit(id, default);

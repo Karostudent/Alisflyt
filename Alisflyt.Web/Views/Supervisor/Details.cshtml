@@ -1,20 +1,179 @@
 @model Alisflyt.Application.Models.GrantCaseDto
-@{ ViewData["Title"] = "Veileders godkjenning"; }
-<h1>Veileders kontroll og godkjenning</h1>
-<p class="alert alert-info">Demofunksjon: Godkjenningen registreres uten innlogging eller elektronisk signatur. ALIS fører attesten, og veileder kontrollerer opplysningene.</p>
-@if (TempData["Error"] is string error) { <p class="alert alert-danger">@error</p> }
-<p>Sak @Model.CaseNumber</p>
-@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
-@if (Model.ApplicationData?.SupervisorApprovedAtUtc is DateTimeOffset approved)
-{
-    <p class="alert alert-success">Attesten er godkjent (demo). Registrert @approved.ToString("u"). Endringer i attesten krever ny godkjenning.</p>
+@using Alisflyt.Domain.Enums
+@{
+    ViewData["Title"] = "Veiledningsattest";
+    var approval = ViewData["GuidanceApproval"] as Alisflyt.Domain.Entities.GuidanceApproval;
+    var guidanceCalculation = ViewData["GuidanceCalculation"] as Alisflyt.Web.ViewModels.Guidance.GuidanceCalculationViewModel;
+    var requiresGuidanceApproval = ViewData["RequiresGuidanceApproval"] as bool? ?? false;
+    var sessions = Model.ApplicationData?.Certificate?.Sessions ?? new List<Alisflyt.Domain.Forms.SupervisionSessionInputModel>();
+    var totalHours = sessions.Sum(s => s.Hours ?? 0m);
 }
-else
-{
-    <form asp-action="Approve" method="post">
-        <input type="hidden" name="id" value="@Model.Id" />
-        <label class="form-check"><input class="form-check-input" type="checkbox" name="confirmsAccuracy" value="true" required /> Jeg har kontrollert veiledningsattesten og bekrefter at opplysningene er riktige.</label>
-        <button class="btn btn-primary mt-3" type="submit">Godkjenn attest (demo)</button>
-    </form>
-}
-<a class="btn btn-outline-primary mt-3" asp-controller="GrantCases" asp-action="Application" asp-route-id="@Model.Id">Vis søknaden</a>
+
+<div class="container py-4">
+    <h1 class="mb-3">Veiledningsattest</h1>
+    <p class="text-muted mb-4">Sak @Model.CaseNumber</p>
+
+    @if (TempData["Error"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <section class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h4">ALIS og attest</h2>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">ALIS-lege</dt>
+                        <dd class="col-sm-7">@Model.ApplicationData?.Certificate?.DoctorName</dd>
+                        <dt class="col-sm-5">HPR-nummer</dt>
+                        <dd class="col-sm-7">@Model.HprNumber</dd>
+                        <dt class="col-sm-5">Saksnummer</dt>
+                        <dd class="col-sm-7">@Model.CaseNumber</dd>
+                        <dt class="col-sm-5">Relevant periode</dt>
+                        <dd class="col-sm-7">@(sessions.Any(s => s.Date.HasValue) ? $"{sessions.Where(s => s.Date.HasValue).Min(s => s.Date!.Value):dd.MM.yyyy} - {sessions.Where(s => s.Date.HasValue).Max(s => s.Date!.Value):dd.MM.yyyy}" : "-")</dd>
+                        <dt class="col-sm-5">Godkjenningsstatus</dt>
+                        <dd class="col-sm-7">
+                            @if (approval is null)
+                            {
+                                if (requiresGuidanceApproval)
+                                {
+                                    <span class="badge text-bg-warning">Avventer godkjenning</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-secondary">Godkjenning ikke påkrevd</span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="badge @(approval.Status == GuidanceApprovalStatus.Pending ? "text-bg-warning" : approval.Status == GuidanceApprovalStatus.Approved ? "text-bg-success" : approval.Status == GuidanceApprovalStatus.NeedsCorrection ? "text-bg-danger" : "text-bg-secondary")">
+                                    @(approval.Status == GuidanceApprovalStatus.Pending ? "Avventer godkjenning" : approval.Status == GuidanceApprovalStatus.Approved ? "Godkjent" : approval.Status == GuidanceApprovalStatus.NeedsCorrection ? "Korrigering nødvendig" : approval.Status == GuidanceApprovalStatus.Superseded ? "Tidligere attestversjon / erstattet" : approval.Status.ToString())
+                                </span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h4">Godkjenningsstatus</h2>
+                    @if (approval is null)
+                    {
+                        if (requiresGuidanceApproval)
+                        {
+                            <p class="text-warning mb-0">Det finnes ingen aktiv godkjenningsforespørsel for denne attestversjonen.</p>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">Godkjenning er ikke påkrevd for denne attesten.</p>
+                        }
+                    }
+                    else
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Status</dt>
+                            <dd class="col-sm-7">@ViewData["GuidanceStatusText"]</dd>
+                            <dt class="col-sm-5">Versjon</dt>
+                            <dd class="col-sm-7">@approval.VersionNumber</dd>
+                            @if (!string.IsNullOrWhiteSpace(approval.RequestedRevisionReason))
+                            {
+                                <dt class="col-sm-5">Begrunnelse</dt>
+                                <dd class="col-sm-7">@approval.RequestedRevisionReason</dd>
+                            }
+                        </dl>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section class="card card-body mb-4 border-0 shadow-sm">
+        <h2 class="h4">Registrerte veiledningstimer</h2>
+        @if (sessions.Count == 0)
+        {
+            <p class="text-muted mb-0">Ingen registrerte veiledningstimer er knyttet til denne attesten.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Dato</th>
+                            <th scope="col">Tema</th>
+                            <th scope="col">Timer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var session in sessions.OrderBy(s => s.Date ?? DateOnly.MinValue))
+                        {
+                            <tr>
+                                <td>@(session.Date?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                <td>@(session.Topic ?? "-")</td>
+                                <td>@(session.Hours?.ToString("0.##") ?? "0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th scope="row" colspan="2">Totalt antall timer</th>
+                            <td>@totalHours.ToString("0.##")</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="card card-body mb-4 border-0 shadow-sm">
+        <h2 class="h4">Beregnet beløp for veiledning</h2>
+        @if (guidanceCalculation is null || !guidanceCalculation.IsAvailable)
+        {
+            <p class="text-muted mb-0">Beregning for veiledning er ikke tilgjengelig for denne søknaden.</p>
+        }
+        else
+        {
+            <div class="alert alert-light border mb-3">
+                <strong>Foreløpig beregnet beløp.</strong> Endelig beløp avhenger av saksbehandling og godkjenning.
+            </div>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">Veiledningsbeløp</dt>
+                <dd class="col-sm-7">@guidanceCalculation.GuidanceAmount.ToString("N0") kr</dd>
+                @if (!string.IsNullOrWhiteSpace(guidanceCalculation.RateSetName))
+                {
+                    <dt class="col-sm-5">Satssett</dt>
+                    <dd class="col-sm-7">@guidanceCalculation.RateSetName
+                        @if (guidanceCalculation.RateSetValidFrom.HasValue || guidanceCalculation.RateSetValidTo.HasValue)
+                        {
+                            <span class="text-muted">(@(guidanceCalculation.RateSetValidFrom?.ToString("dd.MM.yyyy") ?? "-") - @(guidanceCalculation.RateSetValidTo?.ToString("dd.MM.yyyy") ?? "-"))</span>
+                        }
+                    </dd>
+                }
+            </dl>
+        }
+    </section>
+
+    @if (approval is not null && approval.Status == GuidanceApprovalStatus.Pending)
+    {
+        <section class="card card-body border-0 shadow-sm">
+            <h2 class="h4">Godkjenningshandlinger</h2>
+            <form asp-action="Approve" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="confirmsAccuracy" value="true" id="confirmsAccuracy" required />
+                    <label class="form-check-label" for="confirmsAccuracy">Jeg har kontrollert veiledningsattesten og bekrefter at opplysningene er riktige.</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Godkjenn veiledningstimer</button>
+            </form>
+        </section>
+    }
+
+    <div class="mt-4">
+        <a class="btn btn-outline-secondary" asp-controller="Guidance" asp-action="Index">Tilbake til oversikten</a>
+    </div>
+</div>

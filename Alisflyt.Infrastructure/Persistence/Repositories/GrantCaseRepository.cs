@@ -32,7 +32,11 @@ namespace Alisflyt.Infrastructure.Persistence.Repositories
 
         public async Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default)
         {
-            var list = await _context.GrantCases.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+            var list = await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
             return list;
         }
 

@@ -13,9 +13,12 @@ namespace Alisflyt.Web.Controllers
     public class GrantCasesController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
-        public GrantCasesController(IGrantCaseApplicationService svc)
+        private readonly IGuidanceApprovalService? _guidanceApprovalService;
+
+        public GrantCasesController(IGrantCaseApplicationService svc, IGuidanceApprovalService? guidanceApprovalService = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
+            _guidanceApprovalService = guidanceApprovalService;
         }
 
         private bool UserCanAccessCase(string? doctorHprNumber)
@@ -224,6 +227,44 @@ namespace Alisflyt.Web.Controllers
             return View("Details", vm);
         }
 
+        private async Task TryCreatePendingGuidanceApprovalAsync(GrantCaseDto grantCase, CancellationToken cancellationToken)
+        {
+            if (_guidanceApprovalService is null)
+                return;
+
+            var certificate = grantCase.ApplicationData?.Certificate;
+            if (certificate is null || certificate.Sessions is null || certificate.Sessions.Count == 0)
+                return;
+
+            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
+                return;
+
+            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
+            if (string.IsNullOrWhiteSpace(doctorUserKey))
+                return;
+
+            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
+            if (string.IsNullOrWhiteSpace(supervisorUserKey))
+                return;
+
+            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
+                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
+            if (supervisor is null)
+                return;
+
+            var supervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
+                ? supervisor.HprNumber
+                : certificate.SupervisorHprNumber;
+
+            await _guidanceApprovalService.RequestApprovalAsync(
+                grantCase.Id,
+                grantCase.HprNumber,
+                supervisorHprNumber,
+                supervisorUserKey,
+                supervisor.Name,
+                cancellationToken).ConfigureAwait(false);
+        }
+
         [HttpGet]
         public async Task<IActionResult> CalculationPreview(Guid id, CancellationToken cancellationToken)
         {
@@ -285,6 +326,8 @@ namespace Alisflyt.Web.Controllers
                 }
 
                 await _svc.SubmitAsync(id, cancellationToken).ConfigureAwait(false);
+                var submittedCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                await TryCreatePendingGuidanceApprovalAsync(submittedCase, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (System.Collections.Generic.KeyNotFoundException)
