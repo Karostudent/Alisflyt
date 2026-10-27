@@ -66,7 +66,7 @@ namespace Alisflyt.Web.Controllers
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
                 if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
-                    return Forbid();
+                    return StatusCode(StatusCodes.Status403Forbidden);
 
                 var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
                 if (attachment is null) return NotFound();
@@ -80,7 +80,7 @@ namespace Alisflyt.Web.Controllers
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var model = new GrantApplicationFormViewModel
             {
@@ -99,7 +99,7 @@ namespace Alisflyt.Web.Controllers
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             model ??= new GrantApplicationFormViewModel();
             model.Attachments ??= [];
@@ -155,7 +155,7 @@ namespace Alisflyt.Web.Controllers
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
                 if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
-                    return Forbid();
+                    return StatusCode(StatusCodes.Status403Forbidden);
 
                 var model = FormModel(data);
                 model.ReadOnly = true;
@@ -181,12 +181,12 @@ namespace Alisflyt.Web.Controllers
             if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
             if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
                 && !DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, d.HprNumber))
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             var vm = new GrantCaseDetailsViewModel
@@ -257,14 +257,14 @@ namespace Alisflyt.Web.Controllers
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             if (_repository is null)
                 return StatusCode(StatusCodes.Status503ServiceUnavailable);
 
             var grantCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
             if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
                 ?? throw new KeyNotFoundException();
@@ -292,22 +292,30 @@ namespace Alisflyt.Web.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateGuidance(Guid id, Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel model, CancellationToken cancellationToken)
+        public async Task<IActionResult> UpdateGuidance(Guid? id, Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel model, CancellationToken cancellationToken)
         {
+            if (id is null || id == Guid.Empty)
+                id = model.CaseId == Guid.Empty ? null : model.CaseId;
+
+            if (id is null || id == Guid.Empty)
+                return BadRequest("Mangler saks-ID for oppdatering av veiledningstimer.");
+
+            model.CaseId = id.Value;
+
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             if (_repository is null)
                 return StatusCode(StatusCodes.Status503ServiceUnavailable);
 
             try
             {
-                var grantCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                var grantCase = await _svc.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false);
                 if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
-                    return Forbid();
+                    return StatusCode(StatusCodes.Status403Forbidden);
 
-                var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                var domainCase = await _repository.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false)
                     ?? throw new KeyNotFoundException();
                 var currentApproval = domainCase.GetCurrentGuidanceApproval();
                 if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
@@ -361,11 +369,16 @@ namespace Alisflyt.Web.Controllers
                 await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
                 TempData["Success"] = "Veiledningstimer er oppdatert og sendt til ny godkjenning.";
-                return RedirectToAction(nameof(Details), new { id });
+                return RedirectToAction(nameof(Details), new { id = id.Value });
             }
             catch (KeyNotFoundException)
             {
                 return NotFound();
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+            {
+                ModelState.AddModelError(string.Empty, "Saken ble oppdatert av en annen bruker eller vindu mens du jobbet. Last inn siden på nytt og prøv igjen.");
+                return View("EditGuidance", model);
             }
             catch (ArgumentException ex)
             {

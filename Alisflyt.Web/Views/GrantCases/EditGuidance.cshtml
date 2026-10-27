@@ -29,8 +29,9 @@
 		}
 	</div>
 
-	<form asp-action="UpdateGuidance" method="post">
+	<form asp-controller="GrantCases" asp-action="UpdateGuidance" asp-route-id="@Model.CaseId" method="post">
 		@Html.AntiForgeryToken()
+		<input type="hidden" asp-for="CaseId" />
 		<input type="hidden" name="id" value="@Model.CaseId" />
 
 		<div class="card card-body mb-4">
