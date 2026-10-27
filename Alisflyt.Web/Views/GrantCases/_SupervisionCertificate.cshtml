@@ -29,11 +29,7 @@
                 <button type="button" id="add-supervision" class="btn btn-outline-primary">+ Legg til en veiledningsøkt</button>
                 <p>Totalt: <output id="total-supervision-hours" aria-live="polite">0</output> timer</p>
             </div>
-            <h3>Beregnet tilskudd til veiledning</h3>
-            <p class="text-muted">Tilskuddet beregnes fra oppgitte veiledningskostnader, begrenset av maksimum for stilling og periode. Øktene dokumenterer gjennomført veiledning. Lagre utkastet for å oppdatere beløpet.</p>
-
-            <p id="guidance-preview" aria-live="polite">Lagre et komplett utkast for å se beregnet tilskudd til veiledning.</p>
-            <p><a id="supervisor-review-link" hidden="@(Model.Id == Guid.Empty)" asp-controller="Supervisor" asp-action="Details" asp-route-id="@Model.Id">Til veileders kontroll og godkjenning (demo)</a></p>
+          
             <details class="signing-details">
                 <summary>Sted, dato og signering</summary>
                 <p class="text-muted mt-3">Dette kan fylles ut senere. Elektronisk signering er ikke tilgjengelig.</p>

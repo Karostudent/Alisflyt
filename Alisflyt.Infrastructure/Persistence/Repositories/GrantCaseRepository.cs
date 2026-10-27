@@ -22,14 +22,30 @@ namespace Alisflyt.Infrastructure.Persistence.Repositories
             await _context.GrantCases.AddAsync(grantCase, cancellationToken).ConfigureAwait(false);
         }
 
+        public async Task AddGuidanceApprovalAsync(GuidanceApproval approval, CancellationToken cancellationToken = default)
+        {
+            var entry = _context.Entry(approval);
+            if (entry.State == EntityState.Detached)
+            {
+                await _context.GuidanceApprovals.AddAsync(approval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         public async Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _context.GrantCases.FirstOrDefaultAsync(c => c.Id == id, cancellationToken).ConfigureAwait(false);
+            return await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         public async Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default)
         {
-            var list = await _context.GrantCases.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+            var list = await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
             return list;
         }
 

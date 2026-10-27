@@ -15,6 +15,13 @@ if (builder.Environment.IsDevelopment())
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.IdleTimeout = TimeSpan.FromHours(8);
+});
 
 // Infrastructure & Application DI
 builder.Services.AddDbContext<Alisflyt.Infrastructure.Persistence.ApplicationDbContext>((sp, options) =>
@@ -25,6 +32,7 @@ builder.Services.AddScoped<Alisflyt.Application.Abstractions.IGrantRateSetReposi
 builder.Services.AddScoped<Alisflyt.Application.Abstractions.ICaseNumberGenerator, Alisflyt.Infrastructure.Services.CaseNumberGenerator>();
 builder.Services.AddScoped<Alisflyt.Application.Services.IGrantCaseApplicationService, Alisflyt.Application.Services.GrantCaseApplicationService>();
 builder.Services.AddScoped<Alisflyt.Application.Services.IGrantCalculationApplicationService, Alisflyt.Application.Services.GrantCalculationApplicationService>();
+builder.Services.AddScoped<Alisflyt.Application.Services.IGuidanceApprovalService, Alisflyt.Application.Services.GuidanceApprovalService>();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<Alisflyt.Infrastructure.Development.DevelopmentDataSeeder>();
@@ -64,6 +72,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseSession();
 
 app.UseAuthorization();
 
@@ -71,7 +80,15 @@ app.MapStaticAssets();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Portal}/{action=Index}/{id?}")
+    pattern: "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+app.MapControllerRoute(
+    name: "portal",
+    pattern: "portal",
+    defaults: new { controller = "Portal", action = "Index" })
     .WithStaticAssets();
 
 app.Run();
+
+public partial class Program { }

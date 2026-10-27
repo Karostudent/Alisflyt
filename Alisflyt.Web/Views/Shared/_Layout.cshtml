@@ -1,33 +1,85 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using Alisflyt.Web.Models
+@{
+    var currentUser = DemoAuthentication.GetCurrentUser(Context);
+    var isHomePage = Context.Request.Path.Value is null
+        || Context.Request.Path.Value.Equals("/", StringComparison.OrdinalIgnoreCase)
+        || Context.Request.Path.Value.EndsWith("/Home/Index", StringComparison.OrdinalIgnoreCase);
+}
+
+<!DOCTYPE html>
+<html lang="nb">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Alisflyt.Web</title>
+    <title>@ViewData["Title"] - ALISflyt</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Alisflyt.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Portal" asp-action="Index">Alisflyt.Web</a>
-                <span class="badge bg-warning text-dark ms-2">DEMOVERSJON</span>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+    <header class="topbar">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+            <div class="container">
+                <a class="navbar-brand topbar__brand" asp-area="" asp-controller="Home" asp-action="Index">ALISflyt</a>
+                <span class="badge topbar__badge">DEMOVERSJON</span>
+
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto align-items-lg-center">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Portal" asp-action="Index">Portal</a>
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Forside</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="GrantCases" asp-action="Index">Søknader</a>
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="OmAlisflyt">Om ALISflyt</a>
                         </li>
-                        <!-- Privacy link removed from demo navigation -->
+
+                        @if (currentUser is not null && currentUser.Role == "ALIS")
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Alis" asp-action="Index">ALIS</a>
+                            </li>
+                        }
+                        @if (currentUser is not null && currentUser.Role == "Koordinator")
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Coordinator" asp-action="Index">Koordinator</a>
+                            </li>
+                        }
+                        @if (currentUser is not null && currentUser.Role == "Veileder")
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Guidance" asp-action="Index">Veileder</a>
+                            </li>
+                        }
+                        @if (currentUser is not null && currentUser.Role == "Administrator")
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Admin" asp-action="Index">Administrator</a>
+                            </li>
+                        }
+                    </ul>
+
+                    <ul class="navbar-nav ms-auto align-items-lg-center">
+                        @if (currentUser is null && !isHomePage)
+                        {
+                            <li class="nav-item">
+                                <a class="btn btn-outline-primary btn-sm" asp-controller="Account" asp-action="Login">Logg inn</a>
+                            </li>
+                        }
+                        else if (currentUser is not null)
+                        {
+                            <li class="nav-item me-2">
+                                <span class="navbar-text text-muted">Innlogget som @currentUser.Name (@currentUser.Role)</span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Logout">Logg ut</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>
@@ -41,7 +93,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - Alisflyt.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2026 - ALISflyt - <a asp-area="" asp-controller="Home" asp-action="OmAlisflyt">Om ALISflyt</a>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

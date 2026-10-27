@@ -99,6 +99,7 @@ namespace Alisflyt.Application.Tests
         {
             public Alisflyt.Domain.Entities.GrantCase? Case;
             public Task AddAsync(GrantCase grantCase, System.Threading.CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            public Task AddGuidanceApprovalAsync(GuidanceApproval approval, System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
             public Task<GrantCase?> GetByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default) => Task.FromResult(Case);
             public Task<IReadOnlyList<GrantCase>> ListAsync(System.Threading.CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<GrantCase>)new List<GrantCase>());
             public Task SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -266,7 +267,8 @@ namespace Alisflyt.Application.Tests
             var res = await svc.CalculateForCaseAsync(grantCase.Id);
 
             Assert.False(res.IsAvailable);
-            Assert.Equal("Ingen gyldig sats for valgt periode", res.UnavailableReason);
+            Assert.Contains("mangler et gyldig satssett", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Søknaden kan fortsatt lagres som utkast", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -295,7 +297,39 @@ namespace Alisflyt.Application.Tests
             var res = await svc.CalculateForCaseAsync(grantCase.Id);
 
             Assert.False(res.IsAvailable);
-            Assert.Contains("Ingen gyldig sats", res.UnavailableReason);
+            Assert.Contains("mangler et gyldig satssett", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Søknaden kan fortsatt lagres som utkast", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task MissingRateSet_ReturnsClearDraftSafeMessage()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+
+            var appData = new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods = new List<Alisflyt.Domain.Forms.EmploymentPeriodInputModel>
+                {
+                    new() { PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new DateOnly(2026, 6, 1), FundingFrom = new DateOnly(2026, 6, 1), FundingThrough = new DateOnly(2026, 6, 20) }
+                },
+                AbsenceCompensation = 10000m
+            };
+
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CASE-MISSING-RATE", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(appData, DateTimeOffset.UtcNow);
+            caseRepo.Case = grantCase;
+
+            var svc = new GrantCalculationApplicationService(caseRepo, rateRepo);
+
+            var res = await svc.CalculateForCaseAsync(grantCase.Id);
+
+            Assert.False(res.IsAvailable);
+            Assert.Contains("mangler et gyldig satssett", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Søknaden kan fortsatt lagres som utkast", res.UnavailableReason, StringComparison.OrdinalIgnoreCase);
+            var saved = System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+            Assert.Equal(new DateOnly(2026, 6, 20), saved.EmploymentPeriods[0].FundingThrough);
         }
 
         [Fact]

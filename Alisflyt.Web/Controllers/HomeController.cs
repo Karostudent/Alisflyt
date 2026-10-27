@@ -1,4 +1,5 @@
 using Alisflyt.Web.Models;
+using Alisflyt.Web.ViewModels.Home;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
@@ -7,6 +8,17 @@ namespace Alisflyt.Web.Controllers
     public class HomeController : Controller
     {
         public IActionResult Index()
+        {
+            var model = new LandingViewModel
+            {
+                CurrentUser = DemoAuthentication.GetCurrentUser(HttpContext),
+                DemoUsers = DemoAuthentication.DemoUsers
+            };
+
+            return View(model);
+        }
+
+        public IActionResult OmAlisflyt()
         {
             return View();
         }

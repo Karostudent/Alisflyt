@@ -1,26 +1,104 @@
 @model Alisflyt.Web.ViewModels.Dashboards.GuidanceDashboardViewModel
-@{ ViewData["Title"] = "Veileder – oversikt"; }
-<link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
-<div class="public-dashboard">
-    <nav aria-label="Brødsmuler" class="public-breadcrumb"><a asp-controller="Portal" asp-action="Index">Portal</a><span aria-hidden="true"> / </span><span>Veileder</span></nav>
-    <header class="public-page-heading">
-        <div><p class="public-role">VEILEDER</p><h1>Veilederoversikt</h1><p>Kontroller registrert veiledning og godkjenn veiledningsattester.</p></div>
+@{
+    ViewData["Title"] = "Min veiledning";
+}
+
+<div class="container py-4">
+    <header class="mb-4">
+        <p class="text-uppercase text-primary fw-semibold mb-1">VEILEDER</p>
+        <h1 class="mb-2">Min veiledning</h1>
+        <p class="mb-0 text-muted">@Model.Message</p>
+        @if (!string.IsNullOrWhiteSpace(Model.CurrentUserName))
+        {
+            <p class="mb-0 text-muted">Innlogget veileder: <strong>@Model.CurrentUserName</strong></p>
+        }
     </header>
-    <div class="public-information" role="note">
-        <strong>Om demoversjonen</strong>
-        <p>Personlig oversikt over dine ALIS-leger er under utvikling. Du kan åpne demosaker fra veileders søknadsoversikt. Godkjenning registreres uten innlogging eller elektronisk signatur.</p>
-    </div>
-    <section class="public-case-section" aria-labelledby="guidance-heading">
-        <h2 id="guidance-heading">Veiledningsattester</h2>
-        <p>ALIS fører dato, varighet og tema for øktene. Som veileder kontrollerer du at opplysningene stemmer.</p>
-        <a asp-controller="Guidance" asp-action="Applications" class="btn btn-primary">Åpne søknadsoversikten</a>
-        <div class="public-guidance-help">
-            <h3>Slik finner du attesten</h3>
-            <ol>
-                <li>Åpne veileders søknadsoversikt.</li>
-                <li>Finn søknaden og velg «Kontroller attest».</li>
-                <li>Kontroller øktene og godkjenn attesten.</li>
-            </ol>
+
+    <section class="card card-body mb-4">
+        <h2 class="h5 mb-3">Tilknyttede ALIS-leger</h2>
+        @if (Model.AssignedDoctors.Count == 0)
+        {
+            <p class="text-muted mb-0">Ingen ALIS-leger er tilknyttet deg.</p>
+        }
+        else
+        {
+            <ul class="list-inline mb-0">
+                @foreach (var doctor in Model.AssignedDoctors)
+                {
+                    <li class="list-inline-item badge bg-light text-dark border me-2">@doctor</li>
+                }
+            </ul>
+        }
+    </section>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 text-muted">Til godkjenning</h2>
+                    <p class="display-6 mb-0">@Model.PendingCount</p>
+                </div>
+            </div>
         </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 text-muted">Korrigering nødvendig</h2>
+                    <p class="display-6 mb-0">@Model.NeedsCorrectionCount</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5 text-muted">Godkjente attester</h2>
+                    <p class="display-6 mb-0">@Model.ApprovedCount</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="card card-body" aria-labelledby="guidance-heading">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 id="guidance-heading" class="h4 mb-0">Relevante attester</h2>
+            <a asp-controller="Guidance" asp-action="Applications" class="btn btn-outline-primary">Se søknadsoversikt</a>
+        </div>
+
+        @if (Model.Cases.Count == 0)
+        {
+            <p class="text-muted mb-0">Ingen attester er tilgjengelige for din tilknytning.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">ALIS-lege</th>
+                            <th scope="col">Saksnummer</th>
+                            <th scope="col">Periode</th>
+                            <th scope="col">Timer</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Sist endret</th>
+                            <th scope="col">Handling</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Cases)
+                        {
+                            <tr>
+                                <td>@item.DoctorName @if (!string.IsNullOrWhiteSpace(item.HprNumber)) { <span class="text-muted small">(@item.HprNumber)</span> }</td>
+                                <td>@item.CaseNumber</td>
+                                <td>@item.PeriodText</td>
+                                <td>@item.TotalHours.ToString("0.##")</td>
+                                <td><span class="badge text-bg-light border">@item.StatusText</span></td>
+                                <td>@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td><a asp-controller="Supervisor" asp-action="Details" asp-route-id="@item.Id">Se veiledningstimer</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </section>
 </div>

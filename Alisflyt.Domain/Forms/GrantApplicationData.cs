@@ -8,9 +8,12 @@ public class GrantApplicationData
 {
     public void ValidateDraft()
     {
-        if (Attachments is null || Certificate is null || Certificate.Sessions is null || EmploymentPeriods is null
-            || DoctorProfessions is null || SelectedPositionTypes is null)
+        if (Attachments is null || EmploymentPeriods is null || DoctorProfessions is null || SelectedPositionTypes is null)
             throw new ArgumentException("Skjemaet mangler opplysninger.");
+        if (Certificate is null)
+            Certificate = new();
+        if (Certificate.Sessions is null)
+            Certificate.Sessions = [];
         if (Certificate.SupervisorHprNumber?.Length > 50 || HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
             || SelectedPositionTypes.Any(p => !Enum.IsDefined(p)))
             throw new ArgumentException("Kontroller HPR-nummer og valgte typer.");
@@ -24,12 +27,15 @@ public class GrantApplicationData
                 || period.FundingThrough < period.FundingFrom || period.FundingThrough < period.EmploymentStartDate)
                 throw new ArgumentException("Kontroller stillingsprosent og datoer i stillingsperiodene.");
         }
-        if (!NorwegianMunicipalities.IsValidSigningPlace(Certificate.DoctorSigningPlace)
-            || !NorwegianMunicipalities.IsValidSigningPlace(Certificate.SupervisorSigningPlace))
-            throw new ArgumentException("Velg en gyldig norsk kommune fra listen for ALIS og veileder.");
+        if (!string.IsNullOrWhiteSpace(Certificate.DoctorSigningPlace)
+            && !NorwegianMunicipalities.IsValidSigningPlace(Certificate.DoctorSigningPlace))
+            throw new ArgumentException("Velg en gyldig norsk kommune fra listen for ALIS.");
+        if (!string.IsNullOrWhiteSpace(Certificate.SupervisorSigningPlace)
+            && !NorwegianMunicipalities.IsValidSigningPlace(Certificate.SupervisorSigningPlace))
+            throw new ArgumentException("Velg en gyldig norsk kommune fra listen for veileder.");
         if (Certificate.Sessions.Any(s => s is null || s.Hours is <= 0 or > 24))
             throw new ArgumentException("Veiledningstimer må være større enn 0 og høyst 24.");
-        if (ExpectedCompletionDate < SpecializationStartDate)
+        if (ExpectedCompletionDate.HasValue && SpecializationStartDate.HasValue && ExpectedCompletionDate < SpecializationStartDate)
             throw new ArgumentException("Avslutning av spesialisering kan ikke være før startdato.");
     }
 

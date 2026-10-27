@@ -1,31 +1,29 @@
 # ALISflyt
 
-ALISflyt er en prototype for digital søknad og behandling av kommunale ALIS-tilskudd.
+ALISflyt er en demonstrasjonsapplikasjon for digital søknad og behandling av kommunale ALIS-tilskudd. Prosjektet er bygget som en fungerende prototype der søknadsflyten, beregning og saksbehandling er modellert i kode.
 
-Målet er å samle søknadsopplysninger, beregningsgrunnlag og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang og gjenbrukes videre i prosessen. Dette skal gi ALIS bedre oversikt og redusere manuelt arbeid for kommunens koordinator.
+Målet er å samle søknadsopplysninger, beregningsgrunnlag og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang og gjenbrukes videre i prosessen. I dagens versjon er dette fokusert på et demo-/testmiljø uten produksjonsautentisering.
 
-Løsningen er under utvikling og skal foreløpig bare brukes med syntetiske testdata.
+## Status nå
 
-## Status
+Dette er en fungerende prototype i demoform, ikke et ferdig produksjonssystem.
 
-### Implementert
+### Implementert i repoet
 
-#### Portal og roller
+#### Portal og demoroller
 
-- Felles demoportal med inngang for ALIS, koordinator og veileder
-- ALIS-dashboard med oversikt over saker
-- Koordinator-dashboard med oversikt over mottatte saker
-- Presentasjon av planlagt veilederområde
-- Rollemarkering i relevante visninger
-- Sortering på saksnummer, HPR, status og sist endret i saksoversiktene
+- Felles demoportal med tilgang til ALIS, veileder, koordinator og administrator
+- Demoinnlogging med syntetiske brukere og sesjonsbasert brukeridentitet
+- Rollebasert navigasjon til hvert arbeidsområde
+- Rolle- og tilknytningskontroller i ALIS-, veileder- og administratorflyten
+- Forhåndsdefinert kobling mellom demo-ALIS og demo-veileder
 
-Veilederrollen er foreløpig kun representert som planlagt funksjonalitet. Egen innlogging og arbeidsflyt for veileder er ikke implementert.
+Dette er ikke produksjonsautentisering. Demoidentiteten lagres i session og er kun laget for en kontrollert demonstrasjon med fiktive brukere.
 
-#### Søknad og utkast
+#### Søknadsflyt
 
 - Opprettelse og lagring av ufullstendige utkast
-- Totrinnsskjema for søknadsopplysninger og veiledningsattest
-- Registrering av:
+- To-trinns søknadsskjema med registrering av:
   - lege- og spesialiseringsopplysninger
   - type tilskudd
   - stillingstyper
@@ -34,25 +32,38 @@ Veilederrollen er foreløpig kun representert som planlagt funksjonalitet. Egen 
   - refusjons- og kostnadsopplysninger
   - sentralitetsopplysninger
   - veiledningsattest og veiledningsøkter
-- Redigering og gjenåpning av lagrede utkast
+- Redigering og gjenåpning av lagrede søknadsutkast
 - Validering før innsending
 - Innsending av ferdig søknad
 
 Søknadsdata lagres samlet i `GrantCases.ApplicationDataJson`.
 
-#### Saksflyt
+#### Saksbehandling og veiledergodkjenning
 
-- Koordinator kan åpne og lese innsendte søknader
-- Koordinator kan starte behandling
+- Koordinator kan se saksoversikt og åpne saksdetaljer
+- Koordinator kan starte behandling av innsendte saker
 - Koordinator kan returnere en sak for korrigering med obligatorisk begrunnelse
-- Returbegrunnelse og returtidspunkt lagres
-- ALIS kan se hvorfor saken er returnert
-- ALIS kan korrigere og sende saken inn på nytt
-- Samme søknadsdata brukes videre gjennom arbeidsflyten
+- Returbegrunnelse og tidspunkt lagres og vises til ALIS
+- ALIS kan åpne, korrigere og sende inn en returnert søknad på nytt
+- Veileder får oversikt over tilknyttede ALIS-leger og deres veiledningsattester
+- Veileder kan se veiledningsøkter og beregnet veiledningsbeløp
+- Veileder kan godkjenne en ventende attest eller kreve korrigering
+- Korrigeringsflyten oppretter en ny attestversjon ved endring av veiledningsdata
+- Godkjenningsstatusene `Pending`, `NeedsCorrection`, `Approved` og `Superseded` vises i løsningen
+- Koordinator kan se veiledergodkjenningen i saksdetaljen og eksportere saker under behandling til Excel
 
-#### Automatisk beregning av tilskudd
+#### Administrator
 
-Det er implementert automatisk beregning basert på opplysningene i søknaden.
+Administratorområdet er en presentasjonsvisning som:
+
+- viser alle saker i løsningen
+- viser registrerte satssett, gyldighetsperioder og aktiv/inaktiv status
+
+Opprettelse, redigering og aktivering av satssett er ikke implementert i Web-laget.
+
+#### Automatisk beregning
+
+Det er implementert kalkulering basert på søknadsdata.
 
 Beregningen omfatter foreløpig:
 
@@ -64,49 +75,45 @@ Beregningen omfatter foreløpig:
 - sentralitetstillegg
 - samlet beregnet tilskuddsbeløp
 
-Beregningen bruker et versjonert satssett som velges ut fra tilskuddsperioden.
-
-ALIS kan se en forhåndsvisning av beregningen før søknaden sendes inn. Beregningsresultatet vises også i detaljvisningen av saken.
-
-Dersom beregningen ikke kan gjennomføres, vises en forklaring i brukergrensesnittet. For sentralitetstillegg vises det også forklaring når beløpet blir 0 på grunn av gjeldende beregningsforutsetninger.
+Beregningen velger satssett basert på tilskuddsperioden, og kalkulasjonen vises i både søknadsskjemaet og saksdetaljer. Dersom beregningen ikke kan gjennomføres, vises en forklaring i UI-et.
 
 ### Rammer for beregningen i prototypen
 
-Prototypen bruker foreløpig satssettet:
+Prototypen bruker per nå satssettet:
 
 **01.06.2025–31.05.2026**
 
-Hvis tilskuddsperioden starter utenfor denne perioden, finnes det ikke et gyldig satssett i prototypen, og beregningen blir derfor ikke tilgjengelig.
+Hvis tilskuddsperioden ligger utenfor dette intervallet, finnes det ikke et gyldig satssett i prototypen, og beregningen blir derfor ikke tilgjengelig.
 
-Sentralitetstillegg beregnes i dagens prototype når:
+Sentralitetstillegg beregnes i denne demoen når:
 
 - kommunen er registrert med sentralitetsgrad 6
 - søknaden gjelder tilskudd til ALIS-avtale inkl. veiledning
 - det er registrert et søkt beløp
 - tilskuddsperioden gir et beregningsgrunnlag
 
-Registrerte merkostnader til veiledning inngår foreløpig ikke i automatisk beregning fordi beregningsregelen ikke er endelig avklart.
+Merkostnader til veiledning inngår ikke i automatisk beregning i denne versjonen.
 
-Dette beskriver hva prototypen støtter nå, og skal ikke forstås som en fullstendig eller autoritativ implementasjon av endelig regelverk.
+## Begrensninger / ikke implementert
 
-### Planlagt videre
+Dette er fortsatt en prototype. Følgende er ikke ferdig implementert eller må behandles som avgrensninger:
 
-- Autentisering og rollebasert tilgangsstyring
-- Avgrensning slik at ALIS bare ser egne saker
-- Egen innlogging og arbeidsflate for veileder
-- Veilederstyrt registrering og bekreftelse av veiledningsattest
-- Registrering og avstemming av veiledningstimer
-- Sakshistorikk og utvidet sporbarhet
-- Dokumentopplasting
-- Videre kvalitetssikring av satser og beregningsregler
-- Støtte for flere og historiske satsperioder
-- Håndtering av saker som går over flere satsperioder
-- Revisorgodkjenning
-- Frister og varsling
-- Rapportering og eksport
-- Arkivering og mulig integrasjon mot P360
-- Integrasjon mot Helsedirektoratet
-- Tilrettelegging for bruk i flere kommuner
+- produksjonsautentisering, brukerregister, passordløsning og federert innlogging
+- fullstendig og konsekvent server-side autorisasjon for alle koordinatorhandlinger
+- produksjonsklar tilgangsmodell for sakseierskap og organisatorisk tilhørighet
+- opprettelse, redigering og aktivering av satssett fra administratorområdet
+- lagring av et historisk beregningsresultat eller en permanent kobling til brukt satsversjon
+- automatisk beregning av alle kostnadstyper, blant annet merkostnader til veiledning
+- støtte for saker som går over flere satsperioder
+- filopplasting og lagring av vedlegg
+- full sakshistorikk, revisjonsspor og vedtaks-/ferdigstillingsflyt
+- frister, varsling, rapportering og arkivering
+- reelle integrasjoner mot P360, HPR, kommunale fagsystemer eller andre eksterne systemer
+- nettleserbasert ende-til-ende-test av den komplette brukerflyten
+
+Beregninger gjøres på nytt ved visning med tilgjengelig satssett. Historiske saker kan derfor få et annet beregningsresultat dersom satsdata endres.
+
+Prosjektet bruker syntetiske testdata og skal ikke forstås som en komplett eller autoritativ implementasjon av endelig regelverk.
 
 ## Teknologi
 
@@ -122,12 +129,12 @@ Dette beskriver hva prototypen støtter nå, og skal ikke forstås som en fullst
 
 ## Prosjektstruktur
 
-- `Alisflyt.Domain` inneholder entiteter, statuser, søknadsmodeller og forretningsregler.
+- `Alisflyt.Domain` inneholder entiteter, status, søknadsmodeller og forretningsregler.
 - `Alisflyt.Application` inneholder brukstilfeller, beregningstjenester, DTO-er og kontrakter.
 - `Alisflyt.Infrastructure` inneholder EF Core, databasekontekst, repositories, migrasjoner og demodata.
 - `Alisflyt.Web` inneholder controllere, ViewModels, Razor Views og statiske filer.
-- `Alisflyt.Integrations` er klargjort for fremtidige integrasjoner mot eksterne systemer.
-- `tests` inneholder automatiserte tester for de ulike lagene og integrasjonstestene.
+- `Alisflyt.Integrations` er klart for fremtidige integrasjoner mot eksterne systemer.
+- `tests` inneholder automatiserte tester for ulike lag og integrasjonstestene.
 
 Kort huskeregel:
 
@@ -135,11 +142,11 @@ Kort huskeregel:
 
 ## Beregningsarkitektur
 
-Beregningsfunksjonaliteten følger samme lagdeling som resten av løsningen.
+Beregningen ligger i Application-laget og følger samme lagdeling som resten av løsningen.
 
-Søknadsdata transformeres til et eget beregningsgrunnlag før beregningen utføres. Beregningsreglene ligger på Application-nivå og mottar satssett og søknadsdata som eksplisitte inputverdier.
+Søknadsdata transformeres til et eget beregningsgrunnlag før beregningen utføres. Beregningsreglene mottar satssett og søknadsdata som eksplisitte inputverdier.
 
-Valg av satssett skjer på serversiden basert på tidligste registrerte `FundingFrom` i søknaden.
+Valg av satssett skjer på serversiden basert på tidligste registrerte `FundingFrom`-dato i søknaden. Beregningsresultatet lagres ikke som et historisk snapshot; det beregnes på nytt ved forhåndsvisning, saksdetalj og eksport.
 
 Beregningsresultatet transporteres tilbake til Web-laget som DTO og vises både:
 
@@ -153,11 +160,38 @@ Det gjøres ingen beregning i JavaScript eller Razor Views.
 
 - Git
 - .NET 10 SDK
-- Visual Studio med ASP.NET-workload, eller et annet egnet utviklingsmiljø
+- Visual Studio med ASP.NET-workload, eller annet egnet utviklingsmiljø
 - SQL Server Express LocalDB på Windows
 
-## Klone repository
+## Klone og kjør lokalt
 
 ```powershell
 git clone <repository-url>
 cd Alisflyt
+dotnet restore
+dotnet build
+```
+
+Kjør applikasjonen med:
+
+```powershell
+dotnet run --project Alisflyt.Web/Alisflyt.Web.csproj
+```
+
+## Tester
+
+Kjør build og test lokalt med:
+
+```powershell
+dotnet build Alisflyt.slnx --configuration Release
+dotnet test tests/Alisflyt.Domain.Tests/Alisflyt.Domain.Tests.csproj --configuration Release --no-build
+dotnet test tests/Alisflyt.Application.Tests/Alisflyt.Application.Tests.csproj --configuration Release --no-build
+dotnet test tests/Alisflyt.Web.Tests/Alisflyt.Web.Tests.csproj --configuration Release --no-build
+dotnet test tests/Alisflyt.IntegrationTests/Alisflyt.IntegrationTests.csproj --configuration Release --no-build
+```
+
+Testprosjektene dekker domain-regler, Application-tjenester, controlleroppførsel og databaseintegrasjon mot LocalDB. GitHub Actions kjører unit-/webtestene på Ubuntu og integrasjonstestene på Windows med LocalDB. Testene er ikke en erstatning for manuell nettleserverifisering av hele demoen.
+
+## Notat om demo-/prototypestatus
+
+Denne løsningen er ment som et teknisk og funksjonelt konseptbevis for digital søknad og saksbehandling i ALIS-sammenheng. Den er tilpasset demonstrasjon og videre utvikling, og ikke et ferdig produkt for produksjonsbruk uten ekstra sikkerhets-, regelverks- og operasjonsarbeid.
