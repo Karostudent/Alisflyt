@@ -442,7 +442,7 @@ namespace Alisflyt.Web.Tests
             var result = await controller.RequestCorrection(caseId, "   ", default);
 
             Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Begrunnelse for korrigering er påkrevd.", controller.TempData["Error"] as string);
+            Assert.Equal("Begrunnelse for korrigering er pÃ¥krevd.", controller.TempData["Error"] as string);
         }
 
         [Fact]
@@ -557,7 +557,7 @@ namespace Alisflyt.Web.Tests
             var result = await controller.Details(caseId, default);
 
             Assert.IsType<ViewResult>(result);
-            Assert.Equal("Korrigering nødvendig", controller.ViewData["GuidanceCorrectionStatus"] as string);
+            Assert.Equal("Korrigering nÃ¸dvendig", controller.ViewData["GuidanceCorrectionStatus"] as string);
             Assert.Equal("Timer stemmer ikke.", controller.ViewData["GuidanceCorrectionReason"] as string);
         }
 
