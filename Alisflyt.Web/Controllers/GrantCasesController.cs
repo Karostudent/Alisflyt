@@ -473,7 +473,7 @@ namespace Alisflyt.Web.Controllers
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase)))
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
@@ -491,7 +491,7 @@ namespace Alisflyt.Web.Controllers
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
@@ -500,7 +500,7 @@ namespace Alisflyt.Web.Controllers
                 {
                     var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
                     if (!string.Equals(data.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                        return Forbid();
+                        return StatusCode(StatusCodes.Status403Forbidden);
 
                     guidanceRequest = CreateGuidanceRequest(data);
                 }

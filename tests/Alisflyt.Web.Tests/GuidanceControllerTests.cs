@@ -92,7 +92,7 @@ namespace Alisflyt.Web.Tests
 
             var result = await controller.Applications(new FakeGrantCaseApplicationService(), "All");
 
-            Assert.IsType<ForbidResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
         }
 
         [Fact]
@@ -142,7 +142,7 @@ namespace Alisflyt.Web.Tests
 
             var result = await controller.Details(id, default);
 
-            Assert.IsType<ForbidResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
         }
 
         private sealed class TestSession : ISession
@@ -475,7 +475,7 @@ namespace Alisflyt.Web.Tests
 
             var result = await controller.Approve(caseId, true, default);
 
-            Assert.IsType<ForbidResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
         }
 
         [Fact]
@@ -504,7 +504,7 @@ namespace Alisflyt.Web.Tests
 
             var result = await controller.RequestCorrection(caseId, "Mangler data", default);
 
-            Assert.IsType<ForbidResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
         }
 
         [Fact]

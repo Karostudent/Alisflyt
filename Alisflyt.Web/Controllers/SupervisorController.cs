@@ -82,13 +82,13 @@ public class SupervisorController(
     {
         var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
         if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         try
         {
             var grantCase = await service.GetByIdAsync(id, cancellationToken);
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var domainCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             var currentApproval = domainCase.GetCurrentGuidanceApproval();
@@ -112,7 +112,7 @@ public class SupervisorController(
     {
         var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
         if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         try
         {
@@ -121,7 +121,7 @@ public class SupervisorController(
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var currentApproval = grantCase.GetCurrentGuidanceApproval();
             if (currentApproval is null)
@@ -146,7 +146,7 @@ public class SupervisorController(
     {
         var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
         if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         try
         {
@@ -155,7 +155,7 @@ public class SupervisorController(
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var currentApproval = grantCase.GetCurrentGuidanceApproval();
             if (currentApproval is null)
