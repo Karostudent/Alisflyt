@@ -2,7 +2,11 @@
 
 <div class="calculation-result">
 	<h3>Beregningsresultat</h3>
-	@if (Model is null || !Model.IsAvailable)
+	@if (ViewData["CalculationError"] is string calculationError)
+	{
+		<div class="alert alert-danger" role="alert">@calculationError</div>
+	}
+	else if (Model is null || !Model.IsAvailable)
 	{
 		<div class="alert alert-info">@((Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.")</div>
 	}

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Alisflyt.Web.Controllers;
 using Alisflyt.Web.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Alisflyt.Web.Tests
@@ -62,6 +63,36 @@ namespace Alisflyt.Web.Tests
             var result = await controller.CalculationPreview(dto.Id, default);
             var view = Assert.IsType<PartialViewResult>(result);
             Assert.Equal("_CalculationResultPartial", view.ViewName);
+        }
+
+        [Fact]
+        public async Task CalculationPreview_Returns_500_With_General_Message_And_Logs_When_Calculation_Fails()
+        {
+            var id = Guid.NewGuid();
+            var fakeSvc = new FakeGrantCaseApplicationService
+            {
+                GetByIdResponse = new GrantCaseDto { Id = id, HprNumber = "123456789" }
+            };
+            var fakeCalc = new FakeCalc { Exception = new InvalidOperationException("internal calculation failure") };
+            var logger = new TestLogger<GrantCasesController>();
+            var httpContext = GrantCasesTestContext.CreateAlis();
+            httpContext.RequestServices = CreateServiceProvider(fakeCalc);
+            var controller = new GrantCasesController(fakeSvc, logger: logger)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var result = Assert.IsType<ObjectResult>(await controller.CalculationPreview(id, default));
+
+            Assert.Equal(StatusCodes.Status500InternalServerError, result.StatusCode);
+            var message = result.Value!.GetType().GetProperty("message")!.GetValue(result.Value)!.ToString();
+            Assert.Equal("Beregningen kunne ikke lastes på grunn av en teknisk feil.", message);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Error, entry.Level);
+            Assert.Contains(nameof(GrantCasesController.CalculationPreview), entry.State);
+            Assert.Contains(id.ToString(), entry.State);
+            Assert.NotNull(entry.Exception);
+            Assert.DoesNotContain("123456789", entry.State);
         }
 
         [Fact]
@@ -163,10 +194,12 @@ namespace Alisflyt.Web.Tests
         private class FakeCalc : Alisflyt.Application.Services.IGrantCalculationApplicationService
         {
             public GrantCalculationDetailsDto Result { get; set; } = new GrantCalculationDetailsDto { IsAvailable = false };
+            public Exception? Exception { get; set; }
             public int CallCount { get; private set; }
             public Task<GrantCalculationDetailsDto> CalculateForCaseAsync(Guid caseId, System.Threading.CancellationToken cancellationToken = default)
             {
                 CallCount++;
+                if (Exception is not null) throw Exception;
                 return Task.FromResult(Result);
             }
         }

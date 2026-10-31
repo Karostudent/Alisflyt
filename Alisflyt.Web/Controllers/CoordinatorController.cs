@@ -3,6 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
 using Alisflyt.Web.ViewModels.GrantCases;
@@ -14,12 +16,16 @@ namespace Alisflyt.Web.Controllers
     public class CoordinatorController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
+        private readonly ILogger<CoordinatorController> _logger;
 
         private bool IsCoordinator() => Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator");
 
-        public CoordinatorController(IGrantCaseApplicationService svc)
+        public CoordinatorController(
+            IGrantCaseApplicationService svc,
+            ILogger<CoordinatorController>? logger = null)
         {
             _svc = svc;
+            _logger = logger ?? NullLogger<CoordinatorController>.Instance;
         }
 
         public async Task<IActionResult> Index(string status = "All", CancellationToken cancellationToken = default)
@@ -125,9 +131,10 @@ namespace Alisflyt.Web.Controllers
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore calculation errors and render details without calculation.
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(Details), d.Id);
+                ViewData["CalculationError"] = "Beregningen kunne ikke lastes på grunn av en teknisk feil.";
             }
 
             return View("~/Views/Coordinator/Details.cshtml", vm);

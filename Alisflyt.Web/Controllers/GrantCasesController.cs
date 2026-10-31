@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
@@ -16,11 +18,16 @@ namespace Alisflyt.Web.Controllers
     {
         private readonly IGrantCaseApplicationService _svc;
         private readonly IGrantCaseRepository? _repository;
+        private readonly ILogger<GrantCasesController> _logger;
 
-        public GrantCasesController(IGrantCaseApplicationService svc, IGrantCaseRepository? repository = null)
+        public GrantCasesController(
+            IGrantCaseApplicationService svc,
+            IGrantCaseRepository? repository = null,
+            ILogger<GrantCasesController>? logger = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
             _repository = repository;
+            _logger = logger ?? NullLogger<GrantCasesController>.Instance;
         }
 
         private bool UserCanAccessCase(string? doctorHprNumber)
@@ -298,9 +305,10 @@ namespace Alisflyt.Web.Controllers
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Swallow to keep details view stable; calculation not critical
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(Details), d.Id);
+                ViewData["CalculationError"] = "Beregningen kunne ikke lastes på grunn av en teknisk feil.";
             }
 
             // Return explicit Details view so MVC does not search for a Submit.cshtml view.
@@ -465,7 +473,12 @@ namespace Alisflyt.Web.Controllers
                 return PartialView("_CalculationResultPartial", calc);
             }
             catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(); }
-            catch { return StatusCode(500); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(CalculationPreview), id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "Beregningen kunne ikke lastes på grunn av en teknisk feil." });
+            }
         }
 
         [HttpGet]

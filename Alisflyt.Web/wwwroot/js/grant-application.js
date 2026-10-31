@@ -91,7 +91,16 @@
             const url = new URL("/GrantCases/CalculationPreview", window.location.origin);
             url.searchParams.set("id", id);
             const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-            if (!response.ok) throw new Error("Kunne ikke hente beregningen.");
+            if (!response.ok) {
+                let message = "Beregningen kunne ikke lastes.";
+                try {
+                    const error = await response.json();
+                    if (error?.message) message = error.message;
+                } catch {
+                    // Keep the generic client message when the response is not JSON.
+                }
+                throw new Error(message);
+            }
 
             const html = await response.text();
             preview.innerHTML = html;
