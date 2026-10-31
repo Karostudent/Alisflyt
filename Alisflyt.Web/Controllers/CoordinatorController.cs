@@ -128,6 +128,9 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkReadyForAuditorApproval(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator"))
+                return Forbid();
+
             try
             {
                 await _svc.MarkReadyForAuditorApprovalAsync(id, cancellationToken).ConfigureAwait(false);

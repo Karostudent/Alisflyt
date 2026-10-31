@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Web.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc;
@@ -44,10 +45,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake)
-            {
-                TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
-            };
+            var ctrl = CreateControllerForRole(fake, "Koordinator");
 
             var result = await ctrl.MarkReadyForAuditorApproval(id, default);
 
@@ -57,20 +55,67 @@ namespace Alisflyt.Web.Tests
             Assert.Equal(id, fake.MarkReadyForAuditorApprovalCalls[0].id);
         }
 
+        [Theory]
+        [InlineData("ALIS")]
+        [InlineData("Veileder")]
+        [InlineData(null)]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_Forbids_non_coordinators_before_service(string? role)
+        {
+            var fake = new FakeGrantCaseApplicationService();
+            var ctrl = CreateControllerForRole(fake, role);
+
+            var result = await ctrl.MarkReadyForAuditorApproval(Guid.NewGuid(), default);
+
+            Assert.IsType<ForbidResult>(result);
+            Assert.Empty(fake.MarkReadyForAuditorApprovalCalls);
+        }
+
         [Fact]
         public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_ShowsError_OnDomainFailure()
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { MarkReadyForAuditorApprovalException = new InvalidOperationException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake)
-            {
-                TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
-            };
+            var ctrl = CreateControllerForRole(fake, "Koordinator");
 
             var result = await ctrl.MarkReadyForAuditorApproval(id, default);
 
             Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.", ctrl.TempData["Error"]);
+            Assert.Equal("Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.", ctrl.TempData!["Error"]);
+        }
+
+        private static Alisflyt.Web.Controllers.CoordinatorController CreateControllerForRole(FakeGrantCaseApplicationService fake, string? role)
+        {
+            var httpContext = new DefaultHttpContext { Session = new TestSession() };
+            if (role is not null)
+            {
+                Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
+                {
+                    Key = role.ToLowerInvariant() + "-test",
+                    Role = role,
+                    Name = role + " Test"
+                });
+            }
+
+            var controller = new Alisflyt.Web.Controllers.CoordinatorController(fake)
+            {
+                TempData = new TempDataDictionary(httpContext, new TestTempDataProvider())
+            };
+            controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+            return controller;
+        }
+
+        private sealed class TestSession : ISession
+        {
+            private readonly Dictionary<string, byte[]> _store = new();
+            public IEnumerable<string> Keys => _store.Keys;
+            public string Id { get; } = Guid.NewGuid().ToString();
+            public bool IsAvailable => true;
+            public void Clear() => _store.Clear();
+            public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            public void Remove(string key) => _store.Remove(key);
+            public void Set(string key, byte[] value) => _store[key] = value;
+            public bool TryGetValue(string key, out byte[] value) => _store.TryGetValue(key, out value!);
         }
 
         [Fact]
