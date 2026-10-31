@@ -25,9 +25,10 @@
 		{
 			<tr><td></td><td><div class="small text-muted">@Model.CentralityExplanation</div></td></tr>
 		}
-				<tr class="table-primary"><th>Totalt beregnet tilskudd</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
+				<tr class="table-primary"><th>Beregnet samlet tilskuddsgrunnlag</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
 			</tbody>
 		</table>
+		<p class="small text-muted">Summen er kommunens samlede beregnede tilskuddsgrunnlag for kostnader knyttet til ALIS-spesialiseringen. Den viser ikke hva som faktisk tilfaller ALIS-legen eller hvordan beløpet fordeles. Helsedirektoratet behandler søknaden og fastsetter eventuelt tilskudd.</p>
 		<div class="small text-muted">Satssett: @Model.RateSetName (@Model.RateSetValidFrom?.ToString("dd.MM.yyyy") - @Model.RateSetValidTo?.ToString("dd.MM.yyyy"))</div>
 	}
 </div>

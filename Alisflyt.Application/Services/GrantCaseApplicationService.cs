@@ -97,6 +97,15 @@ namespace Alisflyt.Application.Services
 
         public async Task SubmitAsync(Guid id, CancellationToken cancellationToken = default)
         {
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            var applicationData = grantCase.ApplicationDataJson is null
+                ? null
+                : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(grantCase.ApplicationDataJson);
+
+            if (applicationData?.Certificate?.Sessions?.Count > 0)
+                throw new InvalidOperationException("Søknader med veiledningstimer må sendes inn med nødvendig veiledergodkjenning.");
+
             await SubmitAsync(id, guidanceRequest: null, cancellationToken).ConfigureAwait(false);
         }
 

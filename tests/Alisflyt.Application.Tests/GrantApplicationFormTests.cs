@@ -46,6 +46,14 @@ public class GrantApplicationFormTests
 
     private static GrantCaseApplicationService Service() => new(new FakeGrantCaseRepository(), new FakeCaseNumberGenerator("FORM-1"), TimeProvider.System);
 
+    private static SubmitGrantCaseRequest GuidanceRequest() => new()
+    {
+        DoctorHprNumber = "123456789",
+        SupervisorHprNumber = "987654321",
+        SupervisorUserKey = "veileder-per",
+        SupervisorName = "Test Veileder"
+    };
+
     private static GrantApplicationData CompleteForm() => new()
     {
         HprNumber = "1234567", DoctorName = "Test Lege", DoctorProfessions = ["Lege"],
@@ -90,7 +98,7 @@ public class GrantApplicationFormTests
         reopened.ApplicationData.SelectedPositionTypes.RemoveAt(1);
         Assert.Equal(2, (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate.Sessions.Count);
         await service.UpdateDraftAsync(created.Id, new() { ApplicationData = reopened.ApplicationData });
-        await service.SubmitAsync(created.Id);
+        await service.SubmitAsync(created.Id, GuidanceRequest());
         await service.StartReviewAsync(created.Id);
         var reviewed = await service.GetByIdAsync(created.Id);
         Assert.Equal(GrantCaseStatus.UnderReview, reviewed.Status);
@@ -106,7 +114,7 @@ public class GrantApplicationFormTests
         Assert.False(corrected.HasAdditionalSupervisionCosts);
         Assert.Null(corrected.AdditionalSupervisionCosts);
         Assert.Equal(0, corrected.AbsenceCompensation);
-        await service.SubmitAsync(created.Id);
+        await service.SubmitAsync(created.Id, GuidanceRequest());
         var resubmitted = (await service.GetByIdAsync(created.Id)).ApplicationData!;
         Assert.Equal(2, resubmitted.Certificate.Sessions.Count);
         Assert.False(resubmitted.HasAdditionalSupervisionCosts);
@@ -146,7 +154,7 @@ public class GrantApplicationFormTests
         var data = CompleteForm();
         data.EmploymentPeriods[1].FundingFrom = null;
         var created = await service.CreateDraftAsync(new() { ApplicationData = data });
-        var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
+        var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id, GuidanceRequest()));
         Assert.Equal("Stilling i kommunen, rad 2: Oppgi «Tilskudd fra».", Assert.Single(error.Errors));
     }
 

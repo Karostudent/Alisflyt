@@ -210,6 +210,23 @@ namespace Alisflyt.Application.Tests
         }
 
         [Fact]
+        public async Task LegacySubmitAsync_rejects_case_with_guidance_sessions_without_saving()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = CreateCaseWithGuidance(now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-LEGACY"), new FakeTimeProvider(now));
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SubmitAsync(grantCase.Id));
+
+            Assert.Contains("veiledningstimer", error.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(GrantCaseStatus.Draft, grantCase.Status);
+            Assert.Empty(grantCase.GuidanceApprovals);
+            Assert.Equal(0, repo.SaveChangesCallCount);
+        }
+
+        [Fact]
         public async Task SubmitAsync_without_guidance_does_not_create_approval()
         {
             var now = DateTimeOffset.UtcNow;
