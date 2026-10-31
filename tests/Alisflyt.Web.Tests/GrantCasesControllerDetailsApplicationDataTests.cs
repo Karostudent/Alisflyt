@@ -30,7 +30,13 @@ namespace Alisflyt.Web.Tests
             };
             svc.GetByIdResponse = dto;
 
-            var controller = new GrantCasesController(svc);
+            var controller = new GrantCasesController(svc)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = GrantCasesTestContext.CreateAlis("123")
+                }
+            };
 
             var result = await controller.Details(dto.Id, default);
             var view = Assert.IsType<ViewResult>(result);

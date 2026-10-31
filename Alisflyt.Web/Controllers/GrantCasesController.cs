@@ -165,6 +165,14 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is null
+                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -175,13 +183,12 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
-            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
                 && !DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, d.HprNumber))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);

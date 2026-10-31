@@ -12,9 +12,15 @@ namespace Alisflyt.Web.Tests
         public async Task GrantCases_Details_Maps_ReturnFields()
         {
             var id = Guid.NewGuid();
-            var dto = new Alisflyt.Application.Models.GrantCaseDto { Id = id, CaseNumber = "CN-1", Status = Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection, ReturnReason = "Fix this", ReturnedAtUtc = DateTimeOffset.Parse("2026-01-02T03:04:05Z"), CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
+            var dto = new Alisflyt.Application.Models.GrantCaseDto { Id = id, CaseNumber = "CN-1", HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection, ReturnReason = "Fix this", ReturnedAtUtc = DateTimeOffset.Parse("2026-01-02T03:04:05Z"), CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake);
+            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = GrantCasesTestContext.CreateAlis()
+                }
+            };
 
             var result = await ctrl.Details(id, default);
 

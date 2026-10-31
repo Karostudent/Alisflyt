@@ -35,7 +35,13 @@ namespace Alisflyt.Web.Tests
             var id = Guid.Parse("33333333-3333-3333-3333-333333333333");
             var dto = new GrantCaseDto { Id = id, CaseNumber = "CN3", HprNumber = "H3", EmploymentPercentage = 50m, EmploymentStartDate = new DateOnly(2026,1,1), EmploymentEndDate = new DateOnly(2026,12,31), Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, CreatedAtUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z"), LastModifiedAtUtc = DateTimeOffset.Parse("2026-01-02T00:00:00Z") };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake);
+            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake)
+            {
+                ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+                {
+                    HttpContext = GrantCasesTestContext.CreateAlis("H3")
+                }
+            };
 
             var result = await ctrl.Details(id, default);
 

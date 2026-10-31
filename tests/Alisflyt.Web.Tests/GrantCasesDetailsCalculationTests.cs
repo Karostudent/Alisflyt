@@ -54,6 +54,8 @@ namespace Alisflyt.Web.Tests
             var provider = Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(services);
             controller.ControllerContext = new ControllerContext();
             var httpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { RequestServices = provider };
+            var sessionContext = GrantCasesTestContext.CreateAlis("123");
+            httpContext.Session = sessionContext.Session;
             // assign via ControllerContext
             controller.ControllerContext.HttpContext = httpContext;
 

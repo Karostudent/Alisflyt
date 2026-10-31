@@ -12,7 +12,13 @@ namespace Alisflyt.Web.Tests
         public async Task GrantCasesController_Details_ReturnsNotFound_When_Service_Throws_KeyNotFoundException()
         {
             var fake = new FakeGrantCaseApplicationService { GetByIdException = new KeyNotFoundException() };
-            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake);
+            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = GrantCasesTestContext.CreateAlis()
+                }
+            };
 
             var result = await ctrl.Details(Guid.NewGuid(), default);
 
