@@ -49,10 +49,18 @@ namespace Alisflyt.Web.Tests
         public async Task GrantCases_SaveApplication_Allows_ReturnedForCorrection()
         {
             var id = Guid.NewGuid();
-            var fake = new FakeGrantCaseApplicationService { UpdateDraftResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = id } };
-            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake) { Url = new GrantCaseUrlHelper() };
+            var fake = new FakeGrantCaseApplicationService
+            {
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = id, HprNumber = "123456789" },
+                UpdateDraftResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = id, HprNumber = "123456789" }
+            };
+            var ctrl = new Alisflyt.Web.Controllers.GrantCasesController(fake)
+            {
+                Url = new GrantCaseUrlHelper(),
+                ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+            };
 
-            var model = new Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel { Id = id, HprNumber = "H" };
+            var model = new Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel { Id = id, HprNumber = "123456789" };
 
             var result = await ctrl.SaveApplication(model, default);
 

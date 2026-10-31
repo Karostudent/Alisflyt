@@ -96,22 +96,44 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (currentUser is null
+                || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(currentUser.HprNumber))
+            {
                 return StatusCode(StatusCodes.Status403Forbidden);
+            }
 
             model ??= new GrantApplicationFormViewModel();
+            if (!string.IsNullOrWhiteSpace(model.HprNumber)
+                && !string.Equals(model.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "HPR-nummeret må samsvare med innlogget ALIS-bruker." });
+            }
+
+            if (model.Id != Guid.Empty)
+            {
+                GrantCaseDto existing;
+                try
+                {
+                    existing = await _svc.GetByIdAsync(model.Id, cancellationToken).ConfigureAwait(false);
+                }
+                catch (System.Collections.Generic.KeyNotFoundException)
+                {
+                    return NotFound(new { message = "Søknaden finnes ikke lenger." });
+                }
+
+                if (!string.Equals(existing.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             model.Attachments ??= [];
             model.Certificate ??= new();
             model.Certificate.Sessions ??= [];
             model.EmploymentPeriods ??= [];
             model.SelectedPositionTypes ??= [];
             model.DoctorProfessions ??= [];
-
-            if (currentUser is not null)
-            {
-                model.HprNumber ??= currentUser.HprNumber;
-                model.DoctorName ??= currentUser.Name;
-            }
+            model.HprNumber = currentUser.HprNumber;
+            model.DoctorName ??= currentUser.Name;
 
             model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)

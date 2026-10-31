@@ -37,10 +37,14 @@ public class GrantCasesSaveTests
     public async Task Save_preserves_both_steps_and_returns_navigation_links(bool existing)
     {
         var savedId = Guid.NewGuid();
-        var dto = new GrantCaseDto { Id = savedId };
-        var fake = new FakeGrantCaseApplicationService { CreateDraftResponse = dto, UpdateDraftResponse = dto };
-        var controller = new GrantCasesController(fake) { Url = new GrantCaseUrlHelper() };
-        var model = new GrantApplicationFormViewModel { Id = existing ? savedId : Guid.Empty, HprNumber = "1234567",
+        var dto = new GrantCaseDto { Id = savedId, HprNumber = "123456789" };
+        var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto, CreateDraftResponse = dto, UpdateDraftResponse = dto };
+        var controller = new GrantCasesController(fake)
+        {
+            Url = new GrantCaseUrlHelper(),
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
+        var model = new GrantApplicationFormViewModel { Id = existing ? savedId : Guid.Empty, HprNumber = "123456789",
             EmploymentPeriods = [new() { PositionPercentage = 50 }, new() { PositionPercentage = 25 }],
             Certificate = new() { Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } };
         var result = Assert.IsType<OkObjectResult>(await controller.SaveApplication(model, default));
@@ -297,13 +301,92 @@ public class GrantCasesSaveTests
         Assert.Equal("Andre tema", saved.ApplicationData.Certificate.Sessions[1].Topic);
     }
 
+    [Fact]
+    public async Task SaveApplication_uses_session_hpr_when_new_draft_omits_hpr()
+    {
+        var response = new GrantCaseDto { Id = Guid.NewGuid(), HprNumber = "123456789" };
+        var fake = new FakeGrantCaseApplicationService { CreateDraftResponse = response };
+        var controller = new GrantCasesController(fake)
+        {
+            Url = new GrantCaseUrlHelper(),
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
+
+        var result = await controller.SaveApplication(new GrantApplicationFormViewModel
+        {
+            DoctorName = "Test ALIS",
+            GrantType = GrantType.AlisAgreementIncludingSupervision
+        }, default);
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal("123456789", Assert.Single(fake.CreateDraftCalls).request.ApplicationData!.HprNumber);
+    }
+
+    [Fact]
+    public async Task SaveApplication_rejects_client_hpr_that_differs_from_session()
+    {
+        var fake = new FakeGrantCaseApplicationService();
+        var controller = new GrantCasesController(fake)
+        {
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
+
+        var result = await controller.SaveApplication(new GrantApplicationFormViewModel { HprNumber = "999999999" }, default);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Contains("HPR-nummeret", badRequest.Value!.ToString(), StringComparison.Ordinal);
+        Assert.Empty(fake.CreateDraftCalls);
+        Assert.Empty(fake.UpdateDraftCalls);
+    }
+
+    [Fact]
+    public async Task SaveApplication_rejects_update_of_case_owned_by_another_alis_before_update()
+    {
+        var id = Guid.NewGuid();
+        var fake = new FakeGrantCaseApplicationService
+        {
+            GetByIdResponse = new GrantCaseDto { Id = id, HprNumber = "999999999" },
+            UpdateDraftResponse = new GrantCaseDto { Id = id, HprNumber = "999999999" }
+        };
+        var controller = new GrantCasesController(fake)
+        {
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
+
+        var result = await controller.SaveApplication(new GrantApplicationFormViewModel { Id = id }, default);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Single(fake.GetByIdCalls);
+        Assert.Empty(fake.UpdateDraftCalls);
+    }
+
+    [Fact]
+    public async Task SaveApplication_rejects_missing_demo_session_before_service_calls()
+    {
+        var fake = new FakeGrantCaseApplicationService();
+        var controller = new GrantCasesController(fake);
+
+        var result = await controller.SaveApplication(new GrantApplicationFormViewModel(), default);
+
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Empty(fake.CreateDraftCalls);
+        Assert.Empty(fake.UpdateDraftCalls);
+        Assert.Empty(fake.GetByIdCalls);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Invalid_model_is_not_saved(bool existing)
     {
-        var fake = new FakeGrantCaseApplicationService();
-        var controller = new GrantCasesController(fake);
+        var fake = new FakeGrantCaseApplicationService
+        {
+            GetByIdResponse = existing ? new GrantCaseDto { HprNumber = "123456789" } : null
+        };
+        var controller = new GrantCasesController(fake)
+        {
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
         controller.ModelState.AddModelError("Certificate.Sessions[0].Hours", "Ugyldig antall timer");
         Assert.IsType<BadRequestObjectResult>(await controller.SaveApplication(new() { Id = existing ? Guid.NewGuid() : Guid.Empty }, default));
         Assert.Empty(fake.CreateDraftCalls);
@@ -313,9 +396,16 @@ public class GrantCasesSaveTests
     [Fact]
     public async Task Submitted_case_cannot_be_edited_or_saved()
     {
-        var fake = new FakeGrantCaseApplicationService { GetByIdResponse = new() { Status = GrantCaseStatus.Submitted }, UpdateDraftException = new InvalidOperationException() };
-        var controller = new GrantCasesController(fake);
         var id = Guid.NewGuid();
+        var fake = new FakeGrantCaseApplicationService
+        {
+            GetByIdResponse = new() { Id = id, HprNumber = "123456789", Status = GrantCaseStatus.Submitted },
+            UpdateDraftException = new InvalidOperationException()
+        };
+        var controller = new GrantCasesController(fake)
+        {
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
         Assert.IsType<BadRequestResult>(await controller.Edit(id, default));
         Assert.IsType<ConflictObjectResult>(await controller.SaveApplication(new() { Id = id }, default));
     }
