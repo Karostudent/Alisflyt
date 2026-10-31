@@ -28,8 +28,19 @@ namespace Alisflyt.Web.Controllers
             return DemoAuthentication.CanAccessCaseForCurrentUser(HttpContext, doctorHprNumber);
         }
 
+        private bool IsGrantCaseReader()
+        {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            return currentUser is not null
+                && (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase));
+        }
+
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
+            if (!IsGrantCaseReader())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
@@ -60,10 +71,13 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> DownloadAttachment(Guid id, Guid attachmentId, CancellationToken cancellationToken)
         {
+            if (!IsGrantCaseReader())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                if (!UserCanAccessCase(data.HprNumber))
                     return StatusCode(StatusCodes.Status403Forbidden);
 
                 var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
@@ -424,8 +438,15 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> CalculationPreview(Guid id, CancellationToken cancellationToken)
         {
+            if (!IsGrantCaseReader())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
+                var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (!UserCanAccessCase(data.HprNumber))
+                    return StatusCode(StatusCodes.Status403Forbidden);
+
                 var calcSvc = (Alisflyt.Application.Services.IGrantCalculationApplicationService?)HttpContext?.RequestServices.GetService(typeof(Alisflyt.Application.Services.IGrantCalculationApplicationService));
                 if (calcSvc == null) return StatusCode(500);
                 var calc = await calcSvc.CalculateForCaseAsync(id, cancellationToken).ConfigureAwait(false);

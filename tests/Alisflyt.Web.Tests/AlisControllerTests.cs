@@ -11,13 +11,46 @@ namespace Alisflyt.Web.Tests
     public class AlisControllerTests
     {
         [Fact]
+        public async Task AlisController_Index_filters_cases_to_current_alis()
+        {
+            var own = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "OWN", HprNumber = "123456789" };
+            var other = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "OTHER", HprNumber = "999999999" };
+            var fake = new FakeGrantCaseApplicationService { ListResponse = new List<GrantCaseListItemDto> { own, other } };
+            var ctrl = new Alisflyt.Web.Controllers.AlisController(fake)
+            {
+                ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+            };
+
+            var result = await ctrl.Index(default);
+            var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.AlisDashboardViewModel>(Assert.IsType<ViewResult>(result).Model);
+
+            var item = Assert.Single(model.Cases);
+            Assert.Equal(own.Id, item.Id);
+        }
+
+        [Fact]
+        public async Task AlisController_Index_rejects_anonymous_before_list_access()
+        {
+            var fake = new FakeGrantCaseApplicationService();
+            var ctrl = new Alisflyt.Web.Controllers.AlisController(fake);
+
+            var result = await ctrl.Index(default);
+
+            Assert.Equal(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
+            Assert.Empty(fake.ListCalls);
+        }
+
+        [Fact]
         public async Task AlisController_Index_MapsCasesAndCalculatesStatusCounts()
         {
             var now = DateTimeOffset.Parse("2026-01-02T03:04:05Z");
-            var dto1 = new GrantCaseListItemDto { Id = Guid.Parse("88888888-8888-8888-8888-888888888888"), CaseNumber = "AC1", HprNumber = "AH1", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, LastModifiedAtUtc = now };
-            var dto2 = new GrantCaseListItemDto { Id = Guid.Parse("99999999-9999-9999-9999-999999999999"), CaseNumber = "AC2", HprNumber = "AH2", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, LastModifiedAtUtc = now };
+            var dto1 = new GrantCaseListItemDto { Id = Guid.Parse("88888888-8888-8888-8888-888888888888"), CaseNumber = "AC1", HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, LastModifiedAtUtc = now };
+            var dto2 = new GrantCaseListItemDto { Id = Guid.Parse("99999999-9999-9999-9999-999999999999"), CaseNumber = "AC2", HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, LastModifiedAtUtc = now };
             var fake = new FakeGrantCaseApplicationService { ListResponse = new List<GrantCaseListItemDto> { dto1, dto2 } };
-            var ctrl = new Alisflyt.Web.Controllers.AlisController(fake);
+            var ctrl = new Alisflyt.Web.Controllers.AlisController(fake)
+            {
+                ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+            };
 
             var result = await ctrl.Index(default);
 
