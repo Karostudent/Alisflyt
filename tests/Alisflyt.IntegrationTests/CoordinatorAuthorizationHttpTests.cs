@@ -145,6 +145,11 @@ public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Progra
     private readonly string _connectionString =
         $"Server=(localdb)\\MSSQLLocalDB;Database=Alisflyt_Http_{Guid.NewGuid():N};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
 
+    public IsolatedWebApplicationFactory()
+    {
+        TestDatabaseGuard.AssertNotDevelopmentDatabase(_connectionString);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -157,6 +162,7 @@ public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Progra
 
     public ApplicationDbContext CreateDbContext()
     {
+        TestDatabaseGuard.AssertNotDevelopmentDatabase(_connectionString);
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer(_connectionString)
             .Options;

@@ -39,10 +39,13 @@ public class GrantApplicationFormTests
     }
 
     [Fact]
-    public async Task Submitted_application_can_be_viewed_read_only()
+    public async Task Submitted_application_can_be_viewed_read_only_by_coordinator()
     {
         var dto = new GrantCaseDto { Id = Guid.NewGuid(), Status = GrantCaseStatus.Submitted, ApplicationData = new() { DoctorName = "Lege" } };
-        var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto });
+        var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto })
+        {
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateCoordinator() }
+        };
         var result = Assert.IsType<ViewResult>(await controller.Application(dto.Id, default));
         var model = Assert.IsType<GrantApplicationFormViewModel>(result.Model);
         Assert.True(model.ReadOnly);

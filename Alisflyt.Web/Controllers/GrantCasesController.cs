@@ -185,11 +185,23 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Application(Guid id, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is null
+                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                if (!string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)
+                    && !UserCanAccessCase(data.HprNumber))
+                {
                     return StatusCode(StatusCodes.Status403Forbidden);
+                }
 
                 var model = FormModel(data);
                 model.ReadOnly = true;

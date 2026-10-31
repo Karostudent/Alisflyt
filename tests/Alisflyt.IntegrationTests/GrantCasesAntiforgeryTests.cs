@@ -7,11 +7,11 @@ using Xunit;
 
 namespace Alisflyt.IntegrationTests;
 
-public class GrantCasesAntiforgeryTests : IClassFixture<WebApplicationFactory<Program>>
+public class GrantCasesAntiforgeryTests : IClassFixture<IsolatedWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IsolatedWebApplicationFactory _factory;
 
-    public GrantCasesAntiforgeryTests(WebApplicationFactory<Program> factory)
+    public GrantCasesAntiforgeryTests(IsolatedWebApplicationFactory factory)
     {
         _factory = factory;
     }

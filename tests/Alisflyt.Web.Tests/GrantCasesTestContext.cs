@@ -34,6 +34,19 @@ internal static class GrantCasesTestContext
         return context;
     }
 
+    public static HttpContext CreateCoordinator()
+    {
+        var context = new DefaultHttpContext { Session = new TestSession() };
+        DemoAuthentication.SignIn(context, new DemoUser
+        {
+            Key = "koordinator-marta",
+            Role = "Koordinator",
+            Name = "Marta Solberg",
+            HprNumber = "000000000"
+        });
+        return context;
+    }
+
     private sealed class TestSession : ISession
     {
         private readonly Dictionary<string, byte[]> _store = new();
