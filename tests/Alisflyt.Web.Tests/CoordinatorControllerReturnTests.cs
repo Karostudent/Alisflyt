@@ -17,7 +17,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.StartReview(id, default);
 
@@ -33,7 +33,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { StartReviewException = new KeyNotFoundException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.StartReview(id, default);
 
@@ -124,7 +124,7 @@ namespace Alisflyt.Web.Tests
             var id = Guid.NewGuid();
             var dto = new Alisflyt.Application.Models.GrantCaseDto { Id = id, CaseNumber = "CN-1", Status = Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview, CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.ReturnForCorrection(id, default);
 
@@ -139,7 +139,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
             ctrl.ModelState.AddModelError("Reason", "Required");
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id };
@@ -155,7 +155,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "Please fix" };
 
@@ -173,7 +173,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new InvalidOperationException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "x" };
 

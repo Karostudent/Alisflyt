@@ -51,10 +51,7 @@ public class CoordinatorCentralityTests
         grantCase.StartReview(now.AddMinutes(2));
         grantCase.MarkReadyForAuditorApproval(now.AddMinutes(3));
         var repository = new InMemoryGrantCaseRepository(grantCase);
-        var controller = new CoordinatorController(new FakeGrantCaseApplicationService())
-        {
-            TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
-        };
+        var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
 
         var result = await controller.SaveCentrality(
             grantCase.Id,

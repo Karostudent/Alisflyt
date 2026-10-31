@@ -18,7 +18,7 @@ namespace Alisflyt.Web.Tests
             var a = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "C1", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, LastModifiedAtUtc = now };
             var b = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "C2", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, LastModifiedAtUtc = now };
             var fake = new FakeGrantCaseApplicationService { ListResponse = new List<GrantCaseListItemDto> { a, b } };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.Index("All", default);
 
@@ -36,7 +36,7 @@ namespace Alisflyt.Web.Tests
             var a = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "C3", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, LastModifiedAtUtc = now };
             var b = new GrantCaseListItemDto { Id = Guid.NewGuid(), CaseNumber = "C4", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, LastModifiedAtUtc = now };
             var fake = new FakeGrantCaseApplicationService { ListResponse = new List<GrantCaseListItemDto> { a, b } };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.Index("Submitted", default);
 
@@ -54,7 +54,7 @@ namespace Alisflyt.Web.Tests
             var id = Guid.Parse("aaaaaaaa-aaaa-4444-aaaa-aaaaaaaaaaaa");
             var dto = new GrantCaseDto { Id = id, CaseNumber = "CD1", HprNumber = "HCD", EmploymentPercentage = 10m, EmploymentStartDate = new DateOnly(2026,1,1), EmploymentEndDate = new DateOnly(2026,12,31), Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft, CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.Details(id, default);
 

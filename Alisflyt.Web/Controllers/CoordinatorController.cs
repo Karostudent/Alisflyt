@@ -14,6 +14,8 @@ namespace Alisflyt.Web.Controllers
     {
         private readonly IGrantCaseApplicationService _svc;
 
+        private bool IsCoordinator() => Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator");
+
         public CoordinatorController(IGrantCaseApplicationService svc)
         {
             _svc = svc;
@@ -21,6 +23,9 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Index(string status = "All", CancellationToken cancellationToken = default)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
 
             // Only support All or Submitted filters for the coordinator dashboard
@@ -64,6 +69,9 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -128,7 +136,7 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkReadyForAuditorApproval(System.Guid id, CancellationToken cancellationToken)
         {
-            if (!Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator"))
+            if (!IsCoordinator())
                 return Forbid();
 
             try
@@ -153,7 +161,7 @@ namespace Alisflyt.Web.Controllers
             [FromServices] IGrantCalculationApplicationService calculationService,
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
-            if (!Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator"))
+            if (!IsCoordinator())
                 return Forbid();
 
             Alisflyt.Application.Models.GrantCaseDto application;
@@ -181,6 +189,9 @@ namespace Alisflyt.Web.Controllers
             [FromServices] Alisflyt.Application.Abstractions.IGrantCaseRepository repository,
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             try
             {
                 if (!ModelState.IsValid || !grade6.HasValue) throw new ArgumentException("Velg sentralitetsgrad og kontroller beløpet.");
@@ -198,6 +209,9 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> StartReview(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             try
             {
                 await _svc.StartReviewAsync(id, cancellationToken).ConfigureAwait(false);
@@ -216,6 +230,9 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> ReturnForCorrection(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -245,6 +262,9 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ReturnForCorrection(ViewModels.Coordinator.ReturnForCorrectionViewModel model, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return Forbid();
+
             if (!ModelState.IsValid)
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
 
