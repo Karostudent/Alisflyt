@@ -44,7 +44,8 @@ public class CoordinatorAuthorizationTests
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 
-        Assert.IsType<ForbidResult>(result);
+        var forbidden = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
         Assert.Empty(fake.ListCalls);
         Assert.Empty(fake.GetByIdCalls);
         Assert.Empty(fake.StartReviewCalls);
@@ -63,7 +64,8 @@ public class CoordinatorAuthorizationTests
 
         var result = await controller.Index();
 
-        Assert.IsType<ForbidResult>(result);
+        var forbidden = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
         Assert.Empty(fake.ListCalls);
     }
 

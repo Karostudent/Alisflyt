@@ -66,7 +66,8 @@ namespace Alisflyt.Web.Tests
 
             var result = await ctrl.MarkReadyForAuditorApproval(Guid.NewGuid(), default);
 
-            Assert.IsType<ForbidResult>(result);
+            var forbidden = Assert.IsType<StatusCodeResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
             Assert.Empty(fake.MarkReadyForAuditorApprovalCalls);
         }
 

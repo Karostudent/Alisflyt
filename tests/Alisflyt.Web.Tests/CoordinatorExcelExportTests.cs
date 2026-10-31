@@ -55,7 +55,8 @@ public class CoordinatorExcelExportTests
             GetByIdResponse = new GrantCaseDto { Status = GrantCaseStatus.UnderReview }
         });
 
-        Assert.IsType<ForbidResult>(await controller.ExportExcel(Guid.NewGuid(), new Calculation(), TimeProvider.System, default));
+        var forbidden = Assert.IsType<StatusCodeResult>(await controller.ExportExcel(Guid.NewGuid(), new Calculation(), TimeProvider.System, default));
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
     }
 
     private static CoordinatorController CreateAuthorizedController(GrantCaseDto? response, Exception? exception = null)

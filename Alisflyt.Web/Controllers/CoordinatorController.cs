@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
@@ -24,7 +25,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Index(string status = "All", CancellationToken cancellationToken = default)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
 
@@ -70,7 +71,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Details(System.Guid id, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             Alisflyt.Application.Models.GrantCaseDto d;
             try
@@ -137,7 +138,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> MarkReadyForAuditorApproval(System.Guid id, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
@@ -162,7 +163,7 @@ namespace Alisflyt.Web.Controllers
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             Alisflyt.Application.Models.GrantCaseDto application;
             try
@@ -190,7 +191,7 @@ namespace Alisflyt.Web.Controllers
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
@@ -210,7 +211,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> StartReview(System.Guid id, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
@@ -231,7 +232,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> ReturnForCorrection(System.Guid id, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             Alisflyt.Application.Models.GrantCaseDto d;
             try
@@ -263,7 +264,7 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> ReturnForCorrection(ViewModels.Coordinator.ReturnForCorrectionViewModel model, CancellationToken cancellationToken)
         {
             if (!IsCoordinator())
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             if (!ModelState.IsValid)
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
