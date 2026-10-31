@@ -29,6 +29,28 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
+        public async Task CoordinatorController_StartReview_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { StartReviewException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = CoordinatorTestFactory.Create(fake).TempData,
+                ControllerContext = CoordinatorTestFactory.Create(fake).ControllerContext
+            };
+
+            var result = await ctrl.StartReview(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", ctrl.TempData!["Error"]);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
+            Assert.DoesNotContain("HPR", entry.State, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
         public async Task CoordinatorController_StartReview_Post_NotFound_When_Service_Throws()
         {
             var id = Guid.NewGuid();
@@ -69,6 +91,29 @@ namespace Alisflyt.Web.Tests
             var forbidden = Assert.IsType<StatusCodeResult>(result);
             Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
             Assert.Empty(fake.MarkReadyForAuditorApprovalCalls);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { MarkReadyForAuditorApprovalException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var baseController = CoordinatorTestFactory.Create(fake);
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = baseController.TempData,
+                ControllerContext = baseController.ControllerContext
+            };
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", ctrl.TempData!["Error"]);
+            Assert.DoesNotContain("Success", ctrl.TempData.Keys);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
         }
 
         [Fact]
@@ -167,6 +212,28 @@ namespace Alisflyt.Web.Tests
             Assert.Single(fake.ReturnForCorrectionCalls);
             Assert.Equal(id, fake.ReturnForCorrectionCalls[0].id);
             Assert.Equal("Please fix", fake.ReturnForCorrectionCalls[0].request.Reason);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var baseController = CoordinatorTestFactory.Create(fake);
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = baseController.TempData,
+                ControllerContext = baseController.ControllerContext
+            };
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "Rett opp" }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[string.Empty]!.Errors, e => e.ErrorMessage == "Endringen kunne ikke lagres. Prøv igjen.");
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
         }
 
         [Fact]

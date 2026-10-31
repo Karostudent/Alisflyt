@@ -160,6 +160,11 @@ namespace Alisflyt.Web.Controllers
             {
                 TempData["Error"] = "Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.";
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(MarkReadyForAuditorApproval), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+            }
 
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -210,6 +215,11 @@ namespace Alisflyt.Web.Controllers
             catch (KeyNotFoundException) { return NotFound(); }
             catch (ArgumentException ex) { TempData["Error"] = ex.Message; }
             catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(SaveCentrality), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+            }
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -232,6 +242,12 @@ namespace Alisflyt.Web.Controllers
             catch (InvalidOperationException)
             {
                 TempData["Error"] = "Saken kan ikke settes til behandling.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(StartReview), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
@@ -295,6 +311,12 @@ namespace Alisflyt.Web.Controllers
             catch (InvalidOperationException)
             {
                 ModelState.AddModelError(string.Empty, "Saken kan ikke returneres i gjeldende tilstand.");
+                return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(ReturnForCorrection), model.Id);
+                ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
         }

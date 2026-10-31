@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Alisflyt.Web.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Alisflyt.Web.Tests
@@ -604,9 +605,60 @@ namespace Alisflyt.Web.Tests
                 => Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval?>(null);
         }
 
+        [Fact]
+        public async Task GrantCasesController_UpdateGuidance_shows_database_error_and_logs()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var caseId = Guid.NewGuid();
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-GUIDANCE-ERROR", now);
+            grantCase.UpdateApplication(new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                HprNumber = "123456789",
+                DoctorName = "Anna Hansen",
+                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                {
+                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
+                }
+            }, now.AddMinutes(1));
+            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
+            approval.RequestCorrection("Mangler opplysninger", now.AddMinutes(3));
+            var repository = new InMemoryGrantCaseRepository(grantCase)
+            {
+                SaveException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
+            };
+            var service = new FakeGrantCaseApplicationService
+            {
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = caseId, HprNumber = "123456789" }
+            };
+            var httpContext = new DefaultHttpContext { Session = new TestSession() };
+            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
+            {
+                Key = "alis-anna", Role = "ALIS", Name = "Anna Hansen", HprNumber = "123456789"
+            });
+            var logger = new TestLogger<Alisflyt.Web.Controllers.GrantCasesController>();
+            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, repository, logger)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var result = await controller.UpdateGuidance(null, new Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel
+            {
+                CaseId = caseId,
+                Sessions = [new() { Date = new DateOnly(2026, 10, 3), Hours = 3m, Topic = "Ny veiledning" }]
+            }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(controller.ModelState[string.Empty]!.Errors, e => e.ErrorMessage == "Endringen kunne ikke lagres. Prøv igjen.");
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Error, entry.Level);
+            Assert.Contains(caseId.ToString(), entry.State);
+            Assert.DoesNotContain("123456789", entry.State);
+        }
+
         private sealed class InMemoryGrantCaseRepository : Alisflyt.Application.Abstractions.IGrantCaseRepository
         {
             private readonly Alisflyt.Domain.Entities.GrantCase _grantCase;
+            public Exception? SaveException { get; set; }
 
             public InMemoryGrantCaseRepository(Alisflyt.Domain.Entities.GrantCase grantCase)
             {
@@ -626,7 +678,11 @@ namespace Alisflyt.Web.Tests
                 => Task.CompletedTask;
 
             public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
+            {
+                if (SaveException is not null)
+                    throw SaveException;
+                return Task.CompletedTask;
+            }
         }
     }
 }

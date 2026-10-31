@@ -453,6 +453,12 @@ namespace Alisflyt.Web.Controllers
                 ModelState.AddModelError(string.Empty, ex.Message);
                 return View("EditGuidance", model);
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(UpdateGuidance), id.Value);
+                ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
+                return View("EditGuidance", model);
+            }
         }
 
         [HttpGet]
