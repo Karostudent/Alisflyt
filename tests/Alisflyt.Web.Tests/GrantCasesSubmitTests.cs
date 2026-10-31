@@ -63,8 +63,8 @@ namespace Alisflyt.Web.Tests
             Assert.Equal("Details", redirect.ActionName);
             Assert.NotNull(redirect.RouteValues);
             Assert.Equal(id, redirect.RouteValues!["id"]);
-            Assert.Single(fake.SubmitCalls);
-            Assert.Equal(id, fake.SubmitCalls[0].id);
+            var submitCall = Assert.Single(fake.AtomicSubmitCalls);
+            Assert.Equal(id, submitCall.id);
         }
 
         [Fact]

@@ -268,7 +268,6 @@ namespace Alisflyt.Web.Tests
                 }
             };
             grantCase.UpdateApplication(app, now.AddMinutes(1));
-            grantCase.Submit(now.AddMinutes(2));
 
             var repo = new InMemoryGrantCaseRepository(grantCase);
             var service = new FakeGrantCaseApplicationService
@@ -278,13 +277,12 @@ namespace Alisflyt.Web.Tests
                     Id = caseId,
                     CaseNumber = "CASE-PENDING",
                     HprNumber = "123456789",
-                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted,
+                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft,
                     CreatedAtUtc = now,
-                    LastModifiedAtUtc = now.AddMinutes(2),
+                    LastModifiedAtUtc = now.AddMinutes(1),
                     ApplicationData = app
                 }
             };
-            var guidanceService = new Alisflyt.Application.Services.GuidanceApprovalService(repo, TimeProvider.System);
             var httpContext = new DefaultHttpContext();
             httpContext.Session = new TestSession();
             Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
@@ -295,7 +293,7 @@ namespace Alisflyt.Web.Tests
                 HprNumber = "123456789"
             });
 
-            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, guidanceService, repo)
+            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, repository: repo)
             {
                 ControllerContext = new ControllerContext { HttpContext = httpContext }
             };
@@ -303,10 +301,16 @@ namespace Alisflyt.Web.Tests
             var result = await controller.Submit(caseId, default);
 
             Assert.IsType<RedirectToActionResult>(result);
-            var approval = repo.GetByIdAsync(caseId).GetAwaiter().GetResult()!.GetCurrentGuidanceApproval();
-            Assert.NotNull(approval);
-            Assert.Equal(Alisflyt.Domain.Enums.GuidanceApprovalStatus.Pending, approval!.Status);
-            Assert.Equal(1, approval.VersionNumber);
+            var call = Assert.Single(service.AtomicSubmitCalls);
+            Assert.Equal(caseId, call.id);
+            Assert.NotNull(call.guidanceRequest);
+            Assert.Equal("123456789", call.guidanceRequest!.DoctorHprNumber);
+            Assert.Equal("987654321", call.guidanceRequest.SupervisorHprNumber);
+            Assert.Equal("veileder-per", call.guidanceRequest.SupervisorUserKey);
+
+            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(3), "Per Olsen");
+            await repo.AddGuidanceApprovalAsync(approval);
+            var guidanceService = new Alisflyt.Application.Services.GuidanceApprovalService(repo, TimeProvider.System);
 
             var supervisorContext = new DefaultHttpContext();
             supervisorContext.Session = new TestSession();

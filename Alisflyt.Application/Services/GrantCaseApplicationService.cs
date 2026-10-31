@@ -97,12 +97,33 @@ namespace Alisflyt.Application.Services
 
         public async Task SubmitAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            await SubmitAsync(id, guidanceRequest: null, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<GrantCaseDto> SubmitAsync(
+            Guid id,
+            SubmitGrantCaseRequest? guidanceRequest,
+            CancellationToken cancellationToken = default)
+        {
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
             var now = _timeProvider.GetUtcNow();
 
-            grantCase.Submit(now);
+            if (guidanceRequest is not null)
+            {
+                var approval = grantCase.RequestGuidanceApproval(
+                    guidanceRequest.DoctorHprNumber ?? string.Empty,
+                    guidanceRequest.SupervisorHprNumber ?? string.Empty,
+                    guidanceRequest.SupervisorUserKey ?? string.Empty,
+                    now,
+                    guidanceRequest.SupervisorName);
 
+                await _repository.AddGuidanceApprovalAsync(approval, cancellationToken).ConfigureAwait(false);
+            }
+
+            grantCase.Submit(now);
             await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return MapToDto(grantCase);
         }
 
         private static GrantCaseDto MapToDto(GrantCase c)

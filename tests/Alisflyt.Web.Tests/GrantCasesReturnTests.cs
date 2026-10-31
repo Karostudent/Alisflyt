@@ -88,7 +88,7 @@ namespace Alisflyt.Web.Tests
 
             var redirect = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Details", redirect.ActionName);
-            Assert.Single(fake.SubmitCalls);
+            Assert.Single(fake.AtomicSubmitCalls);
         }
     }
 }

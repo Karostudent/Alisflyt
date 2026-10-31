@@ -31,6 +31,7 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, CancellationToken ct)> GetByIdCalls { get; } = new();
         public List<CancellationToken> ListCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
+        public List<(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken ct)> AtomicSubmitCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
         public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
 
@@ -73,6 +74,14 @@ namespace Alisflyt.Web.Tests.Fakes
             SubmitCalls.Add((id, cancellationToken));
             if (SubmitException != null) throw SubmitException;
             return Task.CompletedTask;
+        }
+
+        public Task<GrantCaseDto> SubmitAsync(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken cancellationToken = default)
+        {
+            AtomicSubmitCalls.Add((id, guidanceRequest, cancellationToken));
+            if (SubmitException != null) throw SubmitException;
+            if (GetByIdResponse != null) return Task.FromResult(GetByIdResponse);
+            throw new InvalidOperationException("GetByIdResponse was not configured for this test.");
         }
 
         public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)

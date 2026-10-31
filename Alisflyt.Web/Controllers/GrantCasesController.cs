@@ -16,12 +16,10 @@ namespace Alisflyt.Web.Controllers
     {
         private readonly IGrantCaseApplicationService _svc;
         private readonly IGrantCaseRepository? _repository;
-        private readonly IGuidanceApprovalService? _guidanceApprovalService;
 
-        public GrantCasesController(IGrantCaseApplicationService svc, IGuidanceApprovalService? guidanceApprovalService = null, IGrantCaseRepository? repository = null)
+        public GrantCasesController(IGrantCaseApplicationService svc, IGrantCaseRepository? repository = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
-            _guidanceApprovalService = guidanceApprovalService;
             _repository = repository;
         }
 
@@ -392,47 +390,6 @@ namespace Alisflyt.Web.Controllers
             }
         }
 
-        private async Task TryCreatePendingGuidanceApprovalAsync(GrantCaseDto grantCase, CancellationToken cancellationToken)
-        {
-            if (_guidanceApprovalService is null)
-                return;
-
-            var certificate = grantCase.ApplicationData?.Certificate;
-            if (certificate is null || certificate.Sessions is null || certificate.Sessions.Count == 0)
-                return;
-
-            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
-                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
-
-            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
-            if (string.IsNullOrWhiteSpace(doctorUserKey))
-                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
-
-            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
-            if (string.IsNullOrWhiteSpace(supervisorUserKey))
-                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
-
-            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
-                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
-            if (supervisor is null)
-                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
-
-            var supervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
-                ? supervisor.HprNumber
-                : certificate.SupervisorHprNumber;
-
-            var approval = await _guidanceApprovalService.RequestApprovalAsync(
-                grantCase.Id,
-                grantCase.HprNumber,
-                supervisorHprNumber,
-                supervisorUserKey,
-                supervisor.Name,
-                cancellationToken).ConfigureAwait(false);
-
-            if (approval is null || approval.Status != Domain.Enums.GuidanceApprovalStatus.Pending)
-                throw new InvalidOperationException("Godkjenningsforespørsel ble ikke opprettet som ventende for denne attestversjonen.");
-        }
-
         [HttpGet]
         public async Task<IActionResult> CalculationPreview(Guid id, CancellationToken cancellationToken)
         {
@@ -486,16 +443,17 @@ namespace Alisflyt.Web.Controllers
 
             try
             {
+                Alisflyt.Application.Models.SubmitGrantCaseRequest? guidanceRequest = null;
                 if (currentUser is not null)
                 {
                     var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
                     if (!string.Equals(data.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
                         return Forbid();
+
+                    guidanceRequest = CreateGuidanceRequest(data);
                 }
 
-                await _svc.SubmitAsync(id, cancellationToken).ConfigureAwait(false);
-                var submittedCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-                await TryCreatePendingGuidanceApprovalAsync(submittedCase, cancellationToken).ConfigureAwait(false);
+                await _svc.SubmitAsync(id, guidanceRequest, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (System.Collections.Generic.KeyNotFoundException)
@@ -515,13 +473,53 @@ namespace Alisflyt.Web.Controllers
             {
                 ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: " + ex.Message);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn i nåværende status. Bare utkast og søknader returnert for korrigering kan sendes inn.");
+                var message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Søknaden kan ikke sendes inn i nåværende status."
+                    : ex.Message;
+                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: " + message);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+            {
+                ModelState.AddModelError(string.Empty, "Søknaden kunne ikke lagres. Ingen del av innsendingen ble fullført.");
             }
 
             // Reuse the complete details model while preserving validation errors.
             return await Details(id, cancellationToken);
+        }
+
+        private static Alisflyt.Application.Models.SubmitGrantCaseRequest? CreateGuidanceRequest(GrantCaseDto grantCase)
+        {
+            var certificate = grantCase.ApplicationData?.Certificate;
+            if (certificate?.Sessions is null || certificate.Sessions.Count == 0)
+                return null;
+
+            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
+                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
+
+            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
+            if (string.IsNullOrWhiteSpace(doctorUserKey))
+                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
+
+            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
+            if (string.IsNullOrWhiteSpace(supervisorUserKey))
+                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
+
+            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
+                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
+            if (supervisor is null)
+                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
+
+            return new Alisflyt.Application.Models.SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = grantCase.HprNumber,
+                SupervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
+                    ? supervisor.HprNumber
+                    : certificate.SupervisorHprNumber,
+                SupervisorUserKey = supervisorUserKey,
+                SupervisorName = supervisor.Name
+            };
         }
     }
 }

@@ -14,6 +14,7 @@ namespace Alisflyt.Application.Tests.Fakes
         private readonly ConcurrentDictionary<Guid, GrantCase> _store = new();
         public int AddAsyncCallCount { get; private set; }
         public int SaveChangesCallCount { get; private set; }
+        public Exception? SaveChangesException { get; set; }
 
         public Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default)
         {
@@ -47,8 +48,10 @@ namespace Alisflyt.Application.Tests.Fakes
 
         public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            // in-memory store already updated
             SaveChangesCallCount++;
+            if (SaveChangesException is not null)
+                throw SaveChangesException;
+
             return Task.CompletedTask;
         }
     }

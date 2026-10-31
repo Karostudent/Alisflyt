@@ -13,6 +13,7 @@ namespace Alisflyt.Application.Services
         Task<GrantCaseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default);
         Task SubmitAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<GrantCaseDto> SubmitAsync(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken cancellationToken = default);
         Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default);
         Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default);
         // Calculation helper (implemented in separate service) -- left here commented to avoid interface drift
