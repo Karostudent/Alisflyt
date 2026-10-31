@@ -4,6 +4,15 @@
     ViewData["Calculation"] = Model.Calculation;
 	ViewData["Title"] = "Sak (Koordinator)";
 	ViewData["RoleHelpText"] = "Her behandles innsendte søknader.";
+	var statusText = Model.Status switch
+	{
+		Alisflyt.Domain.Enums.GrantCaseStatus.Draft => "Utkast",
+		Alisflyt.Domain.Enums.GrantCaseStatus.Submitted => "Innsendt",
+		Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview => "Under behandling",
+		Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection => "Returnert for korrigering",
+		Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval => "Klar for revisorkontroll",
+		_ => Model.Status.ToString()
+	};
 }
 
 <partial name="~/Views/Shared/_RoleContextPartial.cshtml" model='@("Koordinatorvisning")' />
@@ -15,20 +24,36 @@
 {
     <div class="alert alert-danger">@error</div>
 }
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
+}
 <section class="card card-body mb-4">
     <h3>Sentralitetstillegg ? koordinator</h3>
-    <form asp-action="SaveCentrality" method="post">
-        <input type="hidden" name="id" value="@Model.Id" />
-        <fieldset class="mb-3">
-            <legend>Har kommunen sentralitetsgrad 6?</legend>
-            <label><input type="radio" name="grade6" value="true" checked="@(Model.ApplicationData?.IsCentralityGrade6 == true)" required /> Ja</label>
-            <label class="ms-3"><input type="radio" name="grade6" value="false" checked="@(Model.ApplicationData?.IsCentralityGrade6 == false)" required /> Nei</label>
-        </fieldset>
-        <label for="centrality-amount" class="form-label">Søkt beløp for sentralitetstillegg (kr)</label>
-        <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control mb-3" />
-        <p class="form-text">Beløp må oppgis når kommunen har sentralitetsgrad 6.</p>
-        <button class="btn btn-primary" type="submit">Lagre sentralitetsopplysninger</button>
-    </form>
+    @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
+    {
+        <div aria-disabled="true">
+            <p><strong>Har kommunen sentralitetsgrad 6?</strong> @(Model.ApplicationData?.IsCentralityGrade6 == true ? "Ja" : Model.ApplicationData?.IsCentralityGrade6 == false ? "Nei" : "Ikke oppgitt")</p>
+            <p><strong>Søkt beløp for sentralitetstillegg:</strong> @(Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString("N2") ?? "Ikke oppgitt") kr</p>
+            <button type="button" class="btn btn-secondary" disabled aria-disabled="true">&#128274; Redigering låst</button>
+            <p class="form-text">Opplysningene er låst fordi saken er klar for revisorkontroll.</p>
+        </div>
+    }
+    else
+    {
+        <form asp-action="SaveCentrality" method="post">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <fieldset class="mb-3">
+                <legend>Har kommunen sentralitetsgrad 6?</legend>
+                <label><input type="radio" name="grade6" value="true" checked="@(Model.ApplicationData?.IsCentralityGrade6 == true)" required /> Ja</label>
+                <label class="ms-3"><input type="radio" name="grade6" value="false" checked="@(Model.ApplicationData?.IsCentralityGrade6 == false)" required /> Nei</label>
+            </fieldset>
+            <label for="centrality-amount" class="form-label">Søkt beløp for sentralitetstillegg (kr)</label>
+            <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control mb-3" />
+            <p class="form-text">Beløp må oppgis når kommunen har sentralitetsgrad 6.</p>
+            <button class="btn btn-primary" type="submit">Lagre sentralitetsopplysninger</button>
+        </form>
+    }
 </section>
 <dl class="row">
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CaseNumber)</dt>
@@ -44,7 +69,7 @@
 	<dd class="col-sm-9">@Model.EmploymentStartDate?.ToString() - @Model.EmploymentEndDate?.ToString()</dd>
 
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.Status)</dt>
-	<dd class="col-sm-9">@(Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : Model.Status.ToString())</dd>
+	<dd class="col-sm-9">@statusText</dd>
 
 	<dt class="col-sm-3">@Html.DisplayNameFor(m => m.CreatedAtUtc)</dt>
 	<dd class="col-sm-9">@Model.CreatedAtUtc.ToLocalTime().ToString("g")</dd>
@@ -78,10 +103,28 @@
 	</form>
 }
 
-@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview)
+@if (Model.Status is Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview or Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
 {
 	<a asp-action="ExportExcel" asp-route-id="@Model.Id" class="btn btn-success">Eksporter til Excel</a>
+}
+
+@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview)
+{
 	<a asp-action="ReturnForCorrection" asp-route-id="@Model.Id" class="btn btn-warning">Returner for korrigering</a>
+	<form asp-action="MarkReadyForAuditorApproval" method="post" class="d-inline" onsubmit="return confirm('Vil du markere søknaden som klar for revisorkontroll?');">
+		@Html.AntiForgeryToken()
+		<input type="hidden" name="id" value="@Model.Id" />
+		<button type="submit" class="btn btn-primary">Marker klar for revisorkontroll</button>
+	</form>
+}
+
+@if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
+{
+	<div class="alert alert-success mt-3">
+		<h5>Klar for revisorkontroll</h5>
+		<p>Kommunens behandling er ferdigstilt. Søknaden er klar for revisors kontroll før eventuell innsending til Helsedirektoratet. Søknaden er ikke oversendt fra ALISflyt.</p>
+		<p class="mb-0">Ferdigstilt: @Model.ReadyForAuditorApprovalAtUtc?.ToLocalTime().ToString("g")</p>
+	</div>
 }
 
 @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection)

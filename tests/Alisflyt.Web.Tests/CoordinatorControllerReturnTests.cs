@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Alisflyt.Web.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Xunit;
 
 namespace Alisflyt.Web.Tests
@@ -34,6 +37,40 @@ namespace Alisflyt.Web.Tests
             var result = await ctrl.StartReview(id, default);
 
             Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_Redirects_OnSuccess()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService();
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake)
+            {
+                TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
+            };
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            var redirect = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Details", redirect.ActionName);
+            Assert.Single(fake.MarkReadyForAuditorApprovalCalls);
+            Assert.Equal(id, fake.MarkReadyForAuditorApprovalCalls[0].id);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_ShowsError_OnDomainFailure()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { MarkReadyForAuditorApprovalException = new InvalidOperationException() };
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake)
+            {
+                TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider())
+            };
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.", ctrl.TempData["Error"]);
         }
 
         [Fact]
@@ -100,6 +137,12 @@ namespace Alisflyt.Web.Tests
             var view = Assert.IsType<ViewResult>(result);
             Assert.True(ctrl.ModelState.ErrorCount > 0);
         }
+    }
+
+    internal sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext context) => new Dictionary<string, object?>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object?> values) { }
     }
 
     // No helper throwing fakes remain; tests use configured exception properties on the existing FakeGrantCaseApplicationService.

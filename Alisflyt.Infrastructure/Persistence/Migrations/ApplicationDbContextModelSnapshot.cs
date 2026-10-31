@@ -56,6 +56,9 @@ namespace Alisflyt.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("LastModifiedAtUtc")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("ReadyForAuditorApprovalAtUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("ReturnReason")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");

@@ -356,6 +356,43 @@ namespace Alisflyt.IntegrationTests
         }
 
         [Fact]
+        public async Task Ready_for_auditor_approval_status_and_timestamp_are_persisted()
+        {
+            var dbName = "Alisflyt_Test_" + Guid.NewGuid().ToString("N");
+            var conn = CreateConnectionString(dbName);
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(conn).Options;
+
+            try
+            {
+                await using var ctx = new ApplicationDbContext(options);
+                ctx.Database.EnsureDeleted();
+                ctx.Database.EnsureCreated();
+                var repo = new GrantCaseRepository(ctx);
+                var now = DateTimeOffset.UtcNow;
+                var readyAt = now.AddMinutes(3);
+                var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "INT-AUDITOR", now);
+                grantCase.UpdateDraft("HPR-INT", 60m, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), now);
+                grantCase.Submit(now.AddMinutes(1));
+                grantCase.StartReview(now.AddMinutes(2));
+                grantCase.MarkReadyForAuditorApproval(readyAt);
+
+                await repo.AddAsync(grantCase);
+                await repo.SaveChangesAsync();
+
+                await using var verifyCtx = new ApplicationDbContext(options);
+                var persisted = await new GrantCaseRepository(verifyCtx).GetByIdAsync(grantCase.Id);
+                Assert.Equal(Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval, persisted!.Status);
+                Assert.Equal(readyAt, persisted.ReadyForAuditorApprovalAtUtc);
+            }
+            finally
+            {
+                var optionsCleanup = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(conn).Options;
+                await using var cleanupCtx = new ApplicationDbContext(optionsCleanup);
+                cleanupCtx.Database.EnsureDeleted();
+            }
+        }
+
+        [Fact]
         public async Task DevelopmentDataSeeder_is_idempotent()
         {
             var dbName = "Alisflyt_Test_" + Guid.NewGuid().ToString("N");

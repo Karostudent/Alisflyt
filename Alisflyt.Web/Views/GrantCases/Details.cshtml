@@ -3,7 +3,7 @@
 @{
     ViewData["Title"] = "Søknad " + Model.CaseNumber;
     var editable = Model.Status is GrantCaseStatus.Draft or GrantCaseStatus.ReturnedForCorrection;
-    var status = Model.Status switch { GrantCaseStatus.Draft => "Utkast", GrantCaseStatus.Submitted => "Innsendt", GrantCaseStatus.UnderReview => "Under behandling", GrantCaseStatus.ReturnedForCorrection => "Returnert for korrigering", _ => Model.Status.ToString() };
+    var status = Model.Status switch { GrantCaseStatus.Draft => "Utkast", GrantCaseStatus.Submitted => "Innsendt", GrantCaseStatus.UnderReview => "Under behandling", GrantCaseStatus.ReturnedForCorrection => "Returnert for korrigering", GrantCaseStatus.AwaitingAuditorApproval => "Klar for revisorkontroll", _ => Model.Status.ToString() };
     var periods = Model.ApplicationData?.EmploymentPeriods;
     var from = periods?.Where(p => p.FundingFrom.HasValue).Select(p => p.FundingFrom).Min();
     var through = periods?.Where(p => p.FundingThrough.HasValue).Select(p => p.FundingThrough).Max();
@@ -22,6 +22,10 @@
     @if (Model.Status == GrantCaseStatus.ReturnedForCorrection)
     {
         <section class="case-return" aria-labelledby="return-heading"><h2 id="return-heading">Du må korrigere søknaden</h2><p>@Model.ReturnReason</p><p class="text-muted">Returnert @Model.ReturnedAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
+    }
+    @if (Model.Status == GrantCaseStatus.AwaitingAuditorApproval)
+    {
+        <section class="case-return" aria-labelledby="auditor-heading"><h2 id="auditor-heading">Klar for revisorkontroll</h2><p>Kommunens behandling er ferdigstilt. Søknaden er klar for revisors kontroll før eventuell innsending til Helsedirektoratet. Søknaden er ikke oversendt fra ALISflyt.</p><p class="text-muted">Ferdigstilt @Model.ReadyForAuditorApprovalAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
     }
     @if (ViewData["GuidanceCorrectionStatus"] is string guidanceCorrectionStatus)
     {

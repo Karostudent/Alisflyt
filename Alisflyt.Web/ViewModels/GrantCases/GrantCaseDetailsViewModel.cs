@@ -32,6 +32,9 @@ namespace Alisflyt.Web.ViewModels.GrantCases
         [Display(Name = "Sist endret")]
         public DateTimeOffset LastModifiedAtUtc { get; init; }
 
+        [Display(Name = "Klar for revisorkontroll")]
+        public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; init; }
+
         [Display(Name = "Returnert begrunnelse")]
         public string? ReturnReason { get; init; }
 

@@ -72,6 +72,14 @@ namespace Alisflyt.Application.Services
             await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        public async Task MarkReadyForAuditorApprovalAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            grantCase.MarkReadyForAuditorApproval(_timeProvider.GetUtcNow());
+            await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         public async Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default)
         {
             var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
@@ -150,7 +158,8 @@ namespace Alisflyt.Application.Services
                 ReturnedAtUtc = c.ReturnedAtUtc,
                 Status = c.Status,
                 CreatedAtUtc = c.CreatedAtUtc,
-                LastModifiedAtUtc = c.LastModifiedAtUtc
+                LastModifiedAtUtc = c.LastModifiedAtUtc,
+                ReadyForAuditorApprovalAtUtc = c.ReadyForAuditorApprovalAtUtc
             };
         }
     }

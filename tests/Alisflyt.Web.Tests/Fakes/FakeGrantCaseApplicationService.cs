@@ -23,6 +23,7 @@ namespace Alisflyt.Web.Tests.Fakes
         public Exception? SubmitException { get; set; }
         // New configurable exceptions for tests
         public Exception? StartReviewException { get; set; }
+        public Exception? MarkReadyForAuditorApprovalException { get; set; }
         public Exception? ReturnForCorrectionException { get; set; }
 
         // Call recording
@@ -33,6 +34,7 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
         public List<(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken ct)> AtomicSubmitCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
+        public List<(Guid id, CancellationToken ct)> MarkReadyForAuditorApprovalCalls { get; } = new();
         public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
 
         public Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default)
@@ -88,6 +90,13 @@ namespace Alisflyt.Web.Tests.Fakes
         {
             StartReviewCalls.Add((id, cancellationToken));
             if (StartReviewException != null) throw StartReviewException;
+            return Task.CompletedTask;
+        }
+
+        public Task MarkReadyForAuditorApprovalAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            MarkReadyForAuditorApprovalCalls.Add((id, cancellationToken));
+            if (MarkReadyForAuditorApprovalException != null) throw MarkReadyForAuditorApprovalException;
             return Task.CompletedTask;
         }
 

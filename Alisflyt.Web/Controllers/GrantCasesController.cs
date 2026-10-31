@@ -198,6 +198,7 @@ namespace Alisflyt.Web.Controllers
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
                 LastModifiedAtUtc = d.LastModifiedAtUtc,
+                ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
                 ReturnedAtUtc = d.ReturnedAtUtc,
                 ApplicationData = d.ApplicationData
@@ -234,6 +235,7 @@ namespace Alisflyt.Web.Controllers
                         Status = vm.Status,
                         CreatedAtUtc = vm.CreatedAtUtc,
                         LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,

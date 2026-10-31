@@ -24,6 +24,7 @@
 		<option value="Submitted" selected='@(Model.Filter == "Submitted" ? "selected" : null)'>Innsendt</option>
 		<option value="UnderReview" selected='@(Model.Filter == "UnderReview" ? "selected" : null)'>Under behandling</option>
 		<option value="ReturnedForCorrection" selected='@(Model.Filter == "ReturnedForCorrection" ? "selected" : null)'>Returnert for korrigering</option>
+		<option value="AwaitingAuditorApproval" selected='@(Model.Filter == "AwaitingAuditorApproval" ? "selected" : null)'>Klar for revisorkontroll</option>
 	</select>
 <button type="submit" class="btn btn-outline-primary">Vis saker</button>
 </form>
@@ -46,7 +47,7 @@
 		<tr>
 			<td class="public-case-number">@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
-		<td><span class="public-status public-status-@c.Status">@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</span></td>
+		<td><span class="public-status public-status-@c.Status">@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval ? "Klar for revisorkontroll" : c.Status.ToString())</span></td>
 			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
 			<td><a asp-controller="GrantCases" asp-action="Details" asp-route-id="@c.Id" aria-label="Åpne søknad @c.CaseNumber">Åpne søknad</a></td>
 		</tr>

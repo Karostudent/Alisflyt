@@ -41,6 +41,10 @@ namespace Alisflyt.Web.Controllers
             {
                 list = list.Where(c => c.Status == GrantCaseStatus.ReturnedForCorrection).ToList();
             }
+            else if (status == "AwaitingAuditorApproval")
+            {
+                list = list.Where(c => c.Status == GrantCaseStatus.AwaitingAuditorApproval).ToList();
+            }
 
             var vm = new CoordinatorDashboardViewModel
             {
@@ -80,8 +84,8 @@ namespace Alisflyt.Web.Controllers
                 EmploymentEndDate = d.EmploymentEndDate,
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
-                LastModifiedAtUtc = d.LastModifiedAtUtc
-                ,
+                LastModifiedAtUtc = d.LastModifiedAtUtc,
+                ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
                 ReturnedAtUtc = d.ReturnedAtUtc,
                 ApplicationData = d.ApplicationData
@@ -104,6 +108,7 @@ namespace Alisflyt.Web.Controllers
                         Status = vm.Status,
                         CreatedAtUtc = vm.CreatedAtUtc,
                         LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,
@@ -119,11 +124,35 @@ namespace Alisflyt.Web.Controllers
             return View("~/Views/Coordinator/Details.cshtml", vm);
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkReadyForAuditorApproval(System.Guid id, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _svc.MarkReadyForAuditorApprovalAsync(id, cancellationToken).ConfigureAwait(false);
+                TempData["Success"] = "Søknaden er klar for revisorkontroll.";
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidOperationException)
+            {
+                TempData["Error"] = "Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         [HttpGet]
         public async Task<IActionResult> ExportExcel(System.Guid id,
             [FromServices] IGrantCalculationApplicationService calculationService,
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
+            if (!Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator"))
+                return Forbid();
+
             Alisflyt.Application.Models.GrantCaseDto application;
             try
             {
@@ -134,8 +163,8 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            if (application.Status != GrantCaseStatus.UnderReview)
-                return BadRequest("Eksport er bare tilgjengelig når saken er under behandling.");
+            if (application.Status is not (GrantCaseStatus.UnderReview or GrantCaseStatus.AwaitingAuditorApproval))
+                return BadRequest("Eksport er bare tilgjengelig når saken er under behandling eller klar for revisorkontroll.");
 
             var calculation = await calculationService.CalculateForCaseAsync(id, cancellationToken);
             var bytes = Alisflyt.Web.Exports.GrantCaseExcelExport.Create(application, calculation, timeProvider.GetUtcNow());
