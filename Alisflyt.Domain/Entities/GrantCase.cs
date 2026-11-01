@@ -262,7 +262,7 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateCentrality(bool grade6, decimal? amount, DateTimeOffset now)
         {
-            if (Status is not (GrantCaseStatus.Draft or GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview or GrantCaseStatus.ReturnedForCorrection))
+            if (Status != GrantCaseStatus.UnderReview)
                 throw new InvalidOperationException("Saken kan ikke redigeres i denne statusen.");
             if (amount < 0 || (grade6 && !amount.HasValue))
                 throw new ArgumentException("Oppgi et gyldig beløp for sentralitetstillegg.");

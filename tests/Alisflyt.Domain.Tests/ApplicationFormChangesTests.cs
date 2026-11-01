@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Xunit;
 
@@ -15,20 +16,103 @@ public class ApplicationFormChangesTests
         return c;
     }
 
+    private static GrantCase CreateSubmittedCase()
+    {
+        var c = Create(new GrantApplicationData
+        {
+            HprNumber = "123456789",
+            DoctorName = "Anna Hansen",
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2030, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods = [new EmploymentPeriodInputModel
+            {
+                PositionType = PositionType.RegularGpOrLocum,
+                PositionPercentage = 80m,
+                EmploymentStartDate = new DateOnly(2025, 1, 1),
+                FundingFrom = new DateOnly(2026, 1, 1),
+                FundingThrough = new DateOnly(2026, 6, 30)
+            }]
+        });
+        c.Submit(DateTimeOffset.UtcNow);
+        return c;
+    }
+
+    private static GrantCase CreateReviewCase()
+    {
+        var c = CreateSubmittedCase();
+        c.StartReview(DateTimeOffset.UtcNow);
+        return c;
+    }
+
     [Fact]
     public void Form_updates_save_explicit_cost_values_and_preserve_coordinator_values()
     {
-        var c = Create(new() { SupervisionExpenses = 123, HasAdditionalSupervisionCosts = true, AdditionalSupervisionCosts = 45 });
-        c.UpdateCentrality(true, 1000, DateTimeOffset.UtcNow);
+        var c = Create(new()
+        {
+            HprNumber = "123456789",
+            DoctorName = "Anna Hansen",
+            DoctorProfessions = ["Lege"],
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2030, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods = [new EmploymentPeriodInputModel
+            {
+                PositionType = PositionType.RegularGpOrLocum,
+                PositionPercentage = 80m,
+                EmploymentStartDate = new DateOnly(2025, 1, 1),
+                FundingFrom = new DateOnly(2026, 1, 1),
+                FundingThrough = new DateOnly(2026, 6, 30)
+            }],
+            SupervisionExpenses = 123,
+            HasAdditionalSupervisionCosts = true,
+            AdditionalSupervisionCosts = 45
+        });
         c.UpdateApplication(new()
         {
+            HprNumber = "123456789",
+            DoctorName = "Anna Hansen",
+            DoctorProfessions = ["Lege"],
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2030, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods = [new EmploymentPeriodInputModel
+            {
+                PositionType = PositionType.RegularGpOrLocum,
+                PositionPercentage = 80m,
+                EmploymentStartDate = new DateOnly(2025, 1, 1),
+                FundingFrom = new DateOnly(2026, 1, 1),
+                FundingThrough = new DateOnly(2026, 6, 30)
+            }],
             ProductivityRequestedAmount = 250,
             SupervisionExpenses = 999,
             HasAdditionalSupervisionCosts = false,
-            AdditionalSupervisionCosts = 0,
-            IsCentralityGrade6 = false,
-            CentralitySupplementRequestedAmount = 0
+            AdditionalSupervisionCosts = 0
         }, DateTimeOffset.UtcNow);
+        c.Submit(DateTimeOffset.UtcNow);
+        c.StartReview(DateTimeOffset.UtcNow);
+        c.UpdateCentrality(true, 1000, DateTimeOffset.UtcNow);
         var saved = Read(c);
         Assert.Equal(250, saved.ProductivityRequestedAmount);
         Assert.Equal(999, saved.SupervisionExpenses);
@@ -72,9 +156,9 @@ public class ApplicationFormChangesTests
     }
 
     [Fact]
-    public void Coordinator_can_change_and_clear_centrality_values()
+    public void Coordinator_can_change_and_clear_centrality_values_during_review()
     {
-        var c = Create(new());
+        var c = CreateReviewCase();
         c.UpdateCentrality(true, 0, DateTimeOffset.UtcNow);
 
         var saved = Read(c);
@@ -85,6 +169,22 @@ public class ApplicationFormChangesTests
         saved = Read(c);
         Assert.False(saved.IsCentralityGrade6);
         Assert.Null(saved.CentralitySupplementRequestedAmount);
+    }
+
+    [Theory]
+    [InlineData(GrantCaseStatus.Submitted)]
+    [InlineData(GrantCaseStatus.ReturnedForCorrection)]
+    public void Centrality_cannot_be_changed_before_review_or_after_return(GrantCaseStatus status)
+    {
+        var c = CreateReviewCase();
+        if (status == GrantCaseStatus.Submitted)
+            c = CreateSubmittedCase();
+        else
+        {
+            c.ReturnForCorrection("Korriger saken.", DateTimeOffset.UtcNow);
+        }
+
+        Assert.Throws<InvalidOperationException>(() => c.UpdateCentrality(true, 1000, DateTimeOffset.UtcNow));
     }
 
     [Fact]

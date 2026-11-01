@@ -47,6 +47,8 @@ public class CoordinatorCentralityTests
                 }
             ]
         }, now);
+        grantCase.Submit(now.AddMinutes(1));
+        grantCase.StartReview(now.AddMinutes(2));
         var repository = new InMemoryGrantCaseRepository(grantCase)
         {
             SaveException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
@@ -68,6 +70,42 @@ public class CoordinatorCentralityTests
         Assert.Equal(LogLevel.Error, entry.Level);
         Assert.Contains(grantCase.Id.ToString(), entry.State);
         Assert.DoesNotContain("123456789", entry.State);
+    }
+
+    [Fact]
+    public async Task SaveCentrality_rejects_direct_changes_while_case_is_submitted_without_persisting()
+    {
+        var grantCase = CreateSubmittedCase();
+        var originalData = grantCase.ApplicationDataJson;
+        var repository = new InMemoryGrantCaseRepository(grantCase);
+        var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
+
+        var result = await controller.SaveCentrality(
+            grantCase.Id, true, 2000m, repository, TimeProvider.System, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(GrantCaseStatus.Submitted, grantCase.Status);
+        Assert.Equal(originalData, grantCase.ApplicationDataJson);
+        Assert.Equal("Saken kan ikke redigeres i denne statusen.", controller.TempData["Error"]);
+    }
+
+    [Fact]
+    public async Task SaveCentrality_updates_values_during_review()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCase();
+        grantCase.StartReview(now);
+        var repository = new InMemoryGrantCaseRepository(grantCase);
+        var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
+
+        var result = await controller.SaveCentrality(
+            grantCase.Id, true, 2000m, repository, TimeProvider.System, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var data = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+        Assert.True(data.IsCentralityGrade6);
+        Assert.Equal(2000m, data.CentralitySupplementRequestedAmount);
+        Assert.Null(controller.TempData["Error"]);
     }
 
     [Fact]
@@ -102,9 +140,9 @@ public class CoordinatorCentralityTests
                 }
             ]
         }, now);
-        grantCase.UpdateCentrality(true, 1000m, now);
         grantCase.Submit(now.AddMinutes(1));
         grantCase.StartReview(now.AddMinutes(2));
+        grantCase.UpdateCentrality(true, 1000m, now.AddMinutes(2));
         grantCase.MarkReadyForAuditorApproval(now.AddMinutes(3));
         var repository = new InMemoryGrantCaseRepository(grantCase);
         var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
@@ -120,6 +158,41 @@ public class CoordinatorCentralityTests
         Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(GrantCaseStatus.AwaitingAuditorApproval, grantCase.Status);
         Assert.Equal("Saken kan ikke redigeres i denne statusen.", controller.TempData["Error"]);
+    }
+
+    private static GrantCase CreateSubmittedCase()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = GrantCase.Create(Guid.NewGuid(), "CENTRALITY-SUBMITTED", now);
+        grantCase.UpdateApplication(new GrantApplicationData
+        {
+            HprNumber = "123456789",
+            DoctorName = "Anna Hansen",
+            DoctorProfessions = ["Lege"],
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2030, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods =
+            [
+                new EmploymentPeriodInputModel
+                {
+                    PositionType = PositionType.RegularGpOrLocum,
+                    PositionPercentage = 80m,
+                    EmploymentStartDate = new DateOnly(2025, 1, 1),
+                    FundingFrom = new DateOnly(2026, 1, 1),
+                    FundingThrough = new DateOnly(2026, 6, 30)
+                }
+            ]
+        }, now);
+        grantCase.Submit(now.AddMinutes(1));
+        return grantCase;
     }
 
     private sealed class InMemoryGrantCaseRepository : IGrantCaseRepository

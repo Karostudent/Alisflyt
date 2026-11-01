@@ -25,6 +25,7 @@ namespace Alisflyt.Web.ViewModels.Coordinator
 
         [Display(Name = "Status")]
         public GrantCaseStatus Status { get; init; }
+        public bool CanEditCentrality => Status == GrantCaseStatus.UnderReview;
 
         [Display(Name = "Opprettet")]
         public DateTimeOffset CreatedAtUtc { get; init; }

@@ -59,18 +59,19 @@ namespace Alisflyt.Application.Tests
             var grantCase = GrantCase.Create(Guid.NewGuid(), "SAVED-VALUES", DateTimeOffset.UtcNow);
             grantCase.UpdateApplication(new GrantApplicationData
             {
+                HprNumber = "123456789",
+                DoctorName = "Anna Hansen",
+                DoctorProfessions = ["Lege"],
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
-                Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
-                EmploymentPeriods =
-                [
-                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100,
-                        EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
-                ]
-            }, DateTimeOffset.UtcNow);
-            grantCase.UpdateCentrality(true, 3000m, DateTimeOffset.UtcNow);
-            grantCase.UpdateApplication(new GrantApplicationData
-            {
-                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = new(2022, 1, 1),
+                ExpectedCompletionDate = new(2026, 12, 31),
+                ConfirmsAlisAgreement = true,
+                ConfirmsOfficialAgreementTemplate = true,
+                ConfirmsNoCommercialAgencyAffiliation = true,
+                AgreementEffectiveFrom = new(2022, 1, 1),
+                FirstRegularGpOrLocumDate = new(2022, 1, 1),
+                SelectedPositionTypes = [PositionType.RegularGpOrLocum],
                 Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
                 EmploymentPeriods =
                 [
@@ -80,6 +81,9 @@ namespace Alisflyt.Application.Tests
                 HasAdditionalSupervisionCosts = true,
                 AdditionalSupervisionCosts = 125m
             }, DateTimeOffset.UtcNow);
+            grantCase.Submit(DateTimeOffset.UtcNow);
+            grantCase.StartReview(DateTimeOffset.UtcNow);
+            grantCase.UpdateCentrality(true, 3000m, DateTimeOffset.UtcNow);
 
             var saved = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
             var input = GrantCalculationInputMapper.From(saved);

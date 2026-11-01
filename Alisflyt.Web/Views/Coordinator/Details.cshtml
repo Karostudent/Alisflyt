@@ -30,13 +30,24 @@
 }
 <section class="card card-body mb-4">
     <h3>Sentralitetstillegg ? koordinator</h3>
-    @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
+    @if (!Model.CanEditCentrality)
     {
         <div aria-disabled="true">
             <p><strong>Har kommunen sentralitetsgrad 6?</strong> @(Model.ApplicationData?.IsCentralityGrade6 == true ? "Ja" : Model.ApplicationData?.IsCentralityGrade6 == false ? "Nei" : "Ikke oppgitt")</p>
             <p><strong>Søkt beløp for sentralitetstillegg:</strong> @(Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString("N2") ?? "Ikke oppgitt") kr</p>
             <button type="button" class="btn btn-secondary" disabled aria-disabled="true">&#128274; Redigering låst</button>
-            <p class="form-text">Opplysningene er låst fordi saken er klar for revisorkontroll.</p>
+            @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
+            {
+                <p class="form-text">Opplysningene er låst fordi saken er klar for revisorkontroll.</p>
+            }
+            else if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted)
+            {
+                <p class="form-text">Start behandling av saken før sentralitetsopplysninger kan endres.</p>
+            }
+            else
+            {
+                <p class="form-text">Sentralitetsopplysninger kan bare endres mens saken er under behandling.</p>
+            }
         </div>
     }
     else
