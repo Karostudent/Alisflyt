@@ -63,5 +63,37 @@ namespace Alisflyt.Web.Tests
             Assert.Contains(model.Cases, c => c.Id == dto2.Id && c.CaseNumber == dto2.CaseNumber && c.HprNumber == dto2.HprNumber && c.Status == dto2.Status && c.LastModifiedAtUtc == dto2.LastModifiedAtUtc);
             Assert.Single(fake.ListCalls);
         }
+
+        [Theory]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection, true)]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview, Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection, true)]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, Alisflyt.Domain.Enums.GuidanceApprovalStatus.Pending, false)]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved, false)]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, Alisflyt.Domain.Enums.GuidanceApprovalStatus.Superseded, false)]
+        [InlineData(Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval, Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection, false)]
+        public async Task AlisController_Index_exposes_correction_only_when_current_approval_requires_it(Alisflyt.Domain.Enums.GrantCaseStatus status, Alisflyt.Domain.Enums.GuidanceApprovalStatus approvalStatus, bool expected)
+        {
+            var dto = new GrantCaseListItemDto
+            {
+                Id = Guid.NewGuid(),
+                CaseNumber = "CORR-1",
+                HprNumber = "123456789",
+                Status = status,
+                GuidanceApprovalStatus = approvalStatus,
+                GuidanceCorrectionReason = expected ? "Timer stemmer ikke." : null
+            };
+            var fake = new FakeGrantCaseApplicationService { ListResponse = new List<GrantCaseListItemDto> { dto } };
+            var ctrl = new Alisflyt.Web.Controllers.AlisController(fake)
+            {
+                ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+            };
+
+            var result = await ctrl.Index(default);
+            var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.AlisDashboardViewModel>(Assert.IsType<ViewResult>(result).Model);
+            var item = Assert.Single(model.Cases);
+
+            Assert.Equal(expected, item.NeedsGuidanceCorrection);
+            Assert.Equal(expected ? "Timer stemmer ikke." : null, item.GuidanceCorrectionReason);
+        }
     }
 }

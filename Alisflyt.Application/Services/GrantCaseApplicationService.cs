@@ -62,6 +62,26 @@ namespace Alisflyt.Application.Services
             return MapToDto(grantCase);
         }
 
+        public async Task<GuidanceCorrectionResult> UpdateGuidanceAsync(
+            Guid id,
+            IReadOnlyCollection<Alisflyt.Domain.Forms.SupervisionSessionInputModel> sessions,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(sessions);
+
+            var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+                ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
+            var previousApproval = grantCase.GetCurrentGuidanceApproval();
+            var approval = grantCase.UpdateGuidanceSessions(sessions, _timeProvider.GetUtcNow());
+            var createdNewApproval = previousApproval is null || previousApproval.Id != approval.Id;
+            if (createdNewApproval)
+                await _repository.AddGuidanceApprovalAsync(approval, cancellationToken).ConfigureAwait(false);
+
+            await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return new GuidanceCorrectionResult(MapToDto(grantCase), createdNewApproval);
+        }
+
         public async Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false) ?? throw new KeyNotFoundException($"GrantCase with id {id} not found.");
@@ -93,13 +113,21 @@ namespace Alisflyt.Application.Services
         public async Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default)
         {
             var list = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
-            return list.Select(c => new GrantCaseListItemDto
+            return list.Select(c =>
             {
-                Id = c.Id,
-                CaseNumber = c.CaseNumber,
-                HprNumber = c.HprNumber,
-                Status = c.Status,
-                LastModifiedAtUtc = c.LastModifiedAtUtc
+                var currentApproval = c.GetCurrentGuidanceApproval();
+                return new GrantCaseListItemDto
+                {
+                    Id = c.Id,
+                    CaseNumber = c.CaseNumber,
+                    HprNumber = c.HprNumber,
+                    Status = c.Status,
+                    GuidanceApprovalStatus = currentApproval?.Status,
+                    GuidanceCorrectionReason = currentApproval?.Status == Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection
+                        ? currentApproval.RequestedRevisionReason
+                        : null,
+                    LastModifiedAtUtc = c.LastModifiedAtUtc
+                };
             }).ToList();
         }
 

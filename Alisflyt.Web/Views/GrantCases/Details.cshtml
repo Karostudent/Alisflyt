@@ -27,14 +27,13 @@
     {
         <section class="case-return" aria-labelledby="auditor-heading"><h2 id="auditor-heading">Klar for revisorkontroll</h2><p>Kommunens behandling er ferdigstilt. Søknaden er klar for revisors kontroll før eventuell innsending til Helsedirektoratet. Søknaden er ikke oversendt fra ALISflyt.</p><p class="text-muted">Ferdigstilt @Model.ReadyForAuditorApprovalAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
     }
-    @if (ViewData["GuidanceCorrectionStatus"] is string guidanceCorrectionStatus)
+    @if (Model.GuidanceCorrectionRequired)
     {
         <section class="case-return" aria-labelledby="guidance-correction-heading">
-            <h2 id="guidance-correction-heading">Korrigering nødvendig</h2>
-            <p>@guidanceCorrectionStatus</p>
-            @if (ViewData["GuidanceCorrectionReason"] is string guidanceCorrectionReason && !string.IsNullOrWhiteSpace(guidanceCorrectionReason))
+            <h2 id="guidance-correction-heading">Veiledningsattest må korrigeres</h2>
+            @if (!string.IsNullOrWhiteSpace(Model.GuidanceCorrectionReason))
             {
-                <p><strong>Veilederens begrunnelse:</strong> @guidanceCorrectionReason</p>
+                <p><strong>Veilederens begrunnelse:</strong> @Model.GuidanceCorrectionReason</p>
             }
             <div class="case-actions">
                 <a class="btn btn-primary" asp-action="EditGuidance" asp-route-id="@Model.Id">Korriger veiledningstimer</a>

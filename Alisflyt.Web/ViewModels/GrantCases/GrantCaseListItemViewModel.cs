@@ -9,6 +9,10 @@ namespace Alisflyt.Web.ViewModels.GrantCases
         public string CaseNumber { get; init; } = string.Empty;
         public string? HprNumber { get; init; }
         public GrantCaseStatus Status { get; init; }
+        public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
+        public string? GuidanceCorrectionReason { get; init; }
+        public bool NeedsGuidanceCorrection => GuidanceApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection
+            && Status is GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview;
         public DateTimeOffset LastModifiedAtUtc { get; init; }
     }
 }

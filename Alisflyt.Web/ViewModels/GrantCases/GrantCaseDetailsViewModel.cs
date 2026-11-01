@@ -41,7 +41,10 @@ namespace Alisflyt.Web.ViewModels.GrantCases
         [Display(Name = "Returnert dato")]
         public DateTimeOffset? ReturnedAtUtc { get; init; }
 
-        // Full application data (nullable for older records)
+        public bool GuidanceCorrectionRequired { get; init; }
+        public string? GuidanceCorrectionReason { get; init; }
+
+        // Full application data
         public Alisflyt.Domain.Forms.GrantApplicationData? ApplicationData { get; init; }
         // Calculation result (optional)
         public Alisflyt.Application.Models.GrantCalculationDetailsDto? Calculation { get; init; }

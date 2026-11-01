@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Models;
+using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Application.Services
 {
@@ -11,6 +12,7 @@ namespace Alisflyt.Application.Services
         Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default);
         Task<GrantCaseDto> UpdateDraftAsync(Guid id, UpdateGrantCaseDraftRequest request, CancellationToken cancellationToken = default);
         Task<GrantCaseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<GuidanceCorrectionResult> UpdateGuidanceAsync(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default);
         Task SubmitAsync(Guid id, CancellationToken cancellationToken = default);
         Task<GrantCaseDto> SubmitAsync(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken cancellationToken = default);

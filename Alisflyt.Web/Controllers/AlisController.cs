@@ -46,6 +46,8 @@ namespace Alisflyt.Web.Controllers
                     CaseNumber = c.CaseNumber,
                     HprNumber = c.HprNumber,
                     Status = c.Status,
+                    GuidanceApprovalStatus = c.GuidanceApprovalStatus,
+                    GuidanceCorrectionReason = c.GuidanceCorrectionReason,
                     LastModifiedAtUtc = c.LastModifiedAtUtc
                 }).ToList()
             };

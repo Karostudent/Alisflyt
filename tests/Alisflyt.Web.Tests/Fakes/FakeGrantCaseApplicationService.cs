@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
+using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Web.Tests.Fakes
 {
@@ -25,6 +26,8 @@ namespace Alisflyt.Web.Tests.Fakes
         public Exception? StartReviewException { get; set; }
         public Exception? MarkReadyForAuditorApprovalException { get; set; }
         public Exception? ReturnForCorrectionException { get; set; }
+        public Exception? UpdateGuidanceException { get; set; }
+        public GuidanceCorrectionResult? UpdateGuidanceResponse { get; set; }
 
         // Call recording
         public List<(CreateGrantCaseRequest request, CancellationToken ct)> CreateDraftCalls { get; } = new();
@@ -36,6 +39,7 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> MarkReadyForAuditorApprovalCalls { get; } = new();
         public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
+        public List<(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken ct)> UpdateGuidanceCalls { get; } = new();
 
         public Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default)
         {
@@ -84,6 +88,14 @@ namespace Alisflyt.Web.Tests.Fakes
             if (SubmitException != null) throw SubmitException;
             if (GetByIdResponse != null) return Task.FromResult(GetByIdResponse);
             throw new InvalidOperationException("GetByIdResponse was not configured for this test.");
+        }
+
+        public Task<GuidanceCorrectionResult> UpdateGuidanceAsync(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken cancellationToken = default)
+        {
+            UpdateGuidanceCalls.Add((id, sessions, cancellationToken));
+            if (UpdateGuidanceException != null) throw UpdateGuidanceException;
+            if (UpdateGuidanceResponse != null) return Task.FromResult(UpdateGuidanceResponse);
+            throw new InvalidOperationException("UpdateGuidanceResponse was not configured for this test.");
         }
 
         public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)

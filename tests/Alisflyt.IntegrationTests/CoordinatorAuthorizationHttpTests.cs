@@ -88,6 +88,48 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         Assert.Null(persisted.ReadyForAuditorApprovalAtUtc);
     }
 
+    [Fact]
+    public async Task Alis_can_submit_guidance_correction_and_persist_new_pending_approval_through_http()
+    {
+        var caseId = await CreateUnderReviewCaseWithCorrectionRequestedAsync();
+        using var client = CreateClient();
+        await LoginAsAlisAsync(client);
+
+        var edit = await client.GetAsync($"/GrantCases/EditGuidance/{caseId}");
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var token = ExtractAntiForgeryToken(await edit.Content.ReadAsStringAsync());
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/GrantCases/UpdateGuidance")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["id"] = caseId.ToString(),
+                ["CaseId"] = caseId.ToString(),
+                ["Sessions[0].Date"] = "2026-02-10",
+                ["Sessions[0].Hours"] = "4",
+                ["Sessions[0].Topic"] = "Korrigert veiledning",
+                ["__RequestVerificationToken"] = token
+            })
+        };
+        var response = await client.SendAsync(request);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.Redirect, $"Expected redirect but got {response.StatusCode}: {responseBody}");
+        Assert.Contains($"/GrantCases/Details/{caseId}", response.Headers.Location?.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        await using var verificationContext = _factory.CreateDbContext();
+        var persisted = await verificationContext.GrantCases
+            .Include(x => x.GuidanceApprovals)
+            .SingleAsync(x => x.Id == caseId);
+        Assert.Equal(GrantCaseStatus.UnderReview, persisted.Status);
+        Assert.Equal(2, persisted.GuidanceApprovals.Count);
+        Assert.Equal(GuidanceApprovalStatus.Superseded, persisted.GuidanceApprovals.Single(x => x.VersionNumber == 1).Status);
+        Assert.Equal(GuidanceApprovalStatus.Pending, persisted.GuidanceApprovals.Single(x => x.VersionNumber == 2).Status);
+        var data = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(persisted.ApplicationDataJson!)!;
+        Assert.Equal(4m, data.Certificate.Sessions.Single().Hours);
+        Assert.Equal("Korrigert veiledning", data.Certificate.Sessions.Single().Topic);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("invalid-token")]
@@ -139,6 +181,25 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         context.GrantCases.Add(grantCase);
         await context.SaveChangesAsync();
         return grantCase.Id;
+    }
+
+    private static async Task LoginAsAlisAsync(HttpClient client)
+    {
+        var login = await client.GetAsync("/Account/Login?role=ALIS");
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+    }
+
+    private async Task<Guid> CreateUnderReviewCaseWithCorrectionRequestedAsync()
+    {
+        using var startupClient = CreateClient();
+        var caseId = await CreateUnderReviewCaseWithPendingGuidanceAsync();
+        await using var context = _factory.CreateDbContext();
+        var grantCase = await context.GrantCases
+            .Include(x => x.GuidanceApprovals)
+            .SingleAsync(x => x.Id == caseId);
+        grantCase.GetCurrentGuidanceApproval()!.RequestCorrection("Korriger timer.", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+        return caseId;
     }
 
     private async Task<Guid> CreateUnderReviewCaseWithPendingGuidanceAsync()

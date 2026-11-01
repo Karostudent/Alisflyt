@@ -270,9 +270,29 @@ namespace Alisflyt.Web.Controllers
             {
                 var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
                 var currentApproval = domainCase?.GetCurrentGuidanceApproval();
-                if (currentApproval is not null && currentApproval.Status == Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                var guidanceCorrectionRequired = d.Status is Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview
+                    && currentApproval?.Status == Domain.Enums.GuidanceApprovalStatus.NeedsCorrection;
+                if (guidanceCorrectionRequired)
                 {
-                    ViewData["GuidanceCorrectionStatus"] = "Korrigering nødvendig";
+                    vm = new GrantCaseDetailsViewModel
+                    {
+                        Id = vm.Id,
+                        CaseNumber = vm.CaseNumber,
+                        HprNumber = vm.HprNumber,
+                        EmploymentPercentage = vm.EmploymentPercentage,
+                        EmploymentStartDate = vm.EmploymentStartDate,
+                        EmploymentEndDate = vm.EmploymentEndDate,
+                        Status = vm.Status,
+                        CreatedAtUtc = vm.CreatedAtUtc,
+                        LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
+                        ReturnReason = vm.ReturnReason,
+                        ReturnedAtUtc = vm.ReturnedAtUtc,
+                        ApplicationData = vm.ApplicationData,
+                        GuidanceCorrectionRequired = true,
+                        GuidanceCorrectionReason = currentApproval!.RequestedRevisionReason
+                    };
+                    ViewData["GuidanceCorrectionStatus"] = "Veiledningsattest må korrigeres";
                     ViewData["GuidanceCorrectionReason"] = currentApproval.RequestedRevisionReason;
                     ViewData["GuidanceCorrectionLink"] = Url is null ? null : Url.Action(nameof(EditGuidance), new { id });
                 }
@@ -301,6 +321,8 @@ namespace Alisflyt.Web.Controllers
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,
+                        GuidanceCorrectionRequired = vm.GuidanceCorrectionRequired,
+                        GuidanceCorrectionReason = vm.GuidanceCorrectionReason,
                         Calculation = calc
                     };
                 }
@@ -332,7 +354,9 @@ namespace Alisflyt.Web.Controllers
             var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
                 ?? throw new KeyNotFoundException();
             var currentApproval = domainCase.GetCurrentGuidanceApproval();
-            if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+            if (domainCase.Status is not (Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview)
+                || currentApproval is null
+                || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
                 return BadRequest();
 
             var data = domainCase.ApplicationDataJson is null
@@ -381,7 +405,9 @@ namespace Alisflyt.Web.Controllers
                 var domainCase = await _repository.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false)
                     ?? throw new KeyNotFoundException();
                 var currentApproval = domainCase.GetCurrentGuidanceApproval();
-                if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                if (domainCase.Status is not (Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview)
+                    || currentApproval is null
+                    || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
                     return BadRequest();
 
                 if (model.Sessions is null || model.Sessions.Count == 0)
@@ -402,16 +428,7 @@ namespace Alisflyt.Web.Controllers
                 if (!ModelState.IsValid)
                     return View("EditGuidance", model);
 
-                var data = domainCase.ApplicationDataJson is null
-                    ? new Alisflyt.Domain.Forms.GrantApplicationData()
-                    : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(domainCase.ApplicationDataJson)
-                        ?? new Alisflyt.Domain.Forms.GrantApplicationData();
-
-                data.HprNumber ??= grantCase.HprNumber;
-                data.DoctorName ??= currentUser?.Name ?? data.DoctorName;
-                if (data.Certificate is null)
-                    data.Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel();
-                data.Certificate.Sessions = model.Sessions
+                var sessions = model.Sessions
                     .Select(s => new Alisflyt.Domain.Forms.SupervisionSessionInputModel
                     {
                         Date = s.Date,
@@ -420,18 +437,10 @@ namespace Alisflyt.Web.Controllers
                     })
                     .ToList();
 
-                data.ValidateDraft();
-                var now = DateTimeOffset.UtcNow;
-                domainCase.UpdateApplication(data, now);
-                domainCase.RequestGuidanceApproval(
-                    grantCase.HprNumber ?? data.HprNumber ?? currentUser?.HprNumber ?? string.Empty,
-                    currentApproval.SupervisorHprNumber,
-                    currentApproval.SupervisorUserKey,
-                    now,
-                    currentApproval.SupervisorName);
-                await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-                TempData["Success"] = "Veiledningstimer er oppdatert og sendt til ny godkjenning.";
+                var correctionResult = await _svc.UpdateGuidanceAsync(id.Value, sessions, cancellationToken).ConfigureAwait(false);
+                TempData["Success"] = correctionResult.CreatedNewApproval
+                    ? "Veiledningstimer er oppdatert og sendt til ny godkjenning."
+                    : "Veiledningstimene er uendret. Ingen ny godkjenning ble opprettet.";
                 return RedirectToAction(nameof(Details), new { id = id.Value });
             }
             catch (KeyNotFoundException)

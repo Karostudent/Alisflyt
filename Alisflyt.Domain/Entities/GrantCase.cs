@@ -132,6 +132,51 @@ namespace Alisflyt.Domain.Entities
             var data = ApplicationDataJson is null
                 ? throw new InvalidOperationException("Saken mangler søknadsdata.")
                 : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+
+            return RequestGuidanceApproval(data, doctorHprNumber, supervisorHprNumber, supervisorUserKey, now, supervisorName);
+        }
+
+        public GuidanceApproval UpdateGuidanceSessions(
+            IReadOnlyCollection<Alisflyt.Domain.Forms.SupervisionSessionInputModel> sessions,
+            DateTimeOffset now)
+        {
+            ArgumentNullException.ThrowIfNull(sessions);
+
+            if (Status is not (GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview))
+                throw new InvalidOperationException("Veiledningen kan ikke korrigeres i denne statusen.");
+
+            var currentApproval = GetCurrentGuidanceApproval();
+            if (currentApproval?.Status != GuidanceApprovalStatus.NeedsCorrection)
+                throw new InvalidOperationException("Veiledningen kan bare korrigeres etter at veileder har bedt om korrigering.");
+
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+            data.Certificate ??= new();
+            data.Certificate.Sessions = sessions.ToList();
+
+            if (data.Certificate.Sessions.Count == 0)
+                throw new InvalidOperationException("Det finnes ingen veiledningstimer som kan sendes til godkjenning.");
+
+            data.ValidateDraft();
+
+            return RequestGuidanceApproval(
+                data,
+                currentApproval.DoctorHprNumber,
+                currentApproval.SupervisorHprNumber,
+                currentApproval.SupervisorUserKey,
+                now,
+                currentApproval.SupervisorName);
+        }
+
+        private GuidanceApproval RequestGuidanceApproval(
+            Alisflyt.Domain.Forms.GrantApplicationData data,
+            string doctorHprNumber,
+            string supervisorHprNumber,
+            string supervisorUserKey,
+            DateTimeOffset now,
+            string? supervisorName)
+        {
             if (data.Certificate is null || data.Certificate.Sessions is null || data.Certificate.Sessions.Count == 0)
                 throw new InvalidOperationException("Det finnes ingen veiledningstimer som kan sendes til godkjenning.");
 
@@ -141,9 +186,7 @@ namespace Alisflyt.Domain.Entities
                 .OrderByDescending(a => a.VersionNumber)
                 .FirstOrDefault(a => string.Equals(a.AttestationSnapshotHash, snapshotHash, StringComparison.Ordinal));
             if (existingMatchingApproval is not null)
-            {
                 return existingMatchingApproval;
-            }
 
             var nextVersion = GuidanceApprovals.Count == 0 ? 1 : GuidanceApprovals.Max(a => a.VersionNumber) + 1;
             var approval = GuidanceApproval.Create(

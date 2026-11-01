@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Tests.Fakes;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Alisflyt.Application.Models;
 using Xunit;
@@ -23,6 +24,13 @@ namespace Alisflyt.Application.Tests
                 DoctorName = "Dr Test",
                 DoctorProfessions = new List<string> { "Allmennlege", "Undervisning" },
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = new DateOnly(2022, 1, 1),
+                ExpectedCompletionDate = new DateOnly(2026, 1, 1),
+                ConfirmsAlisAgreement = true,
+                ConfirmsOfficialAgreementTemplate = true,
+                ConfirmsNoCommercialAgencyAffiliation = true,
+                AgreementEffectiveFrom = new DateOnly(2022, 1, 1),
                 FirstRegularGpOrLocumDate = new DateOnly(2022,1,1),
                 SelectedPositionTypes = new List<PositionType> { PositionType.RegularGpOrLocum, PositionType.IntroductoryDoctor },
                 EmploymentPeriods = new List<EmploymentPeriodInputModel>
@@ -118,6 +126,43 @@ namespace Alisflyt.Application.Tests
             Assert.Equal("Dr Changed", a2.DoctorName);
             Assert.Equal(3, a2.Certificate.Sessions.Count);
             Assert.Equal("Tema C", a2.Certificate.Sessions[2].Topic);
+        }
+
+        [Fact]
+        public async Task UpdateGuidanceAsync_persists_sessions_and_new_approval_in_one_save()
+        {
+            var repo = new FakeGrantCaseRepository();
+            var svc = Service(repo);
+            var created = await svc.CreateDraftAsync(new CreateGrantCaseRequest
+            {
+                ApplicationData = SampleApplicationData(),
+                HprNumber = "123456"
+            });
+
+            await svc.SubmitAsync(created.Id, new SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = "123456",
+                SupervisorHprNumber = "987654321",
+                SupervisorUserKey = "veileder-per",
+                SupervisorName = "Supervisor"
+            });
+            var grantCase = await repo.GetByIdAsync(created.Id);
+            grantCase!.GetCurrentGuidanceApproval()!.RequestCorrection("Korriger timer.", DateTimeOffset.UtcNow);
+            await svc.StartReviewAsync(created.Id);
+
+            var savesBeforeCorrection = repo.SaveChangesCallCount;
+            var result = await svc.UpdateGuidanceAsync(created.Id,
+                [new SupervisionSessionInputModel { Date = new DateOnly(2024, 2, 1), Hours = 3m, Topic = "Korrigert tema" }]);
+
+            Assert.True(result.CreatedNewApproval);
+            Assert.Equal(created.Id, result.GrantCase.Id);
+            Assert.Equal(created.CaseNumber, result.GrantCase.CaseNumber);
+            Assert.Equal(GrantCaseStatus.UnderReview, result.GrantCase.Status);
+            Assert.Equal(savesBeforeCorrection + 1, repo.SaveChangesCallCount);
+            Assert.Equal(GuidanceApprovalStatus.Superseded, grantCase.GuidanceApprovals.Single(a => a.VersionNumber == 1).Status);
+            Assert.Equal(GuidanceApprovalStatus.Pending, grantCase.GetCurrentGuidanceApproval()!.Status);
+            Assert.Equal(2, grantCase.GetCurrentGuidanceApproval()!.VersionNumber);
+            Assert.Equal(3m, result.GrantCase.ApplicationData!.Certificate.Sessions[0].Hours);
         }
 
         [Fact]

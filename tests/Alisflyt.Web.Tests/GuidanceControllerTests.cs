@@ -562,7 +562,10 @@ namespace Alisflyt.Web.Tests
             var result = await controller.Details(caseId, default);
 
             Assert.IsType<ViewResult>(result);
-            Assert.Equal("Korrigering nødvendig", controller.ViewData["GuidanceCorrectionStatus"] as string);
+            var details = Assert.IsType<Alisflyt.Web.ViewModels.GrantCases.GrantCaseDetailsViewModel>(Assert.IsType<ViewResult>(result).Model);
+            Assert.True(details.GuidanceCorrectionRequired);
+            Assert.Equal("Veiledningsattest må korrigeres", controller.ViewData["GuidanceCorrectionStatus"] as string);
+            Assert.Equal("Timer stemmer ikke.", details.GuidanceCorrectionReason);
             Assert.Equal("Timer stemmer ikke.", controller.ViewData["GuidanceCorrectionReason"] as string);
         }
 
@@ -615,6 +618,24 @@ namespace Alisflyt.Web.Tests
             {
                 HprNumber = "123456789",
                 DoctorName = "Anna Hansen",
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = new DateOnly(2025, 1, 1),
+                ExpectedCompletionDate = new DateOnly(2028, 1, 1),
+                ConfirmsAlisAgreement = true,
+                ConfirmsOfficialAgreementTemplate = true,
+                ConfirmsNoCommercialAgencyAffiliation = true,
+                AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+                FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+                SelectedPositionTypes = [Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum],
+                EmploymentPeriods = [new Alisflyt.Domain.Forms.EmploymentPeriodInputModel
+                {
+                    PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum,
+                    PositionPercentage = 50m,
+                    EmploymentStartDate = new DateOnly(2026, 1, 1),
+                    FundingFrom = new DateOnly(2026, 1, 1),
+                    FundingThrough = new DateOnly(2026, 12, 31)
+                }],
                 Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
                 {
                     Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
@@ -622,13 +643,15 @@ namespace Alisflyt.Web.Tests
             }, now.AddMinutes(1));
             var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
             approval.RequestCorrection("Mangler opplysninger", now.AddMinutes(3));
+            grantCase.Submit(now.AddMinutes(4));
             var repository = new InMemoryGrantCaseRepository(grantCase)
             {
                 SaveException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
             };
             var service = new FakeGrantCaseApplicationService
             {
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = caseId, HprNumber = "123456789" }
+                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = caseId, HprNumber = "123456789" },
+                UpdateGuidanceException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
             };
             var httpContext = new DefaultHttpContext { Session = new TestSession() };
             Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
