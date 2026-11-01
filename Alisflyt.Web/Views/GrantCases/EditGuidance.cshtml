@@ -13,7 +13,7 @@
 	@if (!ViewData.ModelState.IsValid)
 	{
 		<div class="alert alert-danger" role="alert">
-			<div asp-validation-summary="ModelOnly"></div>
+			<div asp-validation-summary="All"></div>
 		</div>
 	}
 
@@ -29,35 +29,37 @@
 		}
 	</div>
 
-	<form asp-controller="GrantCases" asp-action="UpdateGuidance" asp-route-id="@Model.CaseId" method="post">
+	<form asp-controller="GrantCases" asp-action="UpdateGuidance" asp-route-id="@Model.CaseId" method="post" data-guidance-correction-form>
 		@Html.AntiForgeryToken()
 		<input type="hidden" asp-for="CaseId" />
 		<input type="hidden" name="id" value="@Model.CaseId" />
 
 		<div class="card card-body mb-4">
 			<h2 class="h5">Registrerte veiledningstimer</h2>
-			@for (var i = 0; i < Model.Sessions.Count; i++)
-			{
-				<div class="border rounded p-3 mb-3">
-					<div class="row g-3">
-						<div class="col-md-3">
-							<label asp-for="Sessions[i].Date" class="form-label">Dato</label>
-							<input asp-for="Sessions[i].Date" class="form-control" type="date" />
-							<span asp-validation-for="Sessions[i].Date" class="text-danger"></span>
+			<p class="text-muted">Endre, fjern eller legg til økter før du sender veiledningen til ny godkjenning.</p>
+			<div id="guidance-session-rows">
+				@for (var i = 0; i < (Model.Sessions?.Count ?? 0); i++)
+				{
+					<div class="guidance-session-row border rounded p-3 mb-3">
+						<div class="row g-3">
+							<div class="col-md-3">
+								<label for="Sessions_@(i)__Date" class="form-label">Dato</label>
+								<input name="Sessions[@i].Date" id="Sessions_@(i)__Date" value="@(Model.Sessions[i].Date?.ToString("yyyy-MM-dd"))" class="form-control" type="date" />
+							</div>
+							<div class="col-md-3">
+								<label for="Sessions_@(i)__Hours" class="form-label">Timer</label>
+								<input name="Sessions[@i].Hours" id="Sessions_@(i)__Hours" value="@Model.Sessions[i].Hours" class="form-control" inputmode="decimal" step="0.25" min="0.25" max="24" />
+							</div>
+							<div class="col-md-6">
+								<label for="Sessions_@(i)__Topic" class="form-label">Tema</label>
+								<input name="Sessions[@i].Topic" id="Sessions_@(i)__Topic" value="@Model.Sessions[i].Topic" class="form-control" />
+							</div>
 						</div>
-						<div class="col-md-3">
-							<label asp-for="Sessions[i].Hours" class="form-label">Timer</label>
-							<input asp-for="Sessions[i].Hours" class="form-control" step="0.25" min="0.25" />
-							<span asp-validation-for="Sessions[i].Hours" class="text-danger"></span>
-						</div>
-						<div class="col-md-6">
-							<label asp-for="Sessions[i].Topic" class="form-label">Tema</label>
-							<input asp-for="Sessions[i].Topic" class="form-control" />
-							<span asp-validation-for="Sessions[i].Topic" class="text-danger"></span>
-						</div>
+						<button type="button" class="btn btn-outline-danger mt-3" data-remove-guidance-session>Fjern økt</button>
 					</div>
-				</div>
-			}
+				}
+			</div>
+			<button type="button" id="add-guidance-session" class="btn btn-outline-primary">+ Legg til veiledningsøkt</button>
 		</div>
 
 		<div class="d-flex gap-2 flex-wrap">
@@ -66,3 +68,27 @@
 		</div>
 	</form>
 </div>
+
+<template id="guidance-session-template">
+	<div class="guidance-session-row border rounded p-3 mb-3">
+		<div class="row g-3">
+			<div class="col-md-3">
+				<label for="Sessions_0__Date" class="form-label">Dato</label>
+				<input name="Sessions[0].Date" id="Sessions_0__Date" class="form-control" type="date" />
+			</div>
+			<div class="col-md-3">
+				<label for="Sessions_0__Hours" class="form-label">Timer</label>
+				<input name="Sessions[0].Hours" id="Sessions_0__Hours" class="form-control" inputmode="decimal" step="0.25" min="0.25" max="24" />
+			</div>
+			<div class="col-md-6">
+				<label for="Sessions_0__Topic" class="form-label">Tema</label>
+				<input name="Sessions[0].Topic" id="Sessions_0__Topic" class="form-control" />
+			</div>
+		</div>
+		<button type="button" class="btn btn-outline-danger mt-3" data-remove-guidance-session>Fjern økt</button>
+	</div>
+</template>
+
+@section Scripts {
+	<script src="~/js/edit-guidance.js" asp-append-version="true"></script>
+}

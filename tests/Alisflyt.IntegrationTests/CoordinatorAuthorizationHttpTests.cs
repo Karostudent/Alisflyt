@@ -108,6 +108,9 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
                 ["Sessions[0].Date"] = "2026-02-10",
                 ["Sessions[0].Hours"] = "4",
                 ["Sessions[0].Topic"] = "Korrigert veiledning",
+                ["Sessions[1].Date"] = "2026-02-11",
+                ["Sessions[1].Hours"] = "1,5",
+                ["Sessions[1].Topic"] = "Ny veiledningsøkt",
                 ["__RequestVerificationToken"] = token
             })
         };
@@ -126,8 +129,11 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         Assert.Equal(GuidanceApprovalStatus.Superseded, persisted.GuidanceApprovals.Single(x => x.VersionNumber == 1).Status);
         Assert.Equal(GuidanceApprovalStatus.Pending, persisted.GuidanceApprovals.Single(x => x.VersionNumber == 2).Status);
         var data = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(persisted.ApplicationDataJson!)!;
-        Assert.Equal(4m, data.Certificate.Sessions.Single().Hours);
-        Assert.Equal("Korrigert veiledning", data.Certificate.Sessions.Single().Topic);
+        Assert.Equal(2, data.Certificate.Sessions.Count);
+        Assert.Equal(4m, data.Certificate.Sessions[0].Hours);
+        Assert.Equal("Korrigert veiledning", data.Certificate.Sessions[0].Topic);
+        Assert.Equal(1.5m, data.Certificate.Sessions[1].Hours);
+        Assert.Equal("Ny veiledningsøkt", data.Certificate.Sessions[1].Topic);
     }
 
     [Theory]

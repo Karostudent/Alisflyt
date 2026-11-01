@@ -670,7 +670,10 @@ namespace Alisflyt.Web.Tests
                 Sessions = [new() { Date = new DateOnly(2026, 10, 3), Hours = 3m, Topic = "Ny veiledning" }]
             }, default);
 
-            Assert.IsType<ViewResult>(result);
+            var view = Assert.IsType<ViewResult>(result);
+            var returnedModel = Assert.IsType<Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel>(view.Model);
+            Assert.Equal("CASE-GUIDANCE-ERROR", returnedModel.CaseNumber);
+            Assert.Equal("Mangler opplysninger", returnedModel.CorrectionReason);
             Assert.Contains(controller.ModelState[string.Empty]!.Errors, e => e.ErrorMessage == "Endringen kunne ikke lagres. Prøv igjen.");
             var entry = Assert.Single(logger.Entries);
             Assert.Equal(LogLevel.Error, entry.Level);

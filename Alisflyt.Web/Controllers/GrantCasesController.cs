@@ -410,6 +410,10 @@ namespace Alisflyt.Web.Controllers
                     || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
                     return BadRequest();
 
+                model.CaseNumber = domainCase.CaseNumber;
+                model.HprNumber = grantCase.HprNumber;
+                model.CorrectionReason = currentApproval.RequestedRevisionReason;
+
                 if (model.Sessions is null || model.Sessions.Count == 0)
                     ModelState.AddModelError(nameof(model.Sessions), "Legg til minst én veiledningsøkt.");
                 else
