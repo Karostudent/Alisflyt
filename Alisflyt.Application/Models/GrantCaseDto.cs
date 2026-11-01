@@ -18,5 +18,7 @@ namespace Alisflyt.Application.Models
         public DateTimeOffset CreatedAtUtc { get; init; }
         public DateTimeOffset LastModifiedAtUtc { get; init; }
         public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; init; }
+        public bool GuidanceApprovalRequired { get; init; }
+        public bool GuidanceApprovalApproved { get; init; }
     }
 }

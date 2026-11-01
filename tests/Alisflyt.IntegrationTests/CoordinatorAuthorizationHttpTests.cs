@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
+using Alisflyt.Domain.Forms;
 using Alisflyt.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -65,6 +67,27 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         Assert.NotNull(persisted.ReadyForAuditorApprovalAtUtc);
     }
 
+    [Fact]
+    public async Task Coordinator_cannot_finalize_case_with_pending_guidance_approval_through_http()
+    {
+        var caseId = await CreateUnderReviewCaseWithPendingGuidanceAsync();
+        using var client = CreateClient();
+        await LoginAsCoordinatorAsync(client);
+
+        var details = await client.GetAsync($"/Coordinator/Details/{caseId}");
+        var detailsHtml = await details.Content.ReadAsStringAsync();
+        Assert.Contains("disabled", detailsHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("før veiledningen er godkjent av veileder", detailsHtml, StringComparison.OrdinalIgnoreCase);
+        var token = ExtractAntiForgeryToken(detailsHtml);
+        var response = await PostFinalizationAsync(client, caseId, token);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        await using var verificationContext = _factory.CreateDbContext();
+        var persisted = await verificationContext.GrantCases.SingleAsync(x => x.Id == caseId);
+        Assert.Equal(GrantCaseStatus.UnderReview, persisted.Status);
+        Assert.Null(persisted.ReadyForAuditorApprovalAtUtc);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("invalid-token")]
@@ -113,6 +136,56 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         grantCase.UpdateDraft("123456789", 50m, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), now);
         grantCase.Submit(now.AddMinutes(1));
         grantCase.StartReview(now.AddMinutes(2));
+        context.GrantCases.Add(grantCase);
+        await context.SaveChangesAsync();
+        return grantCase.Id;
+    }
+
+    private async Task<Guid> CreateUnderReviewCaseWithPendingGuidanceAsync()
+    {
+        await using var context = _factory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = GrantCase.Create(Guid.NewGuid(), $"HTTP-{Guid.NewGuid():N}"[..13], now);
+        grantCase.UpdateApplication(new GrantApplicationData
+        {
+            HprNumber = "123456789",
+            DoctorName = "Anna Hansen",
+            DoctorProfessions = ["Allmennlege"],
+            GrantType = GrantType.AlisAgreementIncludingSupervision,
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2028, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods =
+            [new EmploymentPeriodInputModel
+            {
+                PositionType = PositionType.RegularGpOrLocum,
+                PositionPercentage = 50m,
+                EmploymentStartDate = new DateOnly(2026, 1, 1),
+                FundingFrom = new DateOnly(2026, 1, 1),
+                FundingThrough = new DateOnly(2026, 12, 31)
+            }],
+            Certificate = new SupervisionCertificateViewModel
+            {
+                DoctorName = "Anna Hansen",
+                SupervisorHprNumber = "987654321",
+                SupervisorName = "Per Olsen",
+                Sessions = [new SupervisionSessionInputModel
+                {
+                    Date = new DateOnly(2026, 1, 10),
+                    Hours = 2m,
+                    Topic = "Veiledning"
+                }]
+            }
+        }, now);
+        grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(1), "Per Olsen");
+        grantCase.Submit(now.AddMinutes(2));
+        grantCase.StartReview(now.AddMinutes(3));
         context.GrantCases.Add(grantCase);
         await context.SaveChangesAsync();
         return grantCase.Id;

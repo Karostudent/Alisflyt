@@ -35,6 +35,9 @@ namespace Alisflyt.Web.ViewModels.Coordinator
         [Display(Name = "Klar for revisorkontroll")]
         public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; init; }
 
+        public bool GuidanceApprovalRequired { get; init; }
+        public bool GuidanceApprovalApproved { get; init; }
+
         [Display(Name = "Returnert begrunnelse")]
         public string? ReturnReason { get; init; }
 

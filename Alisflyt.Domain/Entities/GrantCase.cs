@@ -180,6 +180,31 @@ namespace Alisflyt.Domain.Entities
                 .FirstOrDefault();
         }
 
+        public bool RequiresGuidanceApproval()
+        {
+            var data = ApplicationDataJson is null
+                ? null
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
+            return data?.Certificate?.Sessions?.Count > 0;
+        }
+
+        public bool HasApprovedCurrentGuidanceApproval()
+        {
+            if (!RequiresGuidanceApproval())
+                return true;
+
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)
+                    ?? throw new InvalidOperationException("Saken mangler søknadsdata.");
+            var currentApproval = GetCurrentGuidanceApproval();
+            var currentSnapshotHash = GuidanceApproval.CreateAttestationSnapshotHash(data);
+
+            return currentApproval is not null
+                && currentApproval.Status == GuidanceApprovalStatus.Approved
+                && string.Equals(currentApproval.AttestationSnapshotHash, currentSnapshotHash, StringComparison.Ordinal);
+        }
+
         public void SynchronizeLegacySupervisorApproval(DateTimeOffset? approvedAtUtc, DateTimeOffset now)
         {
             var data = ApplicationDataJson is null
@@ -247,6 +272,9 @@ namespace Alisflyt.Domain.Entities
         {
             if (Status != GrantCaseStatus.UnderReview)
                 throw new InvalidOperationException("Only cases under review can be marked ready for auditor approval.");
+
+            if (!HasApprovedCurrentGuidanceApproval())
+                throw new InvalidOperationException("Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.");
 
             Status = GrantCaseStatus.AwaitingAuditorApproval;
             ReadyForAuditorApprovalAtUtc = now;

@@ -159,7 +159,9 @@ namespace Alisflyt.Application.Services
                 Status = c.Status,
                 CreatedAtUtc = c.CreatedAtUtc,
                 LastModifiedAtUtc = c.LastModifiedAtUtc,
-                ReadyForAuditorApprovalAtUtc = c.ReadyForAuditorApprovalAtUtc
+                ReadyForAuditorApprovalAtUtc = c.ReadyForAuditorApprovalAtUtc,
+                GuidanceApprovalRequired = c.RequiresGuidanceApproval(),
+                GuidanceApprovalApproved = c.HasApprovedCurrentGuidanceApproval()
             };
         }
     }

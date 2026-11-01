@@ -103,7 +103,9 @@ namespace Alisflyt.Web.Controllers
                 ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
                 ReturnedAtUtc = d.ReturnedAtUtc,
-                ApplicationData = d.ApplicationData
+                ApplicationData = d.ApplicationData,
+                GuidanceApprovalRequired = d.GuidanceApprovalRequired,
+                GuidanceApprovalApproved = d.GuidanceApprovalApproved
             };
 
             try
@@ -125,10 +127,12 @@ namespace Alisflyt.Web.Controllers
                         LastModifiedAtUtc = vm.LastModifiedAtUtc,
                         ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
                         ReturnReason = vm.ReturnReason,
-                        ReturnedAtUtc = vm.ReturnedAtUtc,
-                        ApplicationData = vm.ApplicationData,
-                        Calculation = calc
-                    };
+                            ReturnedAtUtc = vm.ReturnedAtUtc,
+                            ApplicationData = vm.ApplicationData,
+                            GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                            GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
+                            Calculation = calc
+                        };
                 }
             }
             catch (Exception ex)

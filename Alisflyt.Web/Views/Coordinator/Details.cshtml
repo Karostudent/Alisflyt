@@ -111,11 +111,23 @@
 @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview)
 {
 	<a asp-action="ReturnForCorrection" asp-route-id="@Model.Id" class="btn btn-warning">Returner for korrigering</a>
+	var canMarkReady = !Model.GuidanceApprovalRequired || Model.GuidanceApprovalApproved;
 	<form asp-action="MarkReadyForAuditorApproval" method="post" class="d-inline" onsubmit="return confirm('Vil du markere søknaden som klar for revisorkontroll?');">
 		@Html.AntiForgeryToken()
 		<input type="hidden" name="id" value="@Model.Id" />
-		<button type="submit" class="btn btn-primary">Marker klar for revisorkontroll</button>
+		@if (canMarkReady)
+		{
+			<button type="submit" class="btn btn-primary">Marker klar for revisorkontroll</button>
+		}
+		else
+		{
+			<button type="submit" class="btn btn-primary" disabled aria-disabled="true">Marker klar for revisorkontroll</button>
+		}
 	</form>
+	@if (!canMarkReady)
+	{
+		<p class="form-text">Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.</p>
+	}
 }
 
 @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
