@@ -23,10 +23,17 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(180deg, #f3f7fb 0%, #eef5fb 100%);
   color: var(--alis-text);
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+body > .container {
+  flex: 1 0 auto;
+  width: 100%;
 }
 
 img {
@@ -271,5 +278,6 @@ img {
 }
 
 .footer {
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.8);
 }

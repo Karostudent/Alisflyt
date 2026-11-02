@@ -10,6 +10,7 @@ namespace Alisflyt.Domain.Entities
         public string? ApplicationDataJson { get; private set; }
         public Guid Id { get; private set; }
         public string CaseNumber { get; private set; }
+        public string? OwnerUserId { get; private set; }
         public string? HprNumber { get; private set; }
         public decimal? EmploymentPercentage { get; private set; }
         public DateOnly? EmploymentStartDate { get; private set; }
@@ -31,12 +32,15 @@ namespace Alisflyt.Domain.Entities
             Status = GrantCaseStatus.Draft;
         }
 
-        public static GrantCase Create(Guid id, string caseNumber, DateTimeOffset createdAtUtc)
+        public static GrantCase Create(Guid id, string caseNumber, DateTimeOffset createdAtUtc, string? ownerUserId = null)
         {
             if (id == Guid.Empty) throw new ArgumentException("Id must not be empty.", nameof(id));
             if (string.IsNullOrWhiteSpace(caseNumber)) throw new ArgumentException("CaseNumber must be provided.", nameof(caseNumber));
 
-            return new GrantCase(id, caseNumber, createdAtUtc);
+            return new GrantCase(id, caseNumber, createdAtUtc)
+            {
+                OwnerUserId = ownerUserId
+            };
         }
 
         public void UpdateDraft(string? hprNumber, decimal? employmentPercentage, DateOnly? employmentStartDate, DateOnly? employmentEndDate, DateTimeOffset now)

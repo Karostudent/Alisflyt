@@ -4,8 +4,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Alisflyt.Infrastructure.Identity;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
@@ -14,33 +18,34 @@ using Alisflyt.Web.ViewModels.GrantCases;
 
 namespace Alisflyt.Web.Controllers
 {
+    [Authorize]
     public class GrantCasesController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
         private readonly IGrantCaseRepository? _repository;
         private readonly ILogger<GrantCasesController> _logger;
+        private readonly UserManager<AlisflytUser>? _userManager;
 
         public GrantCasesController(
             IGrantCaseApplicationService svc,
             IGrantCaseRepository? repository = null,
-            ILogger<GrantCasesController>? logger = null)
+            ILogger<GrantCasesController>? logger = null,
+            UserManager<AlisflytUser>? userManager = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
             _repository = repository;
             _logger = logger ?? NullLogger<GrantCasesController>.Instance;
+            _userManager = userManager;
         }
 
         private bool UserCanAccessCase(string? doctorHprNumber)
         {
-            return DemoAuthentication.CanAccessCaseForCurrentUser(HttpContext, doctorHprNumber);
+            return User.Identity?.IsAuthenticated == true;
         }
 
         private bool IsGrantCaseReader()
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            return currentUser is not null
-                && (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase));
+            return User.IsInRole("ALIS");
         }
 
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
@@ -49,21 +54,6 @@ namespace Alisflyt.Web.Controllers
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
-            {
-                list = list
-                    .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
-            else if (currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
-            {
-                var allowedDoctors = new HashSet<string>(DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser.Key), StringComparer.OrdinalIgnoreCase);
-                list = list
-                    .Where(c => !string.IsNullOrWhiteSpace(c.HprNumber) && allowedDoctors.Contains(c.HprNumber))
-                    .ToList();
-            }
-
             var vm = list.Select(d => new GrantCaseListItemViewModel
             {
                 Id = d.Id,
@@ -97,15 +87,12 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public IActionResult Create()
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS"))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             var model = new GrantApplicationFormViewModel
             {
                 GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
-                HprNumber = currentUser?.HprNumber,
-                DoctorName = currentUser?.Name
             };
 
             return View("Application", model);
@@ -116,20 +103,12 @@ namespace Alisflyt.Web.Controllers
         [RequestSizeLimit(23_000_000)]
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is null
-                || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                || string.IsNullOrWhiteSpace(currentUser.HprNumber))
+            if (!User.IsInRole("ALIS"))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             model ??= new GrantApplicationFormViewModel();
-            if (!string.IsNullOrWhiteSpace(model.HprNumber)
-                && !string.Equals(model.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-            {
-                return BadRequest(new { message = "HPR-nummeret må samsvare med innlogget ALIS-bruker." });
-            }
 
             if (model.Id != Guid.Empty)
             {
@@ -143,8 +122,6 @@ namespace Alisflyt.Web.Controllers
                     return NotFound(new { message = "Søknaden finnes ikke lenger." });
                 }
 
-                if (!string.Equals(existing.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                    return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             model.Attachments ??= [];
@@ -153,9 +130,6 @@ namespace Alisflyt.Web.Controllers
             model.EmploymentPeriods ??= [];
             model.SelectedPositionTypes ??= [];
             model.DoctorProfessions ??= [];
-            model.HprNumber = currentUser.HprNumber;
-            model.DoctorName ??= currentUser.Name;
-
             model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
@@ -192,11 +166,7 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> Application(Guid id, CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is null
-                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS") && !User.IsInRole("Avdelingsleder"))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
@@ -204,12 +174,6 @@ namespace Alisflyt.Web.Controllers
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (!string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)
-                    && !UserCanAccessCase(data.HprNumber))
-                {
-                    return StatusCode(StatusCodes.Status403Forbidden);
-                }
-
                 var model = FormModel(data);
                 model.ReadOnly = true;
                 return View(model);
@@ -220,10 +184,7 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is null
-                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS") && !User.IsInRole("Avdelingsleder"))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
@@ -236,17 +197,6 @@ namespace Alisflyt.Web.Controllers
             catch (System.Collections.Generic.KeyNotFoundException)
             {
                 return NotFound();
-            }
-
-            if (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-            {
-                return StatusCode(StatusCodes.Status403Forbidden);
-            }
-            if (string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
-                && !DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, d.HprNumber))
-            {
-                return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             var vm = new GrantCaseDetailsViewModel
@@ -340,17 +290,13 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> EditGuidance(Guid id, CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS"))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             if (_repository is null)
                 return StatusCode(StatusCodes.Status503ServiceUnavailable);
 
             var grantCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-            if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
-                return StatusCode(StatusCodes.Status403Forbidden);
-
             var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
                 ?? throw new KeyNotFoundException();
             var currentApproval = domainCase.GetCurrentGuidanceApproval();
@@ -369,7 +315,7 @@ namespace Alisflyt.Web.Controllers
                 CaseId = domainCase.Id,
                 CaseNumber = domainCase.CaseNumber,
                 HprNumber = grantCase.HprNumber,
-                DoctorName = data.DoctorName ?? currentUser?.Name ?? string.Empty,
+                DoctorName = data.DoctorName ?? User.Identity?.Name ?? string.Empty,
                 CorrectionReason = currentApproval.RequestedRevisionReason,
                 Sessions = data.Certificate?.Sessions ?? []
             };
@@ -389,8 +335,7 @@ namespace Alisflyt.Web.Controllers
 
             model.CaseId = id.Value;
 
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS"))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             if (_repository is null)
@@ -399,9 +344,6 @@ namespace Alisflyt.Web.Controllers
             try
             {
                 var grantCase = await _svc.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false);
-                if (!string.Equals(grantCase.HprNumber, currentUser?.HprNumber, StringComparison.OrdinalIgnoreCase))
-                    return StatusCode(StatusCodes.Status403Forbidden);
-
                 var domainCase = await _repository.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false)
                     ?? throw new KeyNotFoundException();
                 var currentApproval = domainCase.GetCurrentGuidanceApproval();
@@ -513,9 +455,7 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS"))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
@@ -533,21 +473,13 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Submit(Guid id, CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (!User.IsInRole("ALIS"))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
-                Alisflyt.Application.Models.SubmitGrantCaseRequest? guidanceRequest = null;
-                if (currentUser is not null)
-                {
-                    var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-                    if (!string.Equals(data.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                        return StatusCode(StatusCodes.Status403Forbidden);
-
-                    guidanceRequest = CreateGuidanceRequest(data);
-                }
+                var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                var guidanceRequest = await CreateGuidanceRequestAsync(data, cancellationToken);
 
                 await _svc.SubmitAsync(id, guidanceRequest, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
@@ -585,36 +517,26 @@ namespace Alisflyt.Web.Controllers
             return await Details(id, cancellationToken);
         }
 
-        private static Alisflyt.Application.Models.SubmitGrantCaseRequest? CreateGuidanceRequest(GrantCaseDto grantCase)
+        private async Task<Alisflyt.Application.Models.SubmitGrantCaseRequest?> CreateGuidanceRequestAsync(
+            GrantCaseDto grantCase,
+            CancellationToken cancellationToken)
         {
             var certificate = grantCase.ApplicationData?.Certificate;
             if (certificate?.Sessions is null || certificate.Sessions.Count == 0)
                 return null;
 
-            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
-                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
-
-            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
-            if (string.IsNullOrWhiteSpace(doctorUserKey))
-                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
-
-            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
-            if (string.IsNullOrWhiteSpace(supervisorUserKey))
-                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
-
-            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
-                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
-            if (supervisor is null)
-                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
+            var supervisor = await _userManager!.Users
+                .Where(user => user.HprNumber == certificate.SupervisorHprNumber)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (supervisor is null || !await _userManager.IsInRoleAsync(supervisor, "Veileder"))
+                throw new InvalidOperationException("Veilederen finnes ikke som Identity-bruker med dette HPR-nummeret.");
 
             return new Alisflyt.Application.Models.SubmitGrantCaseRequest
             {
                 DoctorHprNumber = grantCase.HprNumber,
-                SupervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
-                    ? supervisor.HprNumber
-                    : certificate.SupervisorHprNumber,
-                SupervisorUserKey = supervisorUserKey,
-                SupervisorName = supervisor.Name
+                SupervisorHprNumber = certificate.SupervisorHprNumber,
+                SupervisorUserKey = supervisor.Id,
+                SupervisorName = certificate.SupervisorName
             };
         }
     }

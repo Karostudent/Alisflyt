@@ -5,6 +5,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Alisflyt.Infrastructure.Identity;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Domain.Entities;
@@ -16,15 +19,18 @@ using Alisflyt.Web.ViewModels.GrantCases;
 
 namespace Alisflyt.Web.Controllers
 {
+    [Authorize(Roles = "Veileder")]
     public class GuidanceController : Controller
     {
-        private readonly IGrantCaseApplicationService _svc;
         private readonly IGrantCaseRepository _repository;
+        private readonly UserManager<AlisflytUser> _userManager;
 
-        public GuidanceController(IGrantCaseApplicationService svc, IGrantCaseRepository repository)
+        public GuidanceController(
+            IGrantCaseRepository repository,
+            UserManager<AlisflytUser> userManager)
         {
-            _svc = svc ?? throw new ArgumentNullException(nameof(svc));
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
         }
 
         private static bool HasRelevantGuidanceSessions(GrantCase grantCase)
@@ -63,22 +69,19 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is null || currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser is null || string.IsNullOrWhiteSpace(currentUser.HprNumber))
                 return StatusCode(StatusCodes.Status403Forbidden);
-
-            var assignedDoctors = DemoAuthentication.GetAssignedDoctorUserKeys(currentUser.Key)
-                .Select(key => DemoAuthentication.DemoUsers.FirstOrDefault(u => string.Equals(u.Key, key, StringComparison.OrdinalIgnoreCase)))
-                .Where(u => u is not null)
-                .Select(u => u!.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
 
             var cases = (await _repository.ListAsync(cancellationToken)).Where(c =>
                     !string.IsNullOrWhiteSpace(c.HprNumber)
-                    && DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser?.Key)
-                        .Contains(c.HprNumber, StringComparer.OrdinalIgnoreCase))
+                    && HasSupervisorHpr(c, currentUser.HprNumber))
                     .ToList();
+            var assignedDoctors = cases
+                .Select(GetDoctorName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             var pending = 0;
             var needsCorrection = 0;
@@ -135,8 +138,8 @@ namespace Alisflyt.Web.Controllers
 
             var vm = new GuidanceDashboardViewModel
             {
-                Message = $"Veiledningsattester for {currentUser?.Name ?? "dine ALIS-leger"}.",
-                CurrentUserName = currentUser?.Name ?? string.Empty,
+                Message = $"Veiledningsattester for {currentUser.UserName ?? "dine ALIS-leger"}.",
+                CurrentUserName = currentUser.UserName ?? string.Empty,
                 AssignedDoctors = assignedDoctors,
                 PendingCount = pending,
                 NeedsCorrectionCount = needsCorrection,
@@ -148,15 +151,22 @@ namespace Alisflyt.Web.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Applications([FromServices] IGrantCaseApplicationService service, string status = "All", CancellationToken cancellationToken = default)
+        public async Task<IActionResult> Applications(string status = "All", CancellationToken cancellationToken = default)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is null || currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser is null || string.IsNullOrWhiteSpace(currentUser.HprNumber))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
-            var allowedDoctors = new HashSet<string>(DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser.Key), StringComparer.OrdinalIgnoreCase);
-            var cases = (await service.ListAsync(cancellationToken))
-                .Where(c => allowedDoctors.Contains(c.HprNumber ?? string.Empty))
+            var cases = (await _repository.ListAsync(cancellationToken))
+                .Where(c => c.Status != GrantCaseStatus.Draft && HasSupervisorHpr(c, currentUser.HprNumber))
+                .Select(c => new Alisflyt.Application.Models.GrantCaseListItemDto
+                {
+                    Id = c.Id,
+                    CaseNumber = c.CaseNumber,
+                    HprNumber = c.HprNumber,
+                    Status = c.Status,
+                    LastModifiedAtUtc = c.LastModifiedAtUtc
+                })
                 .ToList();
 
             if (!new[] { "All", "Draft", "Submitted", "UnderReview", "ReturnedForCorrection" }.Contains(status)) status = "All";
@@ -174,6 +184,26 @@ namespace Alisflyt.Web.Controllers
                         LastModifiedAtUtc = c.LastModifiedAtUtc
                     }).ToList()
             });
+        }
+
+        private static bool HasSupervisorHpr(GrantCase grantCase, string supervisorHpr)
+        {
+            var application = grantCase.ApplicationDataJson is null
+                ? null
+                : JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson);
+            return string.Equals(
+                application?.Certificate?.SupervisorHprNumber,
+                supervisorHpr,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetDoctorName(GrantCase grantCase)
+        {
+            if (grantCase.ApplicationDataJson is null)
+                return string.Empty;
+
+            return JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson)
+                ?.DoctorName ?? string.Empty;
         }
     }
 }

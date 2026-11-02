@@ -1,9 +1,7 @@
-using Alisflyt.Web.Models;
-
 namespace Alisflyt.Web.ViewModels.Home;
 
 public class LandingViewModel
 {
-    public DemoUser? CurrentUser { get; set; }
-    public IReadOnlyList<DemoUser> DemoUsers { get; set; } = Array.Empty<DemoUser>();
+    public string? CurrentUserName { get; set; }
+    public IReadOnlyList<string> Roles { get; set; } = Array.Empty<string>();
 }

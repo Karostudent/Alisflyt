@@ -2,7 +2,7 @@
 
 ALISflyt er en demonstrasjonsapplikasjon for digital søknad og behandling av kommunale ALIS-tilskudd. Prosjektet er bygget som en fungerende prototype der søknadsflyten, beregning og saksbehandling er modellert i kode.
 
-Målet er å samle søknadsopplysninger, beregningsgrunnlag og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang og gjenbrukes videre i prosessen. I dagens versjon er dette fokusert på et demo-/testmiljø uten produksjonsautentisering.
+Målet er å samle søknadsopplysninger, beregningsgrunnlag og saksbehandling i én arbeidsflyt, slik at informasjon kan registreres én gang og gjenbrukes videre i prosessen.
 
 ## Status nå
 
@@ -10,15 +10,15 @@ Dette er en fungerende prototype i demoform, ikke et ferdig produksjonssystem.
 
 ### Implementert i repoet
 
-#### Portal og demoroller
+#### Portal og roller
 
-- Felles demoportal med tilgang til ALIS, veileder, koordinator og administrator
-- Demoinnlogging med syntetiske brukere og sesjonsbasert brukeridentitet
+- ASP.NET Core Identity med brukernavn/e-post, passord og cookie-innlogging
+- Rollene `ALIS`, `Veileder`, `Avdelingsleder` og `Administrator`
 - Rollebasert navigasjon til hvert arbeidsområde
-- Rolle- og tilknytningskontroller i ALIS-, veileder- og administratorflyten
-- Forhåndsdefinert kobling mellom demo-ALIS og demo-veileder
-
-Dette er ikke produksjonsautentisering. Demoidentiteten lagres i session og er kun laget for en kontrollert demonstrasjon med fiktive brukere.
+- Automatisk og idempotent opprettelse av rollene ved oppstart
+- Kontrollert bootstrap av første administrator via konfigurasjon eller miljøvariabler
+- Administrator kan opprette brukere og endre roller
+- Søknadstilgang håndheves på serversiden med eierskap og rolle
 
 #### Søknadsflyt
 
@@ -54,12 +54,9 @@ Søknadsdata lagres samlet i `GrantCases.ApplicationDataJson`.
 
 #### Administrator
 
-Administratorområdet er en presentasjonsvisning som:
+Administratorområdet viser registrerte Identity-brukere og lar administrator opprette brukere og tildele én av de fire rollene. Den siste administratorrollen kan ikke fjernes. Administrator får ikke automatisk tilgang til søknadsinnhold.
 
-- viser alle saker i løsningen
-- viser registrerte satssett, gyldighetsperioder og aktiv/inaktiv status
-
-Opprettelse, redigering og aktivering av satssett er ikke implementert i Web-laget.
+Når en bruker opprettes med rollen `Veileder`, kan administrator registrere veilederens unike HPR-nummer. Søknader med veiledningsøkter kobles ved innsending til Identity-veilederen med samme HPR-nummer.
 
 #### Automatisk beregning
 
@@ -98,9 +95,9 @@ Merkostnader til veiledning inngår ikke i automatisk beregning i denne versjone
 
 Dette er fortsatt en prototype. Følgende er ikke ferdig implementert eller må behandles som avgrensninger:
 
-- produksjonsautentisering, brukerregister, passordløsning og federert innlogging
-- fullstendig og konsekvent server-side autorisasjon for alle koordinatorhandlinger
-- produksjonsklar tilgangsmodell for sakseierskap og organisatorisk tilhørighet
+- federert innlogging og kobling mot eksterne katalogtjenester
+- eksplisitt veiledertilknytning til ALIS/saker
+- fullstendig organisatorisk tilgangsmodell utover den enkeltkommunale instansen
 - opprettelse, redigering og aktivering av satssett fra administratorområdet
 - lagring av et historisk beregningsresultat eller en permanent kobling til brukt satsversjon
 - automatisk beregning av alle kostnadstyper, blant annet merkostnader til veiledning
@@ -162,6 +159,25 @@ Det gjøres ingen beregning i JavaScript eller Razor Views.
 - .NET 10 SDK
 - Visual Studio med ASP.NET-workload, eller annet egnet utviklingsmiljø
 - SQL Server Express LocalDB på Windows
+
+## Identity-oppsett
+
+Rollene opprettes automatisk ved oppstart. Første administrator opprettes bare når alle tre bootstrap-verdiene er satt; passordet skal ikke legges i kildekode eller commit. Eksempel med PowerShell:
+
+```powershell
+$env:Identity__BootstrapAdmin__UserName = "admin"
+$env:Identity__BootstrapAdmin__Email = "admin@gmail.com"
+$env:Identity__BootstrapAdmin__Password = "<sterkt-passord>"
+dotnet run --project Alisflyt.Web/Alisflyt.Web.csproj
+```
+
+Database-migrering kjøres ved oppstart i utviklingsoppsett. For en eksplisitt migrering kan følgende brukes:
+
+```powershell
+dotnet ef database update --project Alisflyt.Infrastructure/Alisflyt.Infrastructure.csproj --startup-project Alisflyt.Web/Alisflyt.Web.csproj
+```
+
+Eksisterende søknader migreres med `OwnerUserId = NULL` og blir ikke automatisk tildelt en bruker. De må tildeles eksplisitt før de kan behandles.
 
 ## Klone og kjør lokalt
 

@@ -10,6 +10,10 @@ namespace Alisflyt.Application.Abstractions
     {
         Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default);
+        Task<GrantCase?> GetAccessibleByIdAsync(Guid id, string userId, bool canAccessSubmittedCases, CancellationToken cancellationToken = default)
+            => GetByIdAsync(id, cancellationToken);
+        Task<IReadOnlyList<GrantCase>> ListAccessibleAsync(string userId, bool canAccessSubmittedCases, CancellationToken cancellationToken = default)
+            => ListAsync(cancellationToken);
         Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default);
         Task AddGuidanceApprovalAsync(GuidanceApproval approval, CancellationToken cancellationToken = default);
         Task SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -49,6 +49,36 @@ namespace Alisflyt.Infrastructure.Persistence.Repositories
             return list;
         }
 
+        public async Task<GrantCase?> GetAccessibleByIdAsync(
+            Guid id,
+            string userId,
+            bool canAccessSubmittedCases,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .Where(c => canAccessSubmittedCases
+                    ? c.OwnerUserId != null && c.Status != Alisflyt.Domain.Enums.GrantCaseStatus.Draft
+                    : c.OwnerUserId == userId)
+                .FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        public async Task<IReadOnlyList<GrantCase>> ListAccessibleAsync(
+            string userId,
+            bool canAccessSubmittedCases,
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.GrantCases
+                .Include(c => c.GuidanceApprovals)
+                .Where(c => canAccessSubmittedCases
+                    ? c.OwnerUserId != null && c.Status != Alisflyt.Domain.Enums.GrantCaseStatus.Draft
+                    : c.OwnerUserId == userId)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

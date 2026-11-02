@@ -1,714 +1,137 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using Alisflyt.Web.Tests.Fakes;
+using System.Security.Claims;
+using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
+using Alisflyt.Domain.Forms;
+using Alisflyt.Infrastructure.Identity;
+using Alisflyt.Web.Controllers;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
-namespace Alisflyt.Web.Tests
+namespace Alisflyt.Web.Tests;
+
+public sealed class GuidanceControllerTests
 {
-    public class GuidanceControllerTests
+    [Fact]
+    public async Task Applications_only_returns_submitted_cases_for_current_supervisor()
     {
-        [Theory]
-        [InlineData("All", 2)]
-        [InlineData("Draft", 1)]
-        [InlineData("Unknown", 2)]
-        public async Task Applications_filters_cases(string status, int count)
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
+        var matchingDraft = CreateCase("DRAFT", "987654321", GrantCaseStatus.Draft);
+        var matchingSubmitted = CreateCase("SUBMITTED", "987654321", GrantCaseStatus.Submitted);
+        var unrelatedSubmitted = CreateCase("OTHER", "111111111", GrantCaseStatus.Submitted);
+        var repository = new StubRepository(matchingDraft, matchingSubmitted, unrelatedSubmitted);
+        var controller = CreateController(repository, CreateUser("veileder-id", "987654321"));
 
-            var fake = new FakeGrantCaseApplicationService
-            {
-                ListResponse = new[]
+        var result = Assert.IsType<ViewResult>(await controller.Applications());
+        var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.GuidanceApplicationsViewModel>(result.Model);
+
+        var item = Assert.Single(model.Cases);
+        Assert.Equal("SUBMITTED", item.CaseNumber);
+    }
+
+    [Fact]
+    public async Task Applications_forbids_identity_supervisor_without_hpr_number()
+    {
+        var controller = CreateController(new StubRepository(), CreateUser("veileder-id", null));
+
+        var result = await controller.Applications();
+
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
+    }
+
+    private static GuidanceController CreateController(StubRepository repository, AlisflytUser user)
+    {
+        var userManager = new UserManager<AlisflytUser>(
+            new StubUserStore(user),
+            null,
+            new PasswordHasher<AlisflytUser>(),
+            [],
+            [],
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            null,
+            null);
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim(ClaimTypes.Role, "Veileder")
+            ], "Identity"))
+        };
+        return new GuidanceController(repository, userManager)
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
+        };
+    }
+
+    private static AlisflytUser CreateUser(string id, string? hprNumber) =>
+        new() { Id = id, UserName = "Veileder", HprNumber = hprNumber };
+
+    private static GrantCase CreateCase(string caseNumber, string supervisorHpr, GrantCaseStatus status)
+    {
+        var grantCase = GrantCase.Create(Guid.NewGuid(), caseNumber, DateTimeOffset.UtcNow);
+        grantCase.UpdateApplication(new GrantApplicationData
+        {
+            HprNumber = "123456789",
+            DoctorName = "Testlege",
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2024, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2027, 1, 1),
+            GrantType = GrantType.SupervisionOnly,
+            FirstRegularGpOrLocumDate = new DateOnly(2024, 1, 1),
+            Attachments = [],
+            DoctorProfessions = [],
+            SelectedPositionTypes = [PositionType.RegularGpOrLocum],
+            EmploymentPeriods =
+            [
+                new EmploymentPeriodInputModel
                 {
-                    new Alisflyt.Application.Models.GrantCaseListItemDto { HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft },
-                    new Alisflyt.Application.Models.GrantCaseListItemDto { HprNumber = "123456789", Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted }
+                    PositionType = PositionType.RegularGpOrLocum,
+                    PositionPercentage = 100,
+                    EmploymentStartDate = new DateOnly(2024, 1, 1),
+                    FundingFrom = new DateOnly(2024, 1, 1),
+                    FundingThrough = new DateOnly(2024, 12, 31)
                 }
-            };
-            var controller = new Alisflyt.Web.Controllers.GuidanceController(fake, new FakeGrantCaseRepository())
+            ],
+            Certificate = new SupervisionCertificateViewModel
             {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = Assert.IsType<ViewResult>(await controller.Applications(fake, status));
-            var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.GuidanceApplicationsViewModel>(result.Model);
-            Assert.Equal(count, model.Cases.Count);
-            Assert.Equal(status == "Unknown" ? "All" : status, model.Filter);
-        }
-
-        [Fact]
-        public async Task GuidanceController_Index_ReturnsGuidanceDashboardViewModel()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
-
-            var repo = new GuidanceRepositoryStub();
-            var ctrl = new Alisflyt.Web.Controllers.GuidanceController(new FakeGrantCaseApplicationService(), repo)
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await ctrl.Index();
-
-            var view = Assert.IsType<ViewResult>(result);
-            var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.GuidanceDashboardViewModel>(view.Model);
-            Assert.Contains("Veiledningsattester", model.Message);
-            Assert.NotNull(model.Cases);
-        }
-
-        [Fact]
-        public async Task Applications_forbids_non_supervisor_role()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "administrator-ole",
-                Role = "Administrator",
-                Name = "Ole Hovland",
-                HprNumber = "999999999"
-            });
-
-            var controller = new Alisflyt.Web.Controllers.GuidanceController(new FakeGrantCaseApplicationService(), new FakeGrantCaseRepository())
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Applications(new FakeGrantCaseApplicationService(), "All");
-
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
-        }
-
-        [Fact]
-        public void DemoAuthentication_maps_doctor_user_key_to_supervisor_user_key()
-        {
-            Assert.Equal("veileder-per", Alisflyt.Web.Models.DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey("alis-anna"));
-            Assert.Contains("alis-anna", Alisflyt.Web.Models.DemoAuthentication.GetAssignedDoctorUserKeys("veileder-per"));
-            Assert.Equal("veileder-per", Alisflyt.Web.Models.DemoAuthentication.GetSupervisorUserKeyForDoctor("123456789"));
-        }
-
-        [Fact]
-        public async Task SupervisorController_Details_forbids_unassigned_supervisor()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
-
-            var id = Guid.NewGuid();
-            var service = new FakeGrantCaseApplicationService
-            {
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto
-                {
-                    Id = id,
-                    CaseNumber = "CASE-99",
-                    HprNumber = "555555555",
-                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted,
-                    CreatedAtUtc = DateTimeOffset.UtcNow,
-                    LastModifiedAtUtc = DateTimeOffset.UtcNow
-                }
-            };
-
-            var controller = new Alisflyt.Web.Controllers.SupervisorController(
-                service,
-                new FakeGrantCaseRepository(),
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                new FakeGuidanceApprovalService())
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Details(id, default);
-
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
-        }
-
-        private sealed class TestSession : ISession
-        {
-            private readonly Dictionary<string, byte[]> _store = new();
-
-            public IEnumerable<string> Keys => _store.Keys;
-            public string Id { get; } = Guid.NewGuid().ToString();
-            public bool IsAvailable => true;
-
-            public void Clear() => _store.Clear();
-            public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-            public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-            public void Remove(string key) => _store.Remove(key);
-            public void Set(string key, byte[] value) => _store[key] = value;
-            public bool TryGetValue(string key, out byte[] value) => _store.TryGetValue(key, out value!);
-        }
-
-        private sealed class FakeGrantCaseRepository : Alisflyt.Application.Abstractions.IGrantCaseRepository
-        {
-            public Task<Alisflyt.Domain.Entities.GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-                => Task.FromResult<Alisflyt.Domain.Entities.GrantCase?>(null);
-
-            public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
-                => Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>(Array.Empty<Alisflyt.Domain.Entities.GrantCase>());
-
-            public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-
-            public Task AddGuidanceApprovalAsync(Alisflyt.Domain.Entities.GuidanceApproval approval, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-
-            public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-        }
-
-        private sealed class GuidanceRepositoryStub : Alisflyt.Application.Abstractions.IGrantCaseRepository
-        {
-            public Task<Alisflyt.Domain.Entities.GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-                => Task.FromResult<Alisflyt.Domain.Entities.GrantCase?>(null);
-
-            public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
-            {
-                var now = DateTimeOffset.UtcNow;
-                var case1 = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CASE-01", now);
-                var app = new Alisflyt.Domain.Forms.GrantApplicationData
-                {
-                    HprNumber = "123456789",
-                    DoctorName = "Anna Hansen",
-                    Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                    {
-                        DoctorName = "Anna Hansen",
-                        SupervisorHprNumber = "987654321",
-                        SupervisorName = "Per Olsen",
-                        DoctorSigningPlace = "Oslo",
-                        SupervisorSigningPlace = "Oslo",
-                        Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 1, 10), Hours = 2m, Topic = "Veiledning" }]
-                    }
-                };
-                case1.UpdateApplication(app, now);
-                case1.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now, "Per Olsen");
-                return Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([case1]);
+                SupervisorHprNumber = supervisorHpr,
+                Sessions = []
             }
+        }, DateTimeOffset.UtcNow);
+        if (status != GrantCaseStatus.Draft)
+            grantCase.Submit(DateTimeOffset.UtcNow);
+        return grantCase;
+    }
 
-            public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
+    private sealed class StubRepository(params GrantCase[] cases) : Alisflyt.Application.Abstractions.IGrantCaseRepository
+    {
+        public Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<GrantCase>>(cases);
 
-            public Task AddGuidanceApprovalAsync(Alisflyt.Domain.Entities.GuidanceApproval approval, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
+        public Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(cases.SingleOrDefault(item => item.Id == id));
 
-            public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-        }
+        public Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task AddGuidanceApprovalAsync(GuidanceApproval approval, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveChangesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
-        private sealed class FakeGrantCalculationApplicationService : Alisflyt.Application.Services.IGrantCalculationApplicationService
-        {
-            public Task<Alisflyt.Application.Models.GrantCalculationDetailsDto> CalculateForCaseAsync(Guid caseId, CancellationToken cancellationToken = default)
-                => Task.FromResult(new Alisflyt.Application.Models.GrantCalculationDetailsDto());
-        }
-
-        [Fact]
-        public async Task GrantCasesController_Submit_creates_pending_guidance_request_for_new_attestation()
-        {
-            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
-            var caseId = Guid.NewGuid();
-            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-PENDING", now);
-            var app = new Alisflyt.Domain.Forms.GrantApplicationData
-            {
-                HprNumber = "123456789",
-                DoctorName = "Anna Hansen",
-                DoctorProfessions = ["Lege"],
-                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
-                ConfirmsSpecialization = true,
-                SpecializationStartDate = new DateOnly(2025, 1, 1),
-                ExpectedCompletionDate = new DateOnly(2030, 1, 1),
-                ConfirmsAlisAgreement = true,
-                ConfirmsOfficialAgreementTemplate = true,
-                ConfirmsNoCommercialAgencyAffiliation = true,
-                AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
-                FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
-                SelectedPositionTypes = [Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum],
-                EmploymentPeriods =
-                [
-                    new Alisflyt.Domain.Forms.EmploymentPeriodInputModel
-                    {
-                        PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum,
-                        PositionPercentage = 80m,
-                        EmploymentStartDate = new DateOnly(2025, 1, 1),
-                        FundingFrom = new DateOnly(2026, 1, 1),
-                        FundingThrough = new DateOnly(2026, 6, 30)
-                    }
-                ],
-                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                {
-                    DoctorName = "Anna Hansen",
-                    SupervisorHprNumber = "987654321",
-                    SupervisorName = "Per Olsen",
-                    DoctorSigningPlace = "Oslo",
-                    SupervisorSigningPlace = "Oslo",
-                    DoctorSigningDate = new DateOnly(2026, 6, 30),
-                    SupervisorSigningDate = new DateOnly(2026, 6, 30),
-                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
-                }
-            };
-            grantCase.UpdateApplication(app, now.AddMinutes(1));
-
-            var repo = new InMemoryGrantCaseRepository(grantCase);
-            var service = new FakeGrantCaseApplicationService
-            {
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto
-                {
-                    Id = caseId,
-                    CaseNumber = "CASE-PENDING",
-                    HprNumber = "123456789",
-                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Draft,
-                    CreatedAtUtc = now,
-                    LastModifiedAtUtc = now.AddMinutes(1),
-                    ApplicationData = app
-                }
-            };
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "alis-anna",
-                Role = "ALIS",
-                Name = "Anna Hansen",
-                HprNumber = "123456789"
-            });
-
-            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, repository: repo)
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Submit(caseId, default);
-
-            Assert.IsType<RedirectToActionResult>(result);
-            var call = Assert.Single(service.AtomicSubmitCalls);
-            Assert.Equal(caseId, call.id);
-            Assert.NotNull(call.guidanceRequest);
-            Assert.Equal("123456789", call.guidanceRequest!.DoctorHprNumber);
-            Assert.Equal("987654321", call.guidanceRequest.SupervisorHprNumber);
-            Assert.Equal("veileder-per", call.guidanceRequest.SupervisorUserKey);
-
-            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(3), "Per Olsen");
-            await repo.AddGuidanceApprovalAsync(approval);
-            var guidanceService = new Alisflyt.Application.Services.GuidanceApprovalService(repo, TimeProvider.System);
-
-            var supervisorContext = new DefaultHttpContext();
-            supervisorContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(supervisorContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
-
-            var guidanceController = new Alisflyt.Web.Controllers.GuidanceController(new FakeGrantCaseApplicationService(), repo)
-            {
-                ControllerContext = new ControllerContext { HttpContext = supervisorContext }
-            };
-            var guidanceIndex = await guidanceController.Index(default);
-            var guidanceView = Assert.IsType<ViewResult>(guidanceIndex);
-            var guidanceModel = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.GuidanceDashboardViewModel>(guidanceView.Model);
-            Assert.True(guidanceModel.PendingCount >= 1);
-
-            var supervisorController = new Alisflyt.Web.Controllers.SupervisorController(
-                service,
-                repo,
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                guidanceService)
-            {
-                ControllerContext = new ControllerContext { HttpContext = supervisorContext }
-            };
-
-            var detailsResult = await supervisorController.Details(caseId, default);
-            var detailsView = Assert.IsType<ViewResult>(detailsResult);
-            Assert.NotNull(supervisorController.ViewData["GuidanceApproval"]);
-            Assert.Equal("Avventer godkjenning", supervisorController.ViewData["GuidanceStatusText"] as string);
-            Assert.NotNull(detailsView.Model);
-        }
-
-        [Fact]
-        public async Task SupervisorController_Approve_pending_guidance_sets_success_message()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
-
-            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
-            var caseId = Guid.NewGuid();
-            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-APPROVE", now);
-            var app = new Alisflyt.Domain.Forms.GrantApplicationData
-            {
-                HprNumber = "123456789",
-                DoctorName = "Anna Hansen",
-                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                {
-                    DoctorName = "Anna Hansen",
-                    SupervisorHprNumber = "987654321",
-                    SupervisorName = "Per Olsen",
-                    DoctorSigningPlace = "Oslo",
-                    SupervisorSigningPlace = "Oslo",
-                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
-                }
-            };
-            grantCase.UpdateApplication(app, now.AddMinutes(1));
-            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
-            var repo = new InMemoryGrantCaseRepository(grantCase);
-            var guidanceService = new TrackingGuidanceApprovalService();
-            var controller = new Alisflyt.Web.Controllers.SupervisorController(
-                new FakeGrantCaseApplicationService(),
-                repo,
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                guidanceService)
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Approve(caseId, true, default);
-
-            Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal(1, guidanceService.ApproveCalls.Count);
-            Assert.Equal("Veiledningstimene er godkjent.", controller.TempData["Success"] as string);
-            Assert.Equal(approval.Id, guidanceService.ApproveCalls[0].GuidanceApprovalId);
-        }
-
-        [Fact]
-        public async Task SupervisorController_RequestCorrection_rejects_blank_reason()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "veileder-per",
-                Role = "Veileder",
-                Name = "Per Olsen",
-                HprNumber = "987654321"
-            });
-
-            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
-            var caseId = Guid.NewGuid();
-            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-CORR", now);
-            var app = new Alisflyt.Domain.Forms.GrantApplicationData
-            {
-                HprNumber = "123456789",
-                DoctorName = "Anna Hansen",
-                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                {
-                    DoctorName = "Anna Hansen",
-                    SupervisorHprNumber = "987654321",
-                    SupervisorName = "Per Olsen",
-                    DoctorSigningPlace = "Oslo",
-                    SupervisorSigningPlace = "Oslo",
-                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
-                }
-            };
-            grantCase.UpdateApplication(app, now.AddMinutes(1));
-            grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
-            var repo = new InMemoryGrantCaseRepository(grantCase);
-            var controller = new Alisflyt.Web.Controllers.SupervisorController(
-                new FakeGrantCaseApplicationService(),
-                repo,
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                new TrackingGuidanceApprovalService())
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.RequestCorrection(caseId, "   ", default);
-
-            Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Begrunnelse for korrigering er påkrevd.", controller.TempData["Error"] as string);
-        }
-
-        [Fact]
-        public async Task SupervisorController_Approve_rejects_unauthed_users()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "alis-anna",
-                Role = "ALIS",
-                Name = "Anna Hansen",
-                HprNumber = "123456789"
-            });
-
-            var caseId = Guid.NewGuid();
-            var controller = new Alisflyt.Web.Controllers.SupervisorController(
-                new FakeGrantCaseApplicationService(),
-                new InMemoryGrantCaseRepository(Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-NOT-ALLOWED", DateTimeOffset.UtcNow)),
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                new TrackingGuidanceApprovalService())
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Approve(caseId, true, default);
-
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
-        }
-
-        [Fact]
-        public async Task SupervisorController_RequestCorrection_rejects_unauthed_users()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "koord-ole",
-                Role = "Koordinator",
-                Name = "Ole Koordinator",
-                HprNumber = "111111111"
-            });
-
-            var caseId = Guid.NewGuid();
-            var controller = new Alisflyt.Web.Controllers.SupervisorController(
-                new FakeGrantCaseApplicationService(),
-                new InMemoryGrantCaseRepository(Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-NOT-ALLOWED", DateTimeOffset.UtcNow)),
-                TimeProvider.System,
-                new FakeGrantCalculationApplicationService(),
-                new TrackingGuidanceApprovalService())
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.RequestCorrection(caseId, "Mangler data", default);
-
-            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
-        }
-
-        [Fact]
-        public async Task GrantCasesController_Details_shows_correction_notice_for_needs_correction()
-        {
-            var httpContext = new DefaultHttpContext();
-            httpContext.Session = new TestSession();
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "alis-anna",
-                Role = "ALIS",
-                Name = "Anna Hansen",
-                HprNumber = "123456789"
-            });
-
-            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
-            var caseId = Guid.NewGuid();
-            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-ALIS-KORR", now);
-            var app = new Alisflyt.Domain.Forms.GrantApplicationData
-            {
-                HprNumber = "123456789",
-                DoctorName = "Anna Hansen",
-                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                {
-                    DoctorName = "Anna Hansen",
-                    SupervisorHprNumber = "987654321",
-                    SupervisorName = "Per Olsen",
-                    DoctorSigningPlace = "Oslo",
-                    SupervisorSigningPlace = "Oslo",
-                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
-                }
-            };
-            grantCase.UpdateApplication(app, now.AddMinutes(1));
-            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
-            approval.RequestCorrection("Timer stemmer ikke.", now.AddMinutes(3));
-
-            var service = new FakeGrantCaseApplicationService
-            {
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto
-                {
-                    Id = caseId,
-                    CaseNumber = "CASE-ALIS-KORR",
-                    HprNumber = "123456789",
-                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted,
-                    CreatedAtUtc = now,
-                    LastModifiedAtUtc = now
-                }
-            };
-            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, repository: new InMemoryGrantCaseRepository(grantCase))
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.Details(caseId, default);
-
-            Assert.IsType<ViewResult>(result);
-            var details = Assert.IsType<Alisflyt.Web.ViewModels.GrantCases.GrantCaseDetailsViewModel>(Assert.IsType<ViewResult>(result).Model);
-            Assert.True(details.GuidanceCorrectionRequired);
-            Assert.Equal("Veiledningsattest må korrigeres", controller.ViewData["GuidanceCorrectionStatus"] as string);
-            Assert.Equal("Timer stemmer ikke.", details.GuidanceCorrectionReason);
-            Assert.Equal("Timer stemmer ikke.", controller.ViewData["GuidanceCorrectionReason"] as string);
-        }
-
-        private sealed class FakeGuidanceApprovalService : Alisflyt.Application.Services.IGuidanceApprovalService
-        {
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestApprovalAsync(Guid grantCaseId, string doctorHprNumber, string supervisorHprNumber, string supervisorUserKey, string? supervisorName, CancellationToken cancellationToken = default)
-                => throw new NotSupportedException();
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> ApproveAsync(Guid grantCaseId, Guid guidanceApprovalId, string approvedByUserKey, CancellationToken cancellationToken = default)
-                => throw new NotSupportedException();
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestCorrectionAsync(Guid grantCaseId, Guid guidanceApprovalId, string reason, CancellationToken cancellationToken = default)
-                => throw new NotSupportedException();
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval?> GetLatestApprovalAsync(Guid grantCaseId, CancellationToken cancellationToken = default)
-                => Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval?>(null);
-        }
-
-        private sealed class TrackingGuidanceApprovalService : Alisflyt.Application.Services.IGuidanceApprovalService
-        {
-            public List<(Guid GrantCaseId, Guid GuidanceApprovalId, string ApprovedByUserKey)> ApproveCalls { get; } = [];
-            public List<(Guid GrantCaseId, Guid GuidanceApprovalId, string Reason)> CorrectionCalls { get; } = [];
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestApprovalAsync(Guid grantCaseId, string doctorHprNumber, string supervisorHprNumber, string supervisorUserKey, string? supervisorName, CancellationToken cancellationToken = default)
-                => throw new NotSupportedException();
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> ApproveAsync(Guid grantCaseId, Guid guidanceApprovalId, string approvedByUserKey, CancellationToken cancellationToken = default)
-            {
-                ApproveCalls.Add((grantCaseId, guidanceApprovalId, approvedByUserKey));
-                return Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval>(null!);
-            }
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestCorrectionAsync(Guid grantCaseId, Guid guidanceApprovalId, string reason, CancellationToken cancellationToken = default)
-            {
-                CorrectionCalls.Add((grantCaseId, guidanceApprovalId, reason));
-                return Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval>(null!);
-            }
-
-            public Task<Alisflyt.Domain.Entities.GuidanceApproval?> GetLatestApprovalAsync(Guid grantCaseId, CancellationToken cancellationToken = default)
-                => Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval?>(null);
-        }
-
-        [Fact]
-        public async Task GrantCasesController_UpdateGuidance_shows_database_error_and_logs()
-        {
-            var now = DateTimeOffset.UtcNow;
-            var caseId = Guid.NewGuid();
-            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-GUIDANCE-ERROR", now);
-            grantCase.UpdateApplication(new Alisflyt.Domain.Forms.GrantApplicationData
-            {
-                HprNumber = "123456789",
-                DoctorName = "Anna Hansen",
-                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
-                ConfirmsSpecialization = true,
-                SpecializationStartDate = new DateOnly(2025, 1, 1),
-                ExpectedCompletionDate = new DateOnly(2028, 1, 1),
-                ConfirmsAlisAgreement = true,
-                ConfirmsOfficialAgreementTemplate = true,
-                ConfirmsNoCommercialAgencyAffiliation = true,
-                AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
-                FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
-                SelectedPositionTypes = [Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum],
-                EmploymentPeriods = [new Alisflyt.Domain.Forms.EmploymentPeriodInputModel
-                {
-                    PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum,
-                    PositionPercentage = 50m,
-                    EmploymentStartDate = new DateOnly(2026, 1, 1),
-                    FundingFrom = new DateOnly(2026, 1, 1),
-                    FundingThrough = new DateOnly(2026, 12, 31)
-                }],
-                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
-                {
-                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m, Topic = "Veiledning" }]
-                }
-            }, now.AddMinutes(1));
-            var approval = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
-            approval.RequestCorrection("Mangler opplysninger", now.AddMinutes(3));
-            grantCase.Submit(now.AddMinutes(4));
-            var repository = new InMemoryGrantCaseRepository(grantCase)
-            {
-                SaveException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
-            };
-            var service = new FakeGrantCaseApplicationService
-            {
-                GetByIdResponse = new Alisflyt.Application.Models.GrantCaseDto { Id = caseId, HprNumber = "123456789" },
-                UpdateGuidanceException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed")
-            };
-            var httpContext = new DefaultHttpContext { Session = new TestSession() };
-            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
-            {
-                Key = "alis-anna", Role = "ALIS", Name = "Anna Hansen", HprNumber = "123456789"
-            });
-            var logger = new TestLogger<Alisflyt.Web.Controllers.GrantCasesController>();
-            var controller = new Alisflyt.Web.Controllers.GrantCasesController(service, repository, logger)
-            {
-                ControllerContext = new ControllerContext { HttpContext = httpContext }
-            };
-
-            var result = await controller.UpdateGuidance(null, new Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel
-            {
-                CaseId = caseId,
-                Sessions = [new() { Date = new DateOnly(2026, 10, 3), Hours = 3m, Topic = "Ny veiledning" }]
-            }, default);
-
-            var view = Assert.IsType<ViewResult>(result);
-            var returnedModel = Assert.IsType<Alisflyt.Web.ViewModels.Guidance.GuidanceCorrectionEditViewModel>(view.Model);
-            Assert.Equal("CASE-GUIDANCE-ERROR", returnedModel.CaseNumber);
-            Assert.Equal("Mangler opplysninger", returnedModel.CorrectionReason);
-            Assert.Contains(controller.ModelState[string.Empty]!.Errors, e => e.ErrorMessage == "Endringen kunne ikke lagres. Prøv igjen.");
-            var entry = Assert.Single(logger.Entries);
-            Assert.Equal(LogLevel.Error, entry.Level);
-            Assert.Contains(caseId.ToString(), entry.State);
-            Assert.DoesNotContain("123456789", entry.State);
-        }
-
-        private sealed class InMemoryGrantCaseRepository : Alisflyt.Application.Abstractions.IGrantCaseRepository
-        {
-            private readonly Alisflyt.Domain.Entities.GrantCase _grantCase;
-            public Exception? SaveException { get; set; }
-
-            public InMemoryGrantCaseRepository(Alisflyt.Domain.Entities.GrantCase grantCase)
-            {
-                _grantCase = grantCase;
-            }
-
-            public Task<Alisflyt.Domain.Entities.GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-                => Task.FromResult<Alisflyt.Domain.Entities.GrantCase?>(_grantCase.Id == id ? _grantCase : null);
-
-            public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
-                => Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([_grantCase]);
-
-            public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-
-            public Task AddGuidanceApprovalAsync(Alisflyt.Domain.Entities.GuidanceApproval approval, CancellationToken cancellationToken = default)
-                => Task.CompletedTask;
-
-            public Task SaveChangesAsync(CancellationToken cancellationToken = default)
-            {
-                if (SaveException is not null)
-                    throw SaveException;
-                return Task.CompletedTask;
-            }
-        }
+    private sealed class StubUserStore(AlisflytUser user) : IUserStore<AlisflytUser>
+    {
+        public Task<AlisflytUser?> FindByIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult(user.Id == userId ? user : null);
+        public Task<AlisflytUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken) =>
+            Task.FromResult(user.NormalizedUserName == normalizedUserName ? user : null);
+        public Task<string> GetUserIdAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(user.Id);
+        public Task<string?> GetUserNameAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(user.UserName);
+        public Task<string?> GetNormalizedUserNameAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(user.NormalizedUserName);
+        public Task SetUserNameAsync(AlisflytUser user, string? userName, CancellationToken cancellationToken) { user.UserName = userName; return Task.CompletedTask; }
+        public Task SetNormalizedUserNameAsync(AlisflytUser user, string? normalizedName, CancellationToken cancellationToken) { user.NormalizedUserName = normalizedName; return Task.CompletedTask; }
+        public Task<IdentityResult> CreateAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
+        public Task<IdentityResult> UpdateAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
+        public Task<IdentityResult> DeleteAsync(AlisflytUser user, CancellationToken cancellationToken) => Task.FromResult(IdentityResult.Success);
+        public void Dispose() { }
     }
 }

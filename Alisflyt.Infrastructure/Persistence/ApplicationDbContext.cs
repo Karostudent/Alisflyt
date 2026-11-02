@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Infrastructure.Identity;
 
 namespace Alisflyt.Infrastructure.Persistence
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<AlisflytUser>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
@@ -15,6 +17,12 @@ namespace Alisflyt.Infrastructure.Persistence
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<AlisflytUser>(b =>
+            {
+                b.Property(x => x.HprNumber).HasMaxLength(50);
+                b.HasIndex(x => x.HprNumber).IsUnique().HasFilter("[HprNumber] IS NOT NULL");
+            });
+
             modelBuilder.Entity<GrantCase>(b =>
             {
                 b.Property(x => x.ReadyForAuditorApprovalAtUtc)

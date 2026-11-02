@@ -1,83 +1,84 @@
-using Alisflyt.Web.Models;
+using Alisflyt.Infrastructure.Identity;
+using Alisflyt.Web.ViewModels.Account;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace Alisflyt.Web.Controllers;
 
+[AllowAnonymous]
 public class AccountController : Controller
 {
-    private readonly ILogger<AccountController> _logger;
+    private readonly SignInManager<AlisflytUser> _signInManager;
 
-    public AccountController(ILogger<AccountController>? logger = null)
+    public AccountController(SignInManager<AlisflytUser> signInManager)
     {
-        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;
+        _signInManager = signInManager;
     }
 
     [HttpGet]
-    public IActionResult Login(string? role = null)
+    public IActionResult Login(string? returnUrl = null)
     {
-        if (string.IsNullOrWhiteSpace(role))
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToRoleHome();
+
+        return View(new LoginViewModel { ReturnUrl = returnUrl });
+    }
+
+    [HttpGet]
+    public IActionResult RoleHome() => RedirectToRoleHome();
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(LoginViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var user = await _signInManager.UserManager.FindByEmailAsync(model.UserNameOrEmail);
+        var loginName = user?.UserName ?? model.UserNameOrEmail;
+        var result = await _signInManager.PasswordSignInAsync(
+            loginName,
+            model.Password,
+            model.RememberMe,
+            lockoutOnFailure: true);
+
+        if (result.Succeeded)
         {
-            return View(DemoAuthentication.DemoUsers);
+            if (!string.IsNullOrWhiteSpace(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
+                return Redirect(model.ReturnUrl);
+
+            return RedirectToRoleHome();
         }
 
-        var user = DemoAuthentication.GetUserByRole(role);
-        if (user is null)
-        {
-            return NotFound();
-        }
-
-        if (!DemoAuthentication.SignIn(HttpContext, user, _logger))
-        {
-            TempData["Error"] = "Innlogging kunne ikke fullføres. Prøv igjen.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        return role switch
-        {
-            "ALIS" => RedirectToAction("Index", "Alis"),
-            "Koordinator" => RedirectToAction("Index", "Coordinator"),
-            "Veileder" => RedirectToAction("Index", "Guidance"),
-            "Administrator" => RedirectToAction("Index", "Admin"),
-            _ => RedirectToAction("Index", "Home")
-        };
+        ModelState.AddModelError(string.Empty, result.IsLockedOut
+            ? "Brukeren er midlertidig låst. Prøv igjen senere."
+            : "Ugyldig brukernavn/e-post eller passord.");
+        return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Login(string role, string? returnUrl = null)
+    public async Task<IActionResult> Logout()
     {
-        var user = DemoAuthentication.GetUserByRole(role);
-        if (user is null)
-        {
-            TempData["Error"] = "Velg en gyldig demo-bruker.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        if (!DemoAuthentication.SignIn(HttpContext, user, _logger))
-        {
-            TempData["Error"] = "Innlogging kunne ikke fullføres. Prøv igjen.";
-            return RedirectToAction(nameof(Login));
-        }
-
-        if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
-            return Redirect(returnUrl);
-
-        return role switch
-        {
-            "ALIS" => RedirectToAction("Index", "Alis"),
-            "Koordinator" => RedirectToAction("Index", "Coordinator"),
-            "Veileder" => RedirectToAction("Index", "Guidance"),
-            "Administrator" => RedirectToAction("Index", "Admin"),
-            _ => RedirectToAction("Index", "Home")
-        };
+        await _signInManager.SignOutAsync();
+        return RedirectToAction("Index", "Home");
     }
 
-    public IActionResult Logout()
-    {
-        if (!DemoAuthentication.SignOut(HttpContext, _logger))
-            TempData["Error"] = "Utlogging kunne ikke fullføres. Prøv igjen.";
+    [HttpGet]
+    public IActionResult AccessDenied() => View();
 
-        return RedirectToAction("Index", "Home");
+    private IActionResult RedirectToRoleHome()
+    {
+        if (User.IsInRole("ALIS"))
+            return RedirectToAction("Index", "Alis")!;
+        if (User.IsInRole("Avdelingsleder"))
+            return RedirectToAction("Index", "Coordinator")!;
+        if (User.IsInRole("Veileder"))
+            return RedirectToAction("Index", "Guidance")!;
+        if (User.IsInRole("Administrator"))
+            return RedirectToAction("Index", "Admin")!;
+
+        return RedirectToAction("Index", "Home")!;
     }
 }

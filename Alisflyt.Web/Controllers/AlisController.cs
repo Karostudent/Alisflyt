@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
 using Alisflyt.Application.Models;
@@ -12,6 +13,7 @@ using Alisflyt.Web.Models;
 
 namespace Alisflyt.Web.Controllers
 {
+    [Authorize(Roles = "ALIS")]
     public class AlisController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
@@ -23,20 +25,9 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
-                return StatusCode(StatusCodes.Status403Forbidden);
-
             var listResult = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
             var list = listResult ?? new System.Collections.Generic.List<GrantCaseListItemDto>();
             var cases = (list ?? new System.Collections.Generic.List<GrantCaseListItemDto>()).Where(c => c != null).ToList();
-
-            if (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
-            {
-                cases = cases
-                    .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
 
             var vm = new AlisDashboardViewModel
             {

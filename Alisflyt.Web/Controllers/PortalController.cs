@@ -1,15 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Alisflyt.Web.ViewModels.Portals;
 
 namespace Alisflyt.Web.Controllers
 {
+    [Authorize]
     public class PortalController : Controller
     {
         public IActionResult Index()
         {
             var vm = new PortalEntryViewModel
             {
-                DemoNotice = "DEMOVERSJON: Dette er en demonstrasjon. Ingen reell autentisering er implementert.",
+                DemoNotice = "Dette er en demonstrasjon med testdata. Tilgang styres av ASP.NET Core Identity.",
                 Roles = new[]
                 {
                     new RoleItem { Label = "ALIS", Url = Url.Action("Index", "Alis") },

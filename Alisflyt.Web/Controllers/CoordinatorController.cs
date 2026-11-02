@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Alisflyt.Application.Services;
@@ -13,12 +14,13 @@ using Alisflyt.Domain.Enums;
 
 namespace Alisflyt.Web.Controllers
 {
+    [Authorize(Roles = "Avdelingsleder")]
     public class CoordinatorController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
         private readonly ILogger<CoordinatorController> _logger;
 
-        private bool IsCoordinator() => Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator");
+        private bool IsCoordinator() => User.IsInRole("Avdelingsleder");
 
         public CoordinatorController(
             IGrantCaseApplicationService svc,

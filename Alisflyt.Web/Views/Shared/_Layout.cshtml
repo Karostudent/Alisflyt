@@ -1,6 +1,4 @@
-﻿@using Alisflyt.Web.Models
 @{
-    var currentUser = DemoAuthentication.GetCurrentUser(Context);
     var isHomePage = Context.Request.Path.Value is null
         || Context.Request.Path.Value.Equals("/", StringComparison.OrdinalIgnoreCase)
         || Context.Request.Path.Value.EndsWith("/Home/Index", StringComparison.OrdinalIgnoreCase);
@@ -15,7 +13,6 @@
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/Alisflyt.Web.styles.css" asp-append-version="true" />
 </head>
 <body>
     <header class="topbar">
@@ -38,25 +35,25 @@
                             <a class="nav-link" asp-area="" asp-controller="Home" asp-action="OmAlisflyt">Om ALISflyt</a>
                         </li>
 
-                        @if (currentUser is not null && currentUser.Role == "ALIS")
+                        @if (User.IsInRole("ALIS"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Alis" asp-action="Index">ALIS</a>
                             </li>
                         }
-                        @if (currentUser is not null && currentUser.Role == "Koordinator")
+                        @if (User.IsInRole("Avdelingsleder"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Coordinator" asp-action="Index">Koordinator</a>
+                                <a class="nav-link" asp-area="" asp-controller="Coordinator" asp-action="Index">Avdelingsleder</a>
                             </li>
                         }
-                        @if (currentUser is not null && currentUser.Role == "Veileder")
+                        @if (User.IsInRole("Veileder"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Guidance" asp-action="Index">Veileder</a>
                             </li>
                         }
-                        @if (currentUser is not null && currentUser.Role == "Administrator")
+                        @if (User.IsInRole("Administrator"))
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Admin" asp-action="Index">Administrator</a>
@@ -65,19 +62,22 @@
                     </ul>
 
                     <ul class="navbar-nav ms-auto align-items-lg-center">
-                        @if (currentUser is null && !isHomePage)
+                        @if (!(User.Identity?.IsAuthenticated ?? false) && !isHomePage)
                         {
                             <li class="nav-item">
                                 <a class="btn btn-outline-primary btn-sm" asp-controller="Account" asp-action="Login">Logg inn</a>
                             </li>
                         }
-                        else if (currentUser is not null)
+                        else if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item me-2">
-                                <span class="navbar-text text-muted">Innlogget som @currentUser.Name (@currentUser.Role)</span>
+                                <span class="navbar-text text-muted">Innlogget som @User.Identity.Name</span>
                             </li>
                             <li class="nav-item">
-                                <a class="btn btn-outline-secondary btn-sm" asp-controller="Account" asp-action="Logout">Logg ut</a>
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">Logg ut</button>
+                                </form>
                             </li>
                         }
                     </ul>

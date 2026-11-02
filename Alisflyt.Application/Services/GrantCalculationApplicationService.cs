@@ -13,19 +13,27 @@ namespace Alisflyt.Application.Services
         private readonly IGrantCaseRepository _caseRepository;
         private readonly IGrantRateSetRepository _rateSetRepository;
         private readonly GrantCalculationService _calcService;
+        private readonly GrantCaseAccessContext? _accessContext;
 
         public GrantCalculationApplicationService(
             IGrantCaseRepository caseRepository,
-            IGrantRateSetRepository rateSetRepository)
+            IGrantRateSetRepository rateSetRepository,
+            GrantCaseAccessContext? accessContext = null)
         {
             _caseRepository = caseRepository ?? throw new ArgumentNullException(nameof(caseRepository));
             _rateSetRepository = rateSetRepository ?? throw new ArgumentNullException(nameof(rateSetRepository));
+            _accessContext = accessContext;
             _calcService = new GrantCalculationService();
         }
 
         public async Task<GrantCalculationDetailsDto> CalculateForCaseAsync(Guid caseId, CancellationToken cancellationToken = default)
         {
-            var grantCase = await _caseRepository.GetByIdAsync(caseId, cancellationToken).ConfigureAwait(false);
+            if (_accessContext is not null && !_accessContext.CanAccessGrantCases)
+                throw new KeyNotFoundException($"GrantCase with id {caseId} not found.");
+
+            var grantCase = _accessContext is null
+                ? await _caseRepository.GetByIdAsync(caseId, cancellationToken).ConfigureAwait(false)
+                : await _caseRepository.GetAccessibleByIdAsync(caseId, _accessContext.UserId, _accessContext.IsDepartmentManager, cancellationToken).ConfigureAwait(false);
             if (grantCase is null)
                 throw new KeyNotFoundException($"GrantCase with id {caseId} not found.");
 

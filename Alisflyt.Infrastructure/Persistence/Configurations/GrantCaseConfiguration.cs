@@ -18,6 +18,12 @@ namespace Alisflyt.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(c => c.CaseNumber).IsUnique();
 
+            builder.Property(c => c.OwnerUserId)
+                .HasMaxLength(450)
+                .IsRequired(false);
+
+            builder.HasIndex(c => c.OwnerUserId);
+
             builder.Property(c => c.HprNumber)
                 .HasMaxLength(50);
 

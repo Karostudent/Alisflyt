@@ -6,16 +6,20 @@ using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Alisflyt.Web.ViewModels.Guidance;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Alisflyt.Infrastructure.Identity;
+using System.Text.Json;
 
 namespace Alisflyt.Web.Controllers;
 
+[Authorize(Roles = "Veileder")]
 public class SupervisorController(
-    IGrantCaseApplicationService service,
     IGrantCaseRepository repository,
-    TimeProvider timeProvider,
     IGrantCalculationApplicationService calculationService,
-    IGuidanceApprovalService guidanceApprovalService) : Controller
+    IGuidanceApprovalService guidanceApprovalService,
+    UserManager<AlisflytUser> userManager) : Controller
 {
     private sealed class EmptyTempDataProvider : ITempDataProvider
     {
@@ -35,6 +39,24 @@ public class SupervisorController(
 
         var app = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson);
         return app?.Certificate?.Sessions?.Any(session => session.Hours is > 0m) == true;
+    }
+
+    private static bool IsCurrentSupervisor(GrantCase grantCase, string supervisorHpr)
+    {
+        if (string.IsNullOrWhiteSpace(grantCase.ApplicationDataJson))
+            return false;
+
+        var application = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson);
+        return string.Equals(
+            application?.Certificate?.SupervisorHprNumber,
+            supervisorHpr,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<AlisflytUser?> GetCurrentSupervisorAsync()
+    {
+        var user = await userManager.GetUserAsync(User);
+        return user is { } && !string.IsNullOrWhiteSpace(user.HprNumber) ? user : null;
     }
 
     private static string GetGuidanceStatusText(GrantCase grantCase, GuidanceApproval? currentApproval)
@@ -78,21 +100,53 @@ public class SupervisorController(
         };
     }
 
+    private static GrantCaseDto ToGrantCaseDto(GrantCase grantCase)
+    {
+        return new GrantCaseDto
+        {
+            ApplicationData = grantCase.ApplicationDataJson is null
+                ? null
+                : System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson),
+            Id = grantCase.Id,
+            CaseNumber = grantCase.CaseNumber,
+            HprNumber = grantCase.HprNumber,
+            EmploymentPercentage = grantCase.EmploymentPercentage,
+            EmploymentStartDate = grantCase.EmploymentStartDate,
+            EmploymentEndDate = grantCase.EmploymentEndDate,
+            ReturnReason = grantCase.ReturnReason,
+            ReturnedAtUtc = grantCase.ReturnedAtUtc,
+            Status = grantCase.Status,
+            CreatedAtUtc = grantCase.CreatedAtUtc,
+            LastModifiedAtUtc = grantCase.LastModifiedAtUtc,
+            ReadyForAuditorApprovalAtUtc = grantCase.ReadyForAuditorApprovalAtUtc,
+            GuidanceApprovalRequired = grantCase.RequiresGuidanceApproval(),
+            GuidanceApprovalApproved = grantCase.HasApprovedCurrentGuidanceApproval()
+        };
+    }
+
     public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
     {
-        var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
-        if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+        var currentUser = await GetCurrentSupervisorAsync();
+        if (currentUser is null)
             return StatusCode(StatusCodes.Status403Forbidden);
 
         try
         {
-            var grantCase = await service.GetByIdAsync(id, cancellationToken);
-            if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
+            var domainCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
+            if (!IsCurrentSupervisor(domainCase, currentUser.HprNumber!))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
-            var domainCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
+            var grantCase = ToGrantCaseDto(domainCase);
             var currentApproval = domainCase.GetCurrentGuidanceApproval();
-            var calculation = await calculationService.CalculateForCaseAsync(id, cancellationToken);
+            GrantCalculationDetailsDto? calculation;
+            try
+            {
+                calculation = await calculationService.CalculateForCaseAsync(id, cancellationToken);
+            }
+            catch (KeyNotFoundException)
+            {
+                calculation = null;
+            }
             var requiresGuidanceApproval = HasRelevantGuidanceSessions(domainCase)
                 && domainCase.Status is not GrantCaseStatus.Draft
                 && domainCase.Status is not GrantCaseStatus.ReturnedForCorrection;
@@ -110,8 +164,8 @@ public class SupervisorController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Approve(Guid id, bool confirmsAccuracy, CancellationToken cancellationToken)
     {
-        var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
-        if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+        var currentUser = await GetCurrentSupervisorAsync();
+        if (currentUser is null)
             return StatusCode(StatusCodes.Status403Forbidden);
 
         try
@@ -120,7 +174,7 @@ public class SupervisorController(
                 throw new ArgumentException("Bekreft at opplysningene er riktige.");
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
-            if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
+            if (!IsCurrentSupervisor(grantCase, currentUser.HprNumber!))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             var currentApproval = grantCase.GetCurrentGuidanceApproval();
@@ -129,7 +183,7 @@ public class SupervisorController(
             if (currentApproval.Status != GuidanceApprovalStatus.Pending)
                 throw new InvalidOperationException("Kun en ventende attestversjon kan godkjennes.");
 
-            await guidanceApprovalService.ApproveAsync(id, currentApproval.Id, currentUser.Key, cancellationToken);
+            await guidanceApprovalService.ApproveAsync(id, currentApproval.Id, currentUser.Id, cancellationToken);
             EnsureTempData();
             TempData["Success"] = "Veiledningstimene er godkjent.";
         }
@@ -144,8 +198,8 @@ public class SupervisorController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestCorrection(Guid id, string? reason, CancellationToken cancellationToken)
     {
-        var currentUser = Alisflyt.Web.Models.DemoAuthentication.GetCurrentUser(HttpContext);
-        if (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+        var currentUser = await GetCurrentSupervisorAsync();
+        if (currentUser is null)
             return StatusCode(StatusCodes.Status403Forbidden);
 
         try
@@ -154,7 +208,7 @@ public class SupervisorController(
                 throw new ArgumentException("Begrunnelse for korrigering er påkrevd.");
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
-            if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
+            if (!IsCurrentSupervisor(grantCase, currentUser.HprNumber!))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             var currentApproval = grantCase.GetCurrentGuidanceApproval();

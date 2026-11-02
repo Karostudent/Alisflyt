@@ -74,7 +74,11 @@ namespace Alisflyt.Infrastructure.Development
                 if (existingCase is null)
                     await context.GrantCases.AddAsync(gc, cancellationToken).ConfigureAwait(false);
                 else
+                {
+                    var existingOwnerUserId = existingCase.OwnerUserId;
                     context.Entry(existingCase).CurrentValues.SetValues(gc);
+                    context.Entry(existingCase).Property(c => c.OwnerUserId).CurrentValue = existingOwnerUserId;
+                }
             }
 
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

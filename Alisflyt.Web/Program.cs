@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Alisflyt.Infrastructure.Identity;
+using System.Security.Claims;
+using Alisflyt.Application.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,38 @@ if (builder.Environment.IsDevelopment())
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<GrantCaseAccessContext>(services =>
+{
+    var user = services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
+    return new GrantCaseAccessContext(
+        user?.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+        user?.FindFirstValue(ClaimTypes.Role) ?? string.Empty);
+});
+builder.Services
+    .AddIdentity<AlisflytUser, IdentityRole>(options =>
+    {
+        options.Password.RequiredLength = 12;
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
+        options.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<Alisflyt.Infrastructure.Persistence.ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+});
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
@@ -45,22 +79,24 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
     var cfg = services.GetRequiredService<IConfiguration>();
-    var env = services.GetRequiredService<IHostEnvironment>();
 
     var conn = cfg.GetConnectionString("DefaultConnection");
     if (string.IsNullOrWhiteSpace(conn))
         throw new InvalidOperationException("DefaultConnection is required in appsettings.Development.json for local development.");
 
     var db = services.GetRequiredService<Alisflyt.Infrastructure.Persistence.ApplicationDbContext>();
-    // migrate
     db.Database.Migrate();
 
-    // seed if enabled
     if (bool.TryParse(cfg["SeedDemoData"], out var seed) && seed)
     {
-        // DevelopmentDataSeeder exposes a static SeedAsync method
         Alisflyt.Infrastructure.Development.DevelopmentDataSeeder.SeedAsync(db, TimeProvider.System).GetAwaiter().GetResult();
-    } 
+    }
+
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    SeedIdentityAsync(scope.ServiceProvider, app.Configuration).GetAwaiter().GetResult();
 }
 
 // Configure the HTTP request pipeline.
@@ -74,21 +110,61 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseSession();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
+app.UseStaticFiles();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapControllerRoute(
     name: "portal",
     pattern: "portal",
-    defaults: new { controller = "Portal", action = "Index" })
-    .WithStaticAssets();
+    defaults: new { controller = "Portal", action = "Index" });
 
 app.Run();
+
+static async Task SeedIdentityAsync(IServiceProvider services, IConfiguration configuration)
+{
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    var roles = new[] { "ALIS", "Veileder", "Avdelingsleder", "Administrator" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            var result = await roleManager.CreateAsync(new IdentityRole(role));
+            if (!result.Succeeded)
+                throw new InvalidOperationException($"Could not create Identity role '{role}': {string.Join(", ", result.Errors.Select(error => error.Description))}");
+        }
+    }
+
+    var username = configuration["Identity:BootstrapAdmin:UserName"];
+    var email = configuration["Identity:BootstrapAdmin:Email"];
+    var password = configuration["Identity:BootstrapAdmin:Password"];
+    if (string.IsNullOrWhiteSpace(username) && string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(password))
+        return;
+    if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        throw new InvalidOperationException("Identity bootstrap requires UserName, Email and Password.");
+
+    var userManager = services.GetRequiredService<UserManager<AlisflytUser>>();
+    var user = await userManager.FindByNameAsync(username);
+    if (user is null)
+    {
+        user = new AlisflytUser { UserName = username, Email = email, EmailConfirmed = true };
+        var result = await userManager.CreateAsync(user, password);
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Could not create bootstrap administrator: {string.Join(", ", result.Errors.Select(error => error.Description))}");
+    }
+
+    if (!await userManager.IsInRoleAsync(user, "Administrator"))
+    {
+        var result = await userManager.AddToRoleAsync(user, "Administrator");
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Could not assign Administrator role: {string.Join(", ", result.Errors.Select(error => error.Description))}");
+    }
+}
 
 public partial class Program { }

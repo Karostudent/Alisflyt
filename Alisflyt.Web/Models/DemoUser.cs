@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -157,6 +158,15 @@ public static class DemoAuthentication
         try
         {
             httpContext.Session.SetString(SessionKey, JsonSerializer.Serialize(user));
+            var role = string.Equals(user.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)
+                ? "Avdelingsleder"
+                : user.Role;
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, user.Key),
+                new Claim(ClaimTypes.Name, user.Name),
+                new Claim(ClaimTypes.Role, role)
+            ], "Demo"));
             return true;
         }
         catch (Exception ex)
