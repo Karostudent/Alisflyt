@@ -224,7 +224,7 @@
             const idField = form.querySelector('[name="Id"]');
             if (idField) idField.value = result.id;
 
-            const detailsLink = document.getElementById("case-details");
+            const detailsLink = document.getElementById("case-details-navigation");
             if (detailsLink) {
                 detailsLink.href = result.detailsUrl;
                 detailsLink.hidden = false;
@@ -470,6 +470,32 @@
             window.scrollTo({ top: 0, behavior: "auto" });
         });
     }
+
+    form.querySelectorAll("[data-case-navigation]").forEach(button => {
+        button.addEventListener("click", async event => {
+            event.preventDefault();
+            if (button.dataset.navigationBusy === "true") return;
+
+            const idField = form.querySelector('[name="Id"]');
+            const hasSavedDraft = idField?.value && idField.value !== "00000000-0000-0000-0000-000000000000";
+            button.dataset.navigationBusy = "true";
+            button.setAttribute("aria-busy", "true");
+
+            try {
+                const saved = dirty || !hasSavedDraft ? await saveDraft() : null;
+                if (dirty || !hasSavedDraft) {
+                    if (!saved) return;
+                    if (button.dataset.caseNavigation === "details" && saved.detailsUrl) {
+                        button.href = saved.detailsUrl;
+                    }
+                }
+                window.location.assign(button.href);
+            } finally {
+                delete button.dataset.navigationBusy;
+                button.removeAttribute("aria-busy");
+            }
+        });
+    });
 
     document.getElementById("AbsenceCompensation")?.addEventListener("input", updatePracticeMaximumHint);
 

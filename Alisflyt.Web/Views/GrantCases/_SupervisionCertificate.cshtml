@@ -64,6 +64,10 @@
             <button type="button" id="previous-step" class="btn btn-outline-primary">← TILBAKE</button>
             <button type="button" class="btn btn-outline-primary save-draft">Lagre utkast</button><span>Lagring sender ikke inn søknaden.</span>
         </div>
+        <nav class="mt-4 pt-3 border-top d-flex flex-column flex-sm-row justify-content-end gap-2" aria-label="Saksnavigasjon">
+            <a class="btn btn-outline-secondary" data-case-navigation="index" href="@Url.Action("Index")">Åpne lagrede søknader</a>
+            <a id="case-details-navigation" class="btn btn-primary" data-case-navigation="details" href="@Url.Action("Details", new { id = Model.Id })" hidden="@(Model.Id == Guid.Empty)">Til saksoversikt og innsending</a>
+        </nav>
     </section>
 </div>
 

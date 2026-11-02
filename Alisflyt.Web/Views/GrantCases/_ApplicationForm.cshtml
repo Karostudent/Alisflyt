@@ -6,7 +6,6 @@
 <form id="grant-application-form" method="post" asp-action="SaveApplication" data-readonly="@Model.ReadOnly.ToString().ToLowerInvariant()">
 <input asp-for="Id" type="hidden" />
 <link rel="stylesheet" href="~/css/grant-application.css" asp-append-version="true" />
-<div class="mb-3"><a asp-action="Index">Åpne lagrede søknader</a> · <a id="case-details" asp-action="Details" asp-route-id="@Model.Id" hidden="@(Model.Id == Guid.Empty)">Til saksoversikt og innsending</a></div>
 <p id="draft-status" role="status" aria-live="polite"></p>
 <div id="application-step">
 <p class="text-muted">Trinn 1 av 2 · Søknadsopplysninger</p>
@@ -125,7 +124,7 @@
                     <input asp-for="LearningActivityExpenses" type="number" min="0" step="0.01" class="form-control" />
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="SupervisionExpenses" class="form-label">Faktiske veiledningskostnader (kr)</label>
+                        <label asp-for="SupervisionExpenses" class="form-label">Veiledningskostnader</label>
                     <input asp-for="SupervisionExpenses" type="number" min="0" step="0.01" class="form-control" aria-describedby="guidance-expenses-help" />
                     <small id="guidance-expenses-help" class="text-muted">Oppgi faktiske kostnader. Tilskuddet begrenses av maksimum for stilling og tilskuddsperiode.</small>
                 </div>
@@ -195,7 +194,7 @@
             </div>
         </div>
         <div class="form-actions">
-            <span>Du kan lagre utkastet når som helst.</span>
+            <span>Utkastet lagres automatisk når du velger Neste. Du kan også bruke Lagre utkast når som helst.</span>
             <button type="button"
                     class="btn btn-outline-primary save-draft">
                 Lagre utkast
