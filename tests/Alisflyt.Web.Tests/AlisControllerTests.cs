@@ -79,6 +79,7 @@ namespace Alisflyt.Web.Tests
                 CaseNumber = "CORR-1",
                 HprNumber = "123456789",
                 Status = status,
+                ReturnReason = status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Kontroller perioden." : null,
                 GuidanceApprovalStatus = approvalStatus,
                 GuidanceCorrectionReason = expected ? "Timer stemmer ikke." : null
             };
@@ -94,6 +95,7 @@ namespace Alisflyt.Web.Tests
 
             Assert.Equal(expected, item.NeedsGuidanceCorrection);
             Assert.Equal(expected ? "Timer stemmer ikke." : null, item.GuidanceCorrectionReason);
+            Assert.Equal(status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Kontroller perioden." : null, item.ReturnReason);
         }
     }
 }

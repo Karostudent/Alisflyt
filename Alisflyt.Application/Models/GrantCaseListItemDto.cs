@@ -9,6 +9,7 @@ namespace Alisflyt.Application.Models
         public string CaseNumber { get; init; } = string.Empty;
         public string? HprNumber { get; init; }
         public GrantCaseStatus Status { get; init; }
+        public string? ReturnReason { get; init; }
         public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
         public string? GuidanceCorrectionReason { get; init; }
         public DateTimeOffset LastModifiedAtUtc { get; init; }

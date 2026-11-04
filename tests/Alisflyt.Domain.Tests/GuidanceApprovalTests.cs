@@ -269,6 +269,49 @@ public class GuidanceApprovalTests
     }
 
     [Fact]
+    public void Returned_case_with_unchanged_guidance_reuses_existing_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        var approval = grantCase.GetCurrentGuidanceApproval()!;
+        approval.Approve(now.AddMinutes(4), "veileder-per");
+        grantCase.StartReview(now.AddMinutes(5));
+        grantCase.ReturnForCorrection("Korriger andre opplysninger.", now.AddMinutes(6));
+
+        var requested = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(7), "Per Olsen");
+
+        Assert.Same(approval, requested);
+        Assert.Equal(GuidanceApprovalStatus.Approved, requested.Status);
+        Assert.Single(grantCase.GuidanceApprovals);
+    }
+
+    [Fact]
+    public void Returned_case_with_changed_guidance_creates_one_pending_version_and_blocks_finalization()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        var oldApproval = grantCase.GetCurrentGuidanceApproval()!;
+        oldApproval.Approve(now.AddMinutes(4), "veileder-per");
+        grantCase.StartReview(now.AddMinutes(5));
+        grantCase.ReturnForCorrection("Korriger veiledningen.", now.AddMinutes(6));
+
+        var changed = CreateValidApplicationData();
+        changed.Certificate.Sessions.Add(new SupervisionSessionInputModel
+        {
+            Date = new DateOnly(2026, 2, 10),
+            Hours = 1m,
+            Topic = "Ny veiledning"
+        });
+        grantCase.UpdateApplication(changed, now.AddMinutes(7));
+        var replacement = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(8), "Per Olsen");
+
+        Assert.Equal(GuidanceApprovalStatus.Superseded, oldApproval.Status);
+        Assert.Equal(GuidanceApprovalStatus.Pending, replacement.Status);
+        Assert.Equal(2, grantCase.GuidanceApprovals.Count);
+        Assert.Throws<InvalidOperationException>(() => grantCase.MarkReadyForAuditorApproval(now.AddMinutes(9)));
+    }
+
+    [Fact]
     public void UpdateGuidanceSessions_makes_old_approval_insufficient_for_auditor_finalization()
     {
         var now = DateTimeOffset.UtcNow;

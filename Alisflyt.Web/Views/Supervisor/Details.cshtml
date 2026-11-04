@@ -111,21 +111,21 @@
         else
         {
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table mb-0 sortable-table">
                     <thead>
                         <tr>
-                            <th scope="col">Dato</th>
-                            <th scope="col">Tema</th>
-                            <th scope="col">Timer</th>
+                            <th scope="col" data-sortable="true" data-sort-type="date" tabindex="0" role="button" aria-sort="none">Dato <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">Tema <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="number" tabindex="0" role="button" aria-sort="none">Timer <span class="sort-indicator"></span></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var session in sessions.OrderBy(s => s.Date ?? DateOnly.MinValue))
                         {
                             <tr>
-                                <td>@(session.Date?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                <td data-sort-value="@(session.Date?.ToString("yyyy-MM-dd") ?? string.Empty)">@(session.Date?.ToString("dd.MM.yyyy") ?? "-")</td>
                                 <td>@(session.Topic ?? "-")</td>
-                                <td>@(session.Hours?.ToString("0.##") ?? "0")</td>
+                                <td data-sort-value="@(session.Hours?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "0")">@(session.Hours?.ToString("0.##") ?? "0")</td>
                             </tr>
                         }
                     </tbody>

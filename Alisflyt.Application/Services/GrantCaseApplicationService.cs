@@ -113,7 +113,10 @@ namespace Alisflyt.Application.Services
         public async Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default)
         {
             var list = await _repository.ListAsync(cancellationToken).ConfigureAwait(false);
-            return list.Select(c =>
+            return list
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id)
+                .Select(c =>
             {
                 var currentApproval = c.GetCurrentGuidanceApproval();
                 return new GrantCaseListItemDto
@@ -122,6 +125,7 @@ namespace Alisflyt.Application.Services
                     CaseNumber = c.CaseNumber,
                     HprNumber = c.HprNumber,
                     Status = c.Status,
+                    ReturnReason = c.ReturnReason,
                     GuidanceApprovalStatus = currentApproval?.Status,
                     GuidanceCorrectionReason = currentApproval?.Status == Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection
                         ? currentApproval.RequestedRevisionReason

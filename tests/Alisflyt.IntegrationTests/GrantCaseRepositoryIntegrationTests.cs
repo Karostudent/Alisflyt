@@ -90,6 +90,42 @@ namespace Alisflyt.IntegrationTests
         }
 
         [Fact]
+        public async Task ListAsync_orders_by_created_at_descending_then_id_descending()
+        {
+            var dbName = "Alisflyt_Test_" + Guid.NewGuid().ToString("N");
+            var conn = CreateConnectionString(dbName);
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(conn).Options;
+
+            try
+            {
+                await using var ctx = new ApplicationDbContext(options);
+                ctx.Database.EnsureDeleted();
+                ctx.Database.EnsureCreated();
+
+                var created = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+                var older = Alisflyt.Domain.Entities.GrantCase.Create(Guid.Parse("00000000-0000-0000-0000-000000000001"), "INT-OLDER", created.AddMinutes(-1));
+                var sameTimeLowerId = Alisflyt.Domain.Entities.GrantCase.Create(Guid.Parse("00000000-0000-0000-0000-000000000002"), "INT-SAME-LOWER", created);
+                var sameTimeHigherId = Alisflyt.Domain.Entities.GrantCase.Create(Guid.Parse("00000000-0000-0000-0000-000000000003"), "INT-SAME-HIGHER", created);
+
+                var repo = new GrantCaseRepository(ctx);
+                await repo.AddAsync(older);
+                await repo.AddAsync(sameTimeLowerId);
+                await repo.AddAsync(sameTimeHigherId);
+                await repo.SaveChangesAsync();
+
+                var list = await repo.ListAsync();
+
+                Assert.Equal(new[] { sameTimeHigherId.Id, sameTimeLowerId.Id, older.Id }, list.Select(x => x.Id).ToArray());
+            }
+            finally
+            {
+                var optionsCleanup = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(conn).Options;
+                await using var cleanupCtx = new ApplicationDbContext(optionsCleanup);
+                cleanupCtx.Database.EnsureDeleted();
+            }
+        }
+
+        [Fact]
         public async Task Tracked_changes_are_persisted_with_SaveChangesAsync()
         {
             var dbName = "Alisflyt_Test_" + Guid.NewGuid().ToString("N");

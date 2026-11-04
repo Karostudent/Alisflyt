@@ -28,15 +28,15 @@
 </form>
 
 <div class="table-responsive">
-<table class="table public-case-table">
+<table class="table public-case-table sortable-table">
 <caption class="visually-hidden">Søknader med valgt status</caption>
 	<thead>
 		<tr>
-			<th scope="col">Saksnummer</th>
-			<th>HPR</th>
-			<th>Status</th>
-			<th>Sist endret</th>
-			<th></th>
+			<th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" data-sort-type="status" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+			<th scope="col" data-sortable="true" data-sort-type="date" tabindex="0" role="button" aria-sort="none">Sist endret <span class="sort-indicator"></span></th>
+			<th scope="col"><span class="visually-hidden">Handling</span></th>
 		</tr>
 	</thead>
 	<tbody>
@@ -45,14 +45,14 @@
 		<tr>
 			<td class="public-case-number">@c.CaseNumber</td>
 			<td>@c.HprNumber</td>
-		<td><span class="public-status public-status-@c.Status">@(c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Draft ? "Utkast" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.Submitted ? "Innsendt" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview ? "Under behandling" : c.Status == Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection ? "Returnert for korrigering" : c.Status.ToString())</span></td>
-			<td>@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+		<td data-sort-value="@c.Status"><span class="public-status
+			<td data-sort-value="@c.LastModifiedAtUtc.ToString("o")">@c.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
 			<td><a asp-controller="Supervisor" asp-action="Details" asp-route-id="@c.Id" aria-label="Kontroller attest for sak @c.CaseNumber">Kontroller attest</a></td>
 		</tr>
 }
 @if (!Model.Cases.Any())
 {
-    <tr><td colspan="5" class="public-empty">Ingen søknader med valgt status. Velg en annen status for å se flere saker.</td></tr>
+    <tr data-sort-ignore="true"><td colspan="5" class="public-empty">Ingen søknader med valgt status. Velg en annen status for å se flere saker.</td></tr>
 }
 	</tbody>
 </table>

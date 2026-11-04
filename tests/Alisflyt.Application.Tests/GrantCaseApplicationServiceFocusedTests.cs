@@ -113,6 +113,26 @@ namespace Alisflyt.Application.Tests
         }
 
         [Fact]
+        public async Task ListAsync_orders_newest_created_case_first_even_when_older_case_was_modified_later()
+        {
+            var repo = new FakeGrantCaseRepository();
+            var gen = new FakeCaseNumberGenerator("CN-ORDER");
+            var tp = new FakeTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+            var svc = new GrantCaseApplicationService(repo, gen, tp);
+
+            var older = await svc.CreateDraftAsync(new CreateGrantCaseRequest());
+            tp.Advance(TimeSpan.FromMinutes(1));
+            var newer = await svc.CreateDraftAsync(new CreateGrantCaseRequest());
+            tp.Advance(TimeSpan.FromMinutes(1));
+            await svc.UpdateDraftAsync(older.Id, new UpdateGrantCaseDraftRequest());
+
+            var list = await svc.ListAsync();
+
+            Assert.Equal(newer.Id, list[0].Id);
+            Assert.Equal(older.Id, list[1].Id);
+        }
+
+        [Fact]
         public async Task UpdateDraftAsync_updates_draft()
         {
             var repo = new FakeGrantCaseRepository();

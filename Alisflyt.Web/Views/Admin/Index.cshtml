@@ -49,13 +49,13 @@
 			<div class="card-header bg-body-tertiary">Alle saker</div>
 			<div class="card-body p-0">
 				<div class="table-responsive">
-					<table class="table table-striped mb-0">
+					<table class="table table-striped mb-0 sortable-table">
 						<thead>
 							<tr>
-								<th>Saksnummer</th>
-								<th>HPR</th>
-								<th>Status</th>
-								<th>Endret</th>
+								<th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+								<th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">HPR <span class="sort-indicator"></span></th>
+								<th scope="col" data-sortable="true" data-sort-type="status" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+								<th scope="col" data-sortable="true" data-sort-type="date" tabindex="0" role="button" aria-sort="none">Endret <span class="sort-indicator"></span></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -64,12 +64,16 @@
 								<tr>
 									<td>@item.CaseNumber</td>
 									<td>@item.HprNumber</td>
-									<td>@item.Status</td>
-									<td>@item.LastModifiedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+									<td data-sort-value="@item.Status">@item.Status</td>
+									<td data-sort-value="@item.LastModifiedAtUtc.ToString("o")">@item.LastModifiedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
 								</tr>
 							}
-						</tbody>
-					</table>
+								@if (Model.Cases.Count == 0)
+								{
+									<tr data-sort-ignore="true"><td colspan="4" class="text-muted">Ingen saker registrert.</td></tr>
+								}
+							</tbody>
+						</table>
 				</div>
 			</div>
 		</div>

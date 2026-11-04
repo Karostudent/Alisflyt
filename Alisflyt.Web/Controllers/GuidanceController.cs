@@ -85,7 +85,9 @@ namespace Alisflyt.Web.Controllers
             var approved = 0;
             var caseSummaries = new List<GuidanceDashboardCaseViewModel>();
 
-            foreach (var grantCase in cases.OrderByDescending(c => c.LastModifiedAtUtc))
+            foreach (var grantCase in cases
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id))
             {
                 var approval = grantCase.GetCurrentGuidanceApproval();
                 var hasSessions = HasRelevantGuidanceSessions(grantCase);
@@ -164,7 +166,6 @@ namespace Alisflyt.Web.Controllers
             {
                 Filter = status,
                 Cases = cases.Where(c => status == "All" || c.Status.ToString() == status)
-                    .OrderByDescending(c => c.LastModifiedAtUtc)
                     .Select(c => new GrantCaseListItemViewModel
                     {
                         Id = c.Id,

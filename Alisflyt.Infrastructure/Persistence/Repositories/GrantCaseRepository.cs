@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,8 @@ namespace Alisflyt.Infrastructure.Persistence.Repositories
             var list = await _context.GrantCases
                 .Include(c => c.GuidanceApprovals)
                 .AsNoTracking()
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id)
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
             return list;
