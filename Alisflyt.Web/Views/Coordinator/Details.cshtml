@@ -29,13 +29,14 @@
     <div class="alert alert-success">@success</div>
 }
 <section class="card card-body mb-4">
-    <h3>Sentralitetstillegg ? koordinator</h3>
+    <h3>Sentralitetstillegg</h3>
+    <p class="form-text">Registrer kommunens sentralitetsopplysninger og beløpet kommunen søker om. Beregnet sentralitetstillegg kan bli lavere enn søkt beløp dersom maksimalgrensen for tilskuddsperioden begrenser beregningen.</p>
     @if (!Model.CanEditCentrality)
     {
         <div aria-disabled="true">
-            <p><strong>Har kommunen sentralitetsgrad 6?</strong> @(Model.ApplicationData?.IsCentralityGrade6 == true ? "Ja" : Model.ApplicationData?.IsCentralityGrade6 == false ? "Nei" : "Ikke oppgitt")</p>
-            <p><strong>Søkt beløp for sentralitetstillegg:</strong> @(Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString("N2") ?? "Ikke oppgitt") kr</p>
-            <button type="button" class="btn btn-secondary" disabled aria-disabled="true">&#128274; Redigering låst</button>
+            <p><strong>Er kommunen registrert med sentralitetsgrad 6?</strong> @(Model.ApplicationData?.IsCentralityGrade6 == true ? "Ja" : Model.ApplicationData?.IsCentralityGrade6 == false ? "Nei" : "Ikke oppgitt")</p>
+            <p><strong>Beløpet kommunen søker om i sentralitetstillegg:</strong> @(Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString("N2") ?? "Ikke oppgitt") kr</p>
+            <button type="button" class="btn btn-secondary" disabled aria-disabled="true">&#128274; Sentralitetsopplysninger kan ikke endres nå</button>
             @if (Model.Status == Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval)
             {
                 <p class="form-text">Opplysningene er låst fordi saken er klar for revisorkontroll.</p>
@@ -55,13 +56,13 @@
         <form asp-action="SaveCentrality" method="post">
             <input type="hidden" name="id" value="@Model.Id" />
             <fieldset class="mb-3">
-                <legend>Har kommunen sentralitetsgrad 6?</legend>
+                <legend>Er kommunen registrert med sentralitetsgrad 6?</legend>
                 <label><input type="radio" name="grade6" value="true" checked="@(Model.ApplicationData?.IsCentralityGrade6 == true)" required /> Ja</label>
                 <label class="ms-3"><input type="radio" name="grade6" value="false" checked="@(Model.ApplicationData?.IsCentralityGrade6 == false)" required /> Nei</label>
             </fieldset>
-            <label for="centrality-amount" class="form-label">Søkt beløp for sentralitetstillegg (kr)</label>
+            <label for="centrality-amount" class="form-label">Beløpet kommunen søker om i sentralitetstillegg (kr)</label>
             <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control mb-3" />
-            <p class="form-text">Beløp må oppgis når kommunen har sentralitetsgrad 6.</p>
+            <p class="form-text">Oppgi søkt beløp når kommunen er registrert med sentralitetsgrad 6.</p>
             <button class="btn btn-primary" type="submit">Lagre sentralitetsopplysninger</button>
         </form>
     }
