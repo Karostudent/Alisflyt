@@ -59,6 +59,44 @@ public class GrantCaseExcelExportTests
     }
 
     [Fact]
+    public void Export_labels_productivity_as_calculated_and_keeps_legacy_requested_value_separate()
+    {
+        var bytes = GrantCaseExcelExport.Create(new GrantCaseDto
+        {
+            ApplicationData = new GrantApplicationData { ProductivityRequestedAmount = 75_000m }
+        }, new GrantCalculationDetailsDto { IsAvailable = true, ProductivityAmount = 75_000m }, DateTimeOffset.UtcNow);
+        using var zip = new ZipArchive(new MemoryStream(bytes));
+        using var stream = zip.GetEntry("xl/worksheets/sheet1.xml")!.Open();
+        var xml = XDocument.Load(stream);
+        Assert.Contains("Lavere produktivitet (beregnet)", xml.ToString());
+        Assert.Contains("Tidligere oppgitt produktivitetsbeløp (ikke brukt i beregning)", xml.ToString());
+        Assert.DoesNotContain("Produktivitetselement", xml.ToString());
+    }
+
+    [Fact]
+    public void Export_keeps_additional_supervision_costs_separate_from_calculated_total()
+    {
+        var bytes = GrantCaseExcelExport.Create(new GrantCaseDto
+        {
+            ApplicationData = new GrantApplicationData
+            {
+                AdditionalSupervisionCosts = 25_000m,
+                SupervisionExpenses = 10_000m
+            }
+        }, new GrantCalculationDetailsDto
+        {
+            IsAvailable = true,
+            GuidanceAmount = 10_000m
+        }, DateTimeOffset.UtcNow);
+        using var zip = new ZipArchive(new MemoryStream(bytes));
+        using var stream = zip.GetEntry("xl/worksheets/sheet1.xml")!.Open();
+        var xml = XDocument.Load(stream);
+        Assert.Contains("Separat søkt beløp", xml.ToString());
+        Assert.Contains("ikke inkludert i automatisk beregning", xml.ToString());
+        Assert.DoesNotContain("Summen omfatter oppgitte kostnader, inkludert ekstra veiledningskostnader", xml.ToString());
+    }
+
+    [Fact]
     public void Unavailable_calculation_does_not_export_zero_as_calculated_amount()
     {
         var bytes = GrantCaseExcelExport.Create(new GrantCaseDto(), new GrantCalculationDetailsDto { UnavailableReason = "Ingen gyldig sats" }, DateTimeOffset.UtcNow);

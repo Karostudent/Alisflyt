@@ -71,6 +71,17 @@ namespace Alisflyt.Application.Services
             }
 
             var chosen = matching.First();
+            var coversAllPeriods = input.EmploymentPeriods.All(period =>
+                chosen.ValidFrom <= period.FundingFrom
+                && chosen.ValidTo >= period.FundingThrough);
+            if (!coversAllPeriods)
+            {
+                return new GrantCalculationDetailsDto
+                {
+                    IsAvailable = false,
+                    UnavailableReason = "Tilskuddsperioden dekkes ikke av tilgjengelige satser. Beregningen kan ikke gjennomføres. Søknaden kan fortsatt lagres som utkast."
+                };
+            }
 
             // Calculate
             var result = _calcService.Calculate(input, chosen);

@@ -102,16 +102,17 @@ public static class GrantCaseExcelExport
         void Amount(string label, decimal? requested, decimal calculated) => Row(label, requested, calculation.IsAvailable ? calculated : null);
         Amount("Praksiskompensasjon", data?.AbsenceCompensation, calculation.PracticeCompensationAmount);
         Amount("Læringsaktiviteter", data?.LearningActivityExpenses, calculation.LearningActivitiesAmount);
-        Amount("Produktivitetselement", data?.ProductivityRequestedAmount, calculation.ProductivityAmount);
+        Amount("Lavere produktivitet (beregnet)", null, calculation.ProductivityAmount);
         Amount("Tilskudd til veiledning", data?.SupervisionExpenses, calculation.GuidanceAmount);
         Amount("Tilrettelegging", null, calculation.FacilitationAmount);
         Amount("Sentralitetstillegg", data?.CentralitySupplementRequestedAmount, calculation.CentralitySupplementAmount);
-        var requestedAmounts = new[] { data?.AbsenceCompensation, data?.LearningActivityExpenses, data?.ProductivityRequestedAmount, data?.SupervisionExpenses, data?.AdditionalSupervisionCosts, data?.CentralitySupplementRequestedAmount };
-        Amount("Totalt", requestedAmounts.Any(x => x.HasValue) ? requestedAmounts.Sum(x => x ?? 0) : null, calculation.TotalAmount);
+        var requestedAmounts = new[] { data?.AbsenceCompensation, data?.LearningActivityExpenses, data?.SupervisionExpenses, data?.CentralitySupplementRequestedAmount };
+        Amount("Totalt beregnet tilskudd", requestedAmounts.Any(x => x.HasValue) ? requestedAmounts.Sum(x => x ?? 0) : null, calculation.TotalAmount);
         foreach (var cell in rows[^1].Elements(Ns + "c")) cell.SetAttributeValue("s", cell.Element(Ns + "v") is null ? "5" : "6");
         Row();
-        Row("Oppgitte ekstra veiledningskostnader (kr)", data?.AdditionalSupervisionCosts);
-        Row("Søkte beløp", "Summen omfatter oppgitte beløp, inkludert ekstra veiledningskostnader. Produktivitet og tilrettelegging beregnes etter egne regler i detaljgrunnlaget.");
+        Row("Separat søkt beløp – ikke inkludert i automatisk beregning (ekstra veiledningskostnader)", data?.AdditionalSupervisionCosts);
+        Row("Tidligere oppgitt produktivitetsbeløp (ikke brukt i beregning)", data?.ProductivityRequestedAmount);
+        Row("Søkte beløp", "Summen gjelder ordinære oppgitte kostnader og er ikke en innvilget utbetaling. Ekstra veiledningskostnader vises separat og krever særskilt vurdering.");
         Section("4. Beregningsmerknader og satssett");
         Row("Beregningsstatus", calculation.IsAvailable ? "Tilgjengelig" : calculation.UnavailableReason ?? "Beregning ikke tilgjengelig");
         if (calculation.IsAvailable)

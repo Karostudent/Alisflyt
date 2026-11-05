@@ -18,6 +18,21 @@ public class ApplicationCalculationConnectionTests
             EmploymentStartDate = new(2025, 6, 1), FundingFrom = new(2025, 6, 1), FundingThrough = new(2026, 5, 31) }]
     };
 
+    [Fact]
+    public void Additional_supervision_costs_do_not_change_automatic_total()
+    {
+        var form = Form();
+        var service = new GrantCalculationService();
+        var withoutAdditionalCosts = service.Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        form.AdditionalSupervisionCosts = 25_000m;
+
+        var withAdditionalCosts = service.Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        Assert.Equal(withoutAdditionalCosts.TotalAmount, withAdditionalCosts.TotalAmount);
+        Assert.Equal(withoutAdditionalCosts.GuidanceAmount, withAdditionalCosts.GuidanceAmount);
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(50000, 50000)]

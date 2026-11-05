@@ -26,16 +26,17 @@
 	}
 	else
 	{
+		<p class="small text-muted">Beregningen nedenfor bruker sist lagrede søknadsopplysninger og gjeldende satssett.</p>
 		<table class="table table-sm">
 			<tbody>
 				<tr data-practice-maximum="@Model.PracticeCompensationMaximumAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)"><th>Praksiskompensasjon</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr
-                    @if (Model.IsPracticeCompensationCapped)
-                    {
-                        <span class="small text-muted ms-2">Maksgrense: @Model.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
-                    }
-                </td></tr>
+					@if (Model.IsPracticeCompensationCapped)
+					{
+						<span class="small text-muted ms-2">Maksgrense: @Model.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
+					}
+				</td></tr>
 				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
-				<tr><th>Produktivitetselement</th><td>@Model.ProductivityAmount.ToString("N0") kr</td></tr>
+				<tr><th>Lavere produktivitet</th><td>@Model.ProductivityAmount.ToString("N0") kr<br /><span class="small text-muted">Beregnes automatisk etter fastlegeandel, tilskuddsperiode og de første 24 månedene.</span></td></tr>
 				<tr><th>Tilskudd til veiledning</th><td data-guidance-amount>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
 				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>

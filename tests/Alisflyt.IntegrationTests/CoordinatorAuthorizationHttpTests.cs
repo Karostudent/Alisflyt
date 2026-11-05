@@ -109,7 +109,7 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
                 ["Sessions[0].Hours"] = "4",
                 ["Sessions[0].Topic"] = "Korrigert veiledning",
                 ["Sessions[1].Date"] = "2026-02-11",
-                ["Sessions[1].Hours"] = "1.5",
+                ["Sessions[1].Hours"] = "1,5",
                 ["Sessions[1].Topic"] = "Ny veiledningsøkt",
                 ["__RequestVerificationToken"] = token
             })

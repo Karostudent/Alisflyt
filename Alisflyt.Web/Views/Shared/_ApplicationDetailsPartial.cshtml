@@ -85,18 +85,34 @@
 
 			<dt class="col-sm-3">Praksiskompensasjon</dt>
 			<dd class="col-sm-9">
-                @AmountDisplay(Model.AbsenceCompensation)
-                @if (ViewData["Calculation"] is Alisflyt.Application.Models.GrantCalculationDetailsDto { IsAvailable: true, IsPracticeCompensationCapped: true } calculation)
-                {
-                    <span class="small text-muted ms-2">Maksgrense: @calculation.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
-                }
-            </dd>
+				@AmountDisplay(Model.AbsenceCompensation)
+				@if (ViewData["Calculation"] is Alisflyt.Application.Models.GrantCalculationDetailsDto { IsAvailable: true, IsPracticeCompensationCapped: true } practiceCalculation)
+				{
+					<span class="small text-muted ms-2">Maksgrense: @practiceCalculation.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
+				}
+			</dd>
 
 			<dt class="col-sm-3">Kurs-/aktivitetskostnader</dt>
 			<dd class="col-sm-9">@AmountDisplay(Model.LearningActivityExpenses)</dd>
 
-            <dt class="col-sm-3">Faktiske veiledningskostnader</dt>
-            <dd class="col-sm-9">@AmountDisplay(Model.SupervisionExpenses)</dd>
+			<dt class="col-sm-3">Faktiske veiledningskostnader</dt>
+			<dd class="col-sm-9">@AmountDisplay(Model.SupervisionExpenses)</dd>
+			@if (Model.AdditionalSupervisionCosts.HasValue)
+			{
+				<dt class="col-sm-3">Ekstra veiledningskostnader – krever særskilt vurdering</dt>
+				<dd class="col-sm-9">@AmountDisplay(Model.AdditionalSupervisionCosts) <span class="small text-muted">Beløpet inngår ikke i automatisk beregnet total.</span></dd>
+			}
+			<dt class="col-sm-3">Lavere produktivitet (beregnet)</dt>
+			<dd class="col-sm-9">
+				@if (ViewData["Calculation"] is Alisflyt.Application.Models.GrantCalculationDetailsDto { IsAvailable: true } calculation)
+				{
+					@calculation.ProductivityAmount.ToString("N0") @:kr
+				}
+				else
+				{
+					<span class="text-muted">Beregnes når tilstrekkelige lagrede opplysninger og et gyldig satssett foreligger.</span>
+				}
+			</dd>
 			<dt class="col-sm-3">Sentralitetsgrad 6</dt>
 			<dd class="col-sm-9">@(Model.IsCentralityGrade6.HasValue ? (Model.IsCentralityGrade6.Value ? "Ja" : "Nei") : "-")</dd>
 
