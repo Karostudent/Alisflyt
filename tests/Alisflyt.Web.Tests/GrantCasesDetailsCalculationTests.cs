@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Alisflyt.Application.Models;
+using Alisflyt.Application.Services;
 using Alisflyt.Web.Controllers;
 using Alisflyt.Web.ViewModels.GrantCases;
 using Alisflyt.Web.Tests.Fakes;
@@ -68,6 +69,55 @@ namespace Alisflyt.Web.Tests
             Assert.NotNull(model.Calculation);
             Assert.True(model.Calculation.IsAvailable);
             Assert.Equal(100m, model.Calculation.PracticeCompensationAmount);
+        }
+
+        [Fact]
+        public async Task Details_Preserves_Approved_Guidance_Status_When_Calculation_Is_Attached()
+        {
+            var id = Guid.NewGuid();
+            var fakeSvc = new FakeGrantCaseApplicationService
+            {
+                GetByIdResponse = new GrantCaseDto
+                {
+                    Id = id,
+                    CaseNumber = "CASE-APPROVED-GUIDANCE",
+                    HprNumber = "123",
+                    Status = Alisflyt.Domain.Enums.GrantCaseStatus.Submitted,
+                    CreatedAtUtc = DateTimeOffset.UtcNow,
+                    LastModifiedAtUtc = DateTimeOffset.UtcNow,
+                    GuidanceApprovalRequired = true,
+                    GuidanceApprovalApproved = true,
+                    GuidanceApprovalStatus = Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved,
+                    ApplicationData = new Alisflyt.Domain.Forms.GrantApplicationData
+                    {
+                        Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                        {
+                            Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel()]
+                        }
+                    }
+                }
+            };
+            var controller = new GrantCasesController(fakeSvc)
+            {
+                ControllerContext = new ControllerContext()
+            };
+            var services = new ServiceCollection();
+            services.AddSingleton<IGrantCalculationApplicationService>(new FakeGrantCalculationApplicationService
+            {
+                Result = new GrantCalculationDetailsDto { IsAvailable = true }
+            });
+            services.AddSingleton<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataDictionaryFactory, TestTempDataFactory>();
+            services.AddSingleton<Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataProvider, TestTempDataProvider>();
+            var httpContext = GrantCasesTestContext.CreateAlis("123");
+            httpContext.RequestServices = services.BuildServiceProvider();
+            controller.ControllerContext.HttpContext = httpContext;
+
+            var result = Assert.IsType<ViewResult>(await controller.Details(id, default));
+            var model = Assert.IsType<GrantCaseDetailsViewModel>(result.Model);
+
+            Assert.Equal(Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved, model.GuidanceApprovalStatus);
+            Assert.True(model.GuidanceApprovalRequired);
+            Assert.True(model.GuidanceApprovalApproved);
         }
 
         [Fact]

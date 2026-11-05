@@ -103,10 +103,12 @@ namespace Alisflyt.Web.Controllers
                 ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
                 ReturnedAtUtc = d.ReturnedAtUtc,
-                ApplicationData = d.ApplicationData,
-                GuidanceApprovalRequired = d.GuidanceApprovalRequired,
-                GuidanceApprovalApproved = d.GuidanceApprovalApproved
-            };
+                    ApplicationData = d.ApplicationData,
+                    GuidanceApprovalRequired = d.GuidanceApprovalRequired,
+                    GuidanceApprovalApproved = d.GuidanceApprovalApproved,
+                    GuidanceApprovalStatus = d.GuidanceApprovalStatus,
+                    GuidanceCorrectionReason = d.GuidanceCorrectionReason
+                };
 
             try
             {
@@ -131,6 +133,8 @@ namespace Alisflyt.Web.Controllers
                             ApplicationData = vm.ApplicationData,
                             GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
                             GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
+                            GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                            GuidanceCorrectionReason = vm.GuidanceCorrectionReason,
                             Calculation = calc
                         };
                 }
@@ -162,7 +166,7 @@ namespace Alisflyt.Web.Controllers
             }
             catch (InvalidOperationException)
             {
-                TempData["Error"] = "Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.";
+                TempData["Error"] = "Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.";
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
             {
@@ -211,7 +215,30 @@ namespace Alisflyt.Web.Controllers
 
             try
             {
-                if (!ModelState.IsValid || !grade6.HasValue) throw new ArgumentException("Velg sentralitetsgrad og kontroller beløpet.");
+                if (!grade6.HasValue)
+                {
+                    SetCentralityValidationState(grade6, amount, "Velg Ja eller Nei for sentralitetsgrad 6.", null);
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    SetCentralityValidationState(grade6, amount, "Oppgi et gyldig beløp.", null);
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (grade6.Value && !amount.HasValue)
+                {
+                    SetCentralityValidationState(grade6, amount, "Oppgi søkt beløp når sentralitetsgrad 6 er Ja.", "Beløpet er påkrevd når sentralitetsgrad 6 er Ja.");
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (amount < 0)
+                {
+                    SetCentralityValidationState(grade6, amount, "Beløpet kan ikke være negativt.", "Beløpet kan ikke være negativt.");
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
                 var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
                 grantCase.UpdateCentrality(grade6.Value, amount, timeProvider.GetUtcNow());
                 await repository.SaveChangesAsync(cancellationToken);
@@ -245,7 +272,7 @@ namespace Alisflyt.Web.Controllers
             }
             catch (InvalidOperationException)
             {
-                TempData["Error"] = "Saken kan ikke settes til behandling.";
+                TempData["Error"] = "Saken kan bare settes til behandling når den er sendt inn av ALIS.";
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
@@ -273,7 +300,7 @@ namespace Alisflyt.Web.Controllers
 
             if (d.Status != Domain.Enums.GrantCaseStatus.UnderReview)
             {
-                TempData["Error"] = "Saken er ikke i behandling og kan ikke returneres.";
+                TempData["Error"] = "Saken kan bare returneres for korrigering mens den er under behandling.";
                 return RedirectToAction(nameof(Details), new { id });
             }
 
@@ -309,12 +336,12 @@ namespace Alisflyt.Web.Controllers
             }
             catch (ArgumentException)
             {
-                ModelState.AddModelError(string.Empty, "Ugyldig begrunnelse.");
+                ModelState.AddModelError(nameof(model.Reason), GetReturnReasonError(model.Reason));
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
             catch (InvalidOperationException)
             {
-                ModelState.AddModelError(string.Empty, "Saken kan ikke returneres i gjeldende tilstand.");
+                ModelState.AddModelError(string.Empty, "Saken kan bare returneres for korrigering mens den er under behandling.");
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
@@ -323,6 +350,23 @@ namespace Alisflyt.Web.Controllers
                 ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
+        }
+
+        private void SetCentralityValidationState(bool? grade6, decimal? amount, string summary, string? amountError)
+        {
+            TempData["CentralityGrade6"] = grade6?.ToString()?.ToLowerInvariant();
+            TempData["CentralityAmount"] = amount?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TempData["CentralityGrade6Error"] = grade6.HasValue ? null : summary;
+            TempData["CentralityAmountError"] = amountError;
+        }
+
+        private static string GetReturnReasonError(string? reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return "Skriv en begrunnelse før saken returneres.";
+            return reason.Trim().Length > 1000
+                ? "Begrunnelsen kan være på maksimalt 1000 tegn."
+                : "Ugyldig begrunnelse.";
         }
     }
 }

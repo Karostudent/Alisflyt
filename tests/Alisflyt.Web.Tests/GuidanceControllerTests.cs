@@ -448,6 +448,7 @@ namespace Alisflyt.Web.Tests
 
             Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal("Begrunnelse for korrigering er påkrevd.", controller.TempData["Error"] as string);
+            Assert.Equal("Begrunnelse for korrigering er påkrevd.", controller.TempData["CorrectionReasonError"] as string);
         }
 
         [Fact]
@@ -588,6 +589,8 @@ namespace Alisflyt.Web.Tests
         {
             public List<(Guid GrantCaseId, Guid GuidanceApprovalId, string ApprovedByUserKey)> ApproveCalls { get; } = [];
             public List<(Guid GrantCaseId, Guid GuidanceApprovalId, string Reason)> CorrectionCalls { get; } = [];
+            public Exception? ApproveException { get; set; }
+            public Exception? RequestCorrectionException { get; set; }
 
             public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestApprovalAsync(Guid grantCaseId, string doctorHprNumber, string supervisorHprNumber, string supervisorUserKey, string? supervisorName, CancellationToken cancellationToken = default)
                 => throw new NotSupportedException();
@@ -595,17 +598,99 @@ namespace Alisflyt.Web.Tests
             public Task<Alisflyt.Domain.Entities.GuidanceApproval> ApproveAsync(Guid grantCaseId, Guid guidanceApprovalId, string approvedByUserKey, CancellationToken cancellationToken = default)
             {
                 ApproveCalls.Add((grantCaseId, guidanceApprovalId, approvedByUserKey));
+                if (ApproveException is not null)
+                    throw ApproveException;
                 return Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval>(null!);
             }
 
             public Task<Alisflyt.Domain.Entities.GuidanceApproval> RequestCorrectionAsync(Guid grantCaseId, Guid guidanceApprovalId, string reason, CancellationToken cancellationToken = default)
             {
                 CorrectionCalls.Add((grantCaseId, guidanceApprovalId, reason));
+                if (RequestCorrectionException is not null)
+                    throw RequestCorrectionException;
                 return Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval>(null!);
             }
 
             public Task<Alisflyt.Domain.Entities.GuidanceApproval?> GetLatestApprovalAsync(Guid grantCaseId, CancellationToken cancellationToken = default)
                 => Task.FromResult<Alisflyt.Domain.Entities.GuidanceApproval?>(null);
+        }
+
+        [Fact]
+        public async Task SupervisorController_Approve_database_error_has_no_success_message()
+        {
+            var httpContext = new DefaultHttpContext { Session = new TestSession() };
+            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
+            {
+                Key = "veileder-per", Role = "Veileder", Name = "Per Olsen", HprNumber = "987654321"
+            });
+            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
+            var caseId = Guid.NewGuid();
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-SUPERVISOR-APPROVE-ERROR", now);
+            grantCase.UpdateApplication(new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                HprNumber = "123456789",
+                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                {
+                    SupervisorHprNumber = "987654321",
+                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m }]
+                }
+            }, now.AddMinutes(1));
+            grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
+            var guidanceService = new TrackingGuidanceApprovalService { ApproveException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.SupervisorController>();
+            var controller = new Alisflyt.Web.Controllers.SupervisorController(
+                new FakeGrantCaseApplicationService(), new InMemoryGrantCaseRepository(grantCase), TimeProvider.System,
+                new FakeGrantCalculationApplicationService(), guidanceService, logger)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var result = await controller.Approve(caseId, true, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", controller.TempData["Error"] as string);
+            Assert.Null(controller.TempData["Success"]);
+            Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
+        }
+
+        [Fact]
+        public async Task SupervisorController_RequestCorrection_database_error_has_no_success_message()
+        {
+            var httpContext = new DefaultHttpContext { Session = new TestSession() };
+            Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
+            {
+                Key = "veileder-per", Role = "Veileder", Name = "Per Olsen", HprNumber = "987654321"
+            });
+            var now = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero);
+            var caseId = Guid.NewGuid();
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(caseId, "CASE-SUPERVISOR-CORRECTION-ERROR", now);
+            grantCase.UpdateApplication(new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                HprNumber = "123456789",
+                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                {
+                    SupervisorHprNumber = "987654321",
+                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel { Date = new DateOnly(2026, 10, 2), Hours = 2m }]
+                }
+            }, now.AddMinutes(1));
+            grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
+            var guidanceService = new TrackingGuidanceApprovalService { RequestCorrectionException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.SupervisorController>();
+            var controller = new Alisflyt.Web.Controllers.SupervisorController(
+                new FakeGrantCaseApplicationService(), new InMemoryGrantCaseRepository(grantCase), TimeProvider.System,
+                new FakeGrantCalculationApplicationService(), guidanceService, logger)
+            {
+                ControllerContext = new ControllerContext { HttpContext = httpContext }
+            };
+
+            var result = await controller.RequestCorrection(caseId, "Korriger timene.", default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", controller.TempData["Error"] as string);
+            Assert.Null(controller.TempData["Success"]);
+            Assert.Single(logger.Entries);
+            Assert.Equal(LogLevel.Error, logger.Entries[0].Level);
         }
 
         [Fact]
@@ -619,6 +704,7 @@ namespace Alisflyt.Web.Tests
                 HprNumber = "123456789",
                 DoctorName = "Anna Hansen",
                 GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                Attachments = [new Alisflyt.Domain.Forms.ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
                 ConfirmsSpecialization = true,
                 SpecializationStartDate = new DateOnly(2025, 1, 1),
                 ExpectedCompletionDate = new DateOnly(2028, 1, 1),

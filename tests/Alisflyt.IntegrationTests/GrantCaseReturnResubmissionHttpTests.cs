@@ -220,7 +220,7 @@ public sealed class GrantCaseReturnResubmissionHttpTests : IClassFixture<Isolate
             }
         ],
         Certificate = new SupervisionCertificateViewModel(),
-        Attachments = [],
+        Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("agreement")) }],
         ProductivityRequestedAmount = 0m,
         AbsenceCompensation = 0m,
         LearningActivityExpenses = 0m,

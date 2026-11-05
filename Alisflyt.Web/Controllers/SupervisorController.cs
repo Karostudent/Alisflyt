@@ -7,6 +7,8 @@ using Alisflyt.Domain.Forms;
 using Alisflyt.Web.ViewModels.Guidance;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Alisflyt.Web.Controllers;
 
@@ -15,7 +17,8 @@ public class SupervisorController(
     IGrantCaseRepository repository,
     TimeProvider timeProvider,
     IGrantCalculationApplicationService calculationService,
-    IGuidanceApprovalService guidanceApprovalService) : Controller
+    IGuidanceApprovalService guidanceApprovalService,
+    ILogger<SupervisorController>? logger = null) : Controller
 {
     private sealed class EmptyTempDataProvider : ITempDataProvider
     {
@@ -117,7 +120,12 @@ public class SupervisorController(
         try
         {
             if (!confirmsAccuracy)
-                throw new ArgumentException("Bekreft at opplysningene er riktige.");
+            {
+                EnsureTempData();
+                TempData["ApprovalConfirmationError"] = "Bekreft at opplysningene er riktige før attesten godkjennes.";
+                TempData["Error"] = "Bekreft at opplysningene er riktige før attesten godkjennes.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
@@ -136,6 +144,12 @@ public class SupervisorController(
         catch (KeyNotFoundException) { return NotFound(); }
         catch (ArgumentException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
         catch (InvalidOperationException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            (logger ?? NullLogger<SupervisorController>.Instance).LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(Approve), id);
+            EnsureTempData();
+            TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+        }
 
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -151,7 +165,22 @@ public class SupervisorController(
         try
         {
             if (string.IsNullOrWhiteSpace(reason))
-                throw new ArgumentException("Begrunnelse for korrigering er påkrevd.");
+            {
+                EnsureTempData();
+                TempData["CorrectionReasonError"] = "Begrunnelse for korrigering er påkrevd.";
+                TempData["Error"] = "Begrunnelse for korrigering er påkrevd.";
+                TempData["CorrectionReason"] = reason ?? string.Empty;
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            if (reason.Trim().Length > 1000)
+            {
+                EnsureTempData();
+                TempData["CorrectionReasonError"] = "Begrunnelsen kan være på maksimalt 1000 tegn.";
+                TempData["Error"] = "Begrunnelsen kan være på maksimalt 1000 tegn.";
+                TempData["CorrectionReason"] = reason;
+                return RedirectToAction(nameof(Details), new { id });
+            }
 
             var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
             if (!Alisflyt.Web.Models.DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, grantCase.HprNumber))
@@ -170,6 +199,12 @@ public class SupervisorController(
         catch (KeyNotFoundException) { return NotFound(); }
         catch (ArgumentException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
         catch (InvalidOperationException ex) { EnsureTempData(); TempData["Error"] = ex.Message; }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            (logger ?? NullLogger<SupervisorController>.Instance).LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(RequestCorrection), id);
+            EnsureTempData();
+            TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+        }
 
         return RedirectToAction(nameof(Details), new { id });
     }

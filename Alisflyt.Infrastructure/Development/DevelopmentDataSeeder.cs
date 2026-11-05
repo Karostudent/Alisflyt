@@ -105,6 +105,9 @@ namespace Alisflyt.Infrastructure.Development
                 DoctorName = name,
                 DoctorProfessions = ["Lege"],
                 GrantType = agreement ? GrantType.AlisAgreementIncludingSupervision : GrantType.SupervisionOnly,
+                Attachments = agreement
+                    ? [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }]
+                    : [],
                 ConfirmsSpecialization = true,
                 SpecializationStartDate = from,
                 ExpectedCompletionDate = from.AddYears(5),

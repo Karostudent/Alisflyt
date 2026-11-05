@@ -32,5 +32,7 @@ namespace Alisflyt.Application.Models
         public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; init; }
         public bool GuidanceApprovalRequired { get; init; }
         public bool GuidanceApprovalApproved { get; init; }
+        public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
+        public string? GuidanceCorrectionReason { get; init; }
     }
 }

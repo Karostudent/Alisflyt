@@ -142,7 +142,21 @@
 				<div><strong>Veileder:</strong> @(Model.Certificate?.SupervisorSigningPlace ?? "-") — @(DateOnlyDisplay(Model.Certificate?.SupervisorSigningDate))</div>
 			</dd>
             <dt class="col-sm-3">Veileders godkjenning</dt>
-            <dd class="col-sm-9">@(Model.SupervisorApprovedAtUtc.HasValue ? "Godkjent (demo)" : "Ikke godkjent")</dd>
+            <dd class="col-sm-9">
+                @if (ViewData["CoordinatorDetailsView"] is true)
+                {
+                    var approvalStatus = ViewData["CoordinatorGuidanceApprovalStatus"] as Alisflyt.Domain.Enums.GuidanceApprovalStatus?;
+                    var approvalIsCurrentAndApproved = ViewData["CoordinatorGuidanceApprovalApproved"] as bool? == true
+                        && approvalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved;
+                    <span class="alert @(approvalIsCurrentAndApproved ? "alert-success" : "alert-danger") d-inline-block py-1 px-2 mb-0">
+                        @(approvalIsCurrentAndApproved ? "Godkjent" : "Ikke godkjent")
+                    </span>
+                }
+                else
+                {
+                    <span>@(Model.SupervisorApprovedAtUtc.HasValue ? "Godkjent (demo)" : "Ikke godkjent")</span>
+                }
+            </dd>
             <dt class="col-sm-3">Vedlegg</dt>
             <dd class="col-sm-9">
                 <ul>

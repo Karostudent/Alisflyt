@@ -38,6 +38,8 @@ namespace Alisflyt.Web.ViewModels.Coordinator
 
         public bool GuidanceApprovalRequired { get; init; }
         public bool GuidanceApprovalApproved { get; init; }
+        public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
+        public string? GuidanceCorrectionReason { get; init; }
 
         [Display(Name = "Returnert begrunnelse")]
         public string? ReturnReason { get; init; }

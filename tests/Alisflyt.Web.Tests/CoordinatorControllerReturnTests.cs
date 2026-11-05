@@ -51,6 +51,18 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
+        public async Task CoordinatorController_StartReview_Post_ShowsSpecificStatusError()
+        {
+            var fake = new FakeGrantCaseApplicationService { StartReviewException = new InvalidOperationException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+
+            var result = await ctrl.StartReview(Guid.NewGuid(), default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Saken kan bare settes til behandling når den er sendt inn av ALIS.", ctrl.TempData!["Error"]);
+        }
+
+        [Fact]
         public async Task CoordinatorController_StartReview_Post_NotFound_When_Service_Throws()
         {
             var id = Guid.NewGuid();
@@ -126,7 +138,7 @@ namespace Alisflyt.Web.Tests
             var result = await ctrl.MarkReadyForAuditorApproval(id, default);
 
             Assert.IsType<RedirectToActionResult>(result);
-            Assert.Equal("Saken kan ikke markeres som klar for revisorkontroll i gjeldende status.", ctrl.TempData!["Error"]);
+            Assert.Equal("Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.", ctrl.TempData!["Error"]);
         }
 
         private static Alisflyt.Web.Controllers.CoordinatorController CreateControllerForRole(FakeGrantCaseApplicationService fake, string? role)
@@ -194,6 +206,33 @@ namespace Alisflyt.Web.Tests
 
             var view = Assert.IsType<ViewResult>(result);
             Assert.Empty(fake.ReturnForCorrectionCalls);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_Maps_Empty_Reason_Error()
+        {
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new ArgumentException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = Guid.NewGuid(), Reason = " " }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[nameof(Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel.Reason)]!.Errors,
+                e => e.ErrorMessage == "Skriv en begrunnelse før saken returneres.");
+        }
+
+        [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_Maps_TooLong_Reason_Error()
+        {
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new ArgumentException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+            var reason = new string('x', 1001);
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = Guid.NewGuid(), Reason = reason }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[nameof(Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel.Reason)]!.Errors,
+                e => e.ErrorMessage == "Begrunnelsen kan være på maksimalt 1000 tegn.");
         }
 
         [Fact]

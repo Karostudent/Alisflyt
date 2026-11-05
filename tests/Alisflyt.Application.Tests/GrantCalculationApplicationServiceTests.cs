@@ -63,6 +63,7 @@ namespace Alisflyt.Application.Tests
                 DoctorName = "Anna Hansen",
                 DoctorProfessions = ["Lege"],
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
+                Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
                 ConfirmsSpecialization = true,
                 SpecializationStartDate = new(2022, 1, 1),
                 ExpectedCompletionDate = new(2026, 12, 31),

@@ -51,6 +51,12 @@ public class GrantApplicationData
         if (SelectedPositionTypes.Count == 0)
             errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
 
+        if (GrantType == Forms.GrantType.AlisAgreementIncludingSupervision
+            && !Attachments.Any(a => a is not null && string.Equals(a.Kind, "Agreement", StringComparison.OrdinalIgnoreCase)))
+        {
+            errors.Add("Last opp ALIS-avtalen før søknaden kan sendes inn.");
+        }
+
         if (SelectedPositionTypes.Contains(PositionType.RegularGpOrLocum)
             && !FirstRegularGpOrLocumDate.HasValue)
         {

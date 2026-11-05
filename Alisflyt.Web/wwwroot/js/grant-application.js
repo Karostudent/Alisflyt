@@ -8,6 +8,166 @@
     let dirty = false;
     let changeVersion = 0;
     let uploadsPending = 0;
+    const errorPanel = document.getElementById("application-errors");
+    const errorList = document.getElementById("application-error-list");
+
+    const getFieldErrorId = input => {
+        if (!input.id) {
+            const base = (input.name || "field").replace(/[^a-zA-Z0-9_-]/g, "-");
+            input.id = `${base}-error-target`;
+        }
+        return `${input.id}-error`;
+    };
+
+    const removeFieldError = input => {
+        input.classList.remove("is-invalid");
+        input.removeAttribute("aria-invalid");
+        const errorId = getFieldErrorId(input);
+        document.getElementById(errorId)?.remove();
+        form.querySelector(`[data-field-error-for='${CSS.escape(input.id)}']`)?.remove();
+        errorList?.querySelector(`li[data-error-input='${CSS.escape(input.id)}']`)?.remove();
+        if (errorList && errorPanel && errorList.childElementCount === 0) errorPanel.hidden = true;
+        const describedBy = (input.getAttribute("aria-describedby") || "")
+            .split(/\s+/)
+            .filter(id => id && id !== errorId);
+        if (describedBy.length) input.setAttribute("aria-describedby", describedBy.join(" "));
+        else input.removeAttribute("aria-describedby");
+    };
+
+    const clearFieldErrors = () => {
+        form.querySelectorAll("[aria-invalid='true']").forEach(removeFieldError);
+        form.querySelectorAll(".section-error-message").forEach(error => error.remove());
+        form.querySelectorAll(".section-error-indicator").forEach(indicator => indicator.remove());
+        form.querySelectorAll(".section-error").forEach(section => section.classList.remove("section-error"));
+    };
+
+    const clearErrors = () => {
+        clearFieldErrors();
+        if (errorList) errorList.replaceChildren();
+        if (errorPanel) errorPanel.hidden = true;
+    };
+
+    const fieldLabel = input => {
+        if (input.getAttribute("aria-label")) return input.getAttribute("aria-label");
+        if (input.id) {
+            const label = form.querySelector(`label[for='${CSS.escape(input.id)}']`);
+            if (label?.textContent?.trim()) return label.textContent.trim().replace(/\s*\*\s*$/, "");
+        }
+        const legend = input.closest("fieldset")?.querySelector("legend")?.textContent?.trim();
+        return legend || "Dette feltet";
+    };
+
+    const validationMessage = input => {
+        if (input.validity.valueMissing) return "Fyll ut dette feltet.";
+        if (input.validity.typeMismatch || input.validity.badInput) return "Oppgi en gyldig verdi.";
+        if (input.validity.rangeUnderflow) return `Verdien må være minst ${input.min}.`;
+        if (input.validity.rangeOverflow) return `Verdien kan ikke være større enn ${input.max}.`;
+        if (input.validity.stepMismatch) return "Oppgi en verdi med riktig trinn.";
+        return input.validationMessage || "Kontroller opplysningene.";
+    };
+
+    const markFieldError = (input, message) => {
+        const errorId = getFieldErrorId(input);
+        input.classList.add("is-invalid");
+        input.setAttribute("aria-invalid", "true");
+
+        const label = input.id
+            ? form.querySelector(`label[for='${CSS.escape(input.id)}']`)
+            : null;
+        if (label && !label.querySelector(`[data-field-error-for='${CSS.escape(input.id)}']`)) {
+            const indicator = document.createElement("span");
+            indicator.className = "field-error-indicator";
+            indicator.setAttribute("data-field-error-for", input.id);
+            indicator.setAttribute("aria-hidden", "true");
+            indicator.textContent = "⚠";
+            label.append(" ", indicator);
+        } else if (!label && !form.querySelector(`[data-field-error-for='${CSS.escape(input.id)}']`)) {
+            const indicator = document.createElement("span");
+            indicator.className = "field-error-indicator";
+            indicator.setAttribute("data-field-error-for", input.id);
+            indicator.setAttribute("aria-hidden", "true");
+            indicator.textContent = "⚠";
+            input.before(indicator);
+        }
+
+        document.getElementById(errorId)?.remove();
+        const messageElement = document.createElement("div");
+        messageElement.id = errorId;
+        messageElement.className = "field-error-message text-danger";
+        messageElement.textContent = message;
+        input.insertAdjacentElement("afterend", messageElement);
+        const describedBy = (input.getAttribute("aria-describedby") || "")
+            .split(/\s+/)
+            .filter(id => id && id !== errorId);
+        input.setAttribute("aria-describedby", [...describedBy, errorId].join(" "));
+    };
+
+    const showErrors = errors => {
+        if (!errorPanel || !errorList) return;
+        errorList.replaceChildren();
+        errors.filter(Boolean).forEach(error => {
+            const item = document.createElement("li");
+            const target = typeof error === "object" ? (error.input || error.target) : null;
+            const message = typeof error === "object" ? error.message : error;
+            if (target) {
+                if (target.id) item.dataset.errorInput = target.id;
+                const link = document.createElement("a");
+                link.href = target.id ? `#${target.id}` : "#application-errors";
+                link.textContent = message;
+                link.addEventListener("click", event => {
+                    event.preventDefault();
+                    if (target.matches?.("input,select,textarea")) {
+                        const details = target.closest("details");
+                        if (details) details.open = true;
+                        showStepForInput(target);
+                    } else {
+                        target.scrollIntoView({ block: "center" });
+                        target.querySelector?.("input,select,textarea")?.focus({ preventScroll: true });
+                    }
+                });
+                item.append(link);
+            } else {
+                item.textContent = message;
+            }
+            errorList.append(item);
+        });
+        errorPanel.hidden = errorList.childElementCount === 0;
+        if (!errorPanel.hidden) errorPanel.scrollIntoView({ block: "nearest" });
+    };
+
+    const markSectionError = (section, message) => {
+        section.classList.add("section-error");
+        const heading = section.querySelector("h2,h3,legend") || section;
+        if (!heading.querySelector?.(".section-error-indicator")) {
+            const indicator = document.createElement("span");
+            indicator.className = "section-error-indicator";
+            indicator.setAttribute("aria-hidden", "true");
+            indicator.textContent = " ⚠";
+            heading.append(indicator);
+        }
+        const messageElement = document.createElement("div");
+        messageElement.className = "section-error-message text-danger";
+        messageElement.textContent = message;
+        section.append(messageElement);
+    };
+
+    const clearSectionError = section => {
+        if (!section) return;
+        section.classList.remove("section-error");
+        section.querySelectorAll(".section-error-message,.section-error-indicator").forEach(error => error.remove());
+    };
+
+    const showStepForInput = input => {
+        const inCertificate = input.closest("#certificate-step");
+        const applicationStep = document.getElementById("application-step");
+        const certificateStep = document.getElementById("certificate-step");
+        if (applicationStep && certificateStep) {
+            applicationStep.hidden = Boolean(inCertificate);
+            certificateStep.hidden = !inCertificate;
+        }
+        input.focus({ preventScroll: true });
+        input.scrollIntoView({ block: "center" });
+    };
 
     const pathParts = name => name.replace(/\[(\d+)\]/g, ".$1").split(".");
     const getValue = name => pathParts(name).reduce((value, key) => value?.[key], initialDraft);
@@ -61,6 +221,11 @@
 
     form.addEventListener("change", updateConditionalRequired);
     form.addEventListener("change", updateSections);
+    form.addEventListener("change", event => {
+        const input = event.target.closest("input,select,textarea");
+        if (input?.name === "SelectedPositionTypes") clearSectionError(document.getElementById("position-types"));
+        if (input?.id === "agreement-upload" && attachments.some(item => item.Kind === "Agreement")) clearSectionError(document.getElementById("agreement-upload-area"));
+    });
     updateConditionalRequired();
     updateSections();
 
@@ -164,23 +329,32 @@
     };
 
     const saveDraft = async () => {
+        clearErrors();
         form.querySelectorAll(".municipality-input").forEach(input => {
             const match = validateMunicipality(input);
             input.value = match || input.value.trim();
         });
 
-        const invalid = [...form.querySelectorAll("input,select,textarea")].find(input => !input.disabled && !input.validity.valid);
-        if (invalid) {
-            const target = invalid.closest("#certificate-step") ? document.getElementById("next-step") : document.getElementById("previous-step");
-            if (target) target.click();
-            const details = invalid.closest("details");
+        const invalidInputs = [...form.querySelectorAll("input,select,textarea")]
+            .filter(input => !input.disabled && !input.validity.valid);
+        if (invalidInputs.length > 0) {
+            invalidInputs.forEach(input => {
+                const message = `${fieldLabel(input)}: ${validationMessage(input)}`;
+                markFieldError(input, validationMessage(input));
+                input.dataset.applicationErrorMessage = message;
+            });
+            showErrors(invalidInputs.map(input => ({ input, message: input.dataset.applicationErrorMessage })));
+            const firstInvalid = invalidInputs[0];
+            const details = firstInvalid.closest("details");
             if (details) details.open = true;
-            invalid.reportValidity();
+            showStepForInput(firstInvalid);
+            firstInvalid.reportValidity();
             return null;
         }
 
         if (uploadsPending) {
-            if (status) status.textContent = "Vent til vedleggene er ferdig lest.";
+            showErrors(["Vent til vedleggene er ferdig lest før du lagrer utkastet."]);
+            if (status) status.textContent = "";
             return null;
         }
 
@@ -213,7 +387,7 @@
                         response.status === 401 ? "Du må logge inn på nytt for å fortsette." :
                         response.status === 403 ? "Du har ikke tillatelse til å lagre dette utkastet." :
                         response.status === 500 ? "Det oppstod en serverfeil. Prøv igjen senere." :
-                        "Kunne ikke lagre utkastet.");
+                        "Utkastet kunne ikke lagres. Kontroller opplysningene og prøv igjen.");
                 throw new Error(message);
             }
 
@@ -237,13 +411,15 @@
             }
 
             window.history.replaceState(null, "", result.editUrl);
-            initialDraft = { ...initialDraft, ...payload, Id: result.id, Attachments: payload.Attachments };
+            initialDraft = { ...initialDraft, ...payload, Id: result.id, Attachments: payload.Attachments, InitialErrors: [] };
             dirty = false;
+            clearErrors();
             if (status) status.textContent = result.message;
             await refreshCalculation(result.id);
             return result;
         } catch (error) {
-            if (status) status.textContent = error.message || "Lagring feilet. Prøv igjen.";
+            showErrors([error.message || "Utkastet kunne ikke lagres. Kontroller opplysningene og prøv igjen."]);
+            if (status) status.textContent = "";
             return null;
         } finally {
             buttons.forEach(button => button.disabled = false);
@@ -261,6 +437,11 @@
             const row = document.createElement("template");
             row.innerHTML = employmentTemplate.innerHTML.replaceAll("__index__", String(nextIndex++));
             employmentRows.append(row.content.cloneNode(true));
+            const employmentSection = document.querySelector(".section-error");
+            if (employmentSection?.contains(employmentRows)) {
+                employmentSection.classList.remove("section-error");
+                employmentSection.querySelectorAll(".section-error-message,.section-error-indicator").forEach(error => error.remove());
+            }
             employmentRows.lastElementChild?.querySelector("select")?.focus();
         });
 
@@ -395,9 +576,11 @@
 
                 attachments.push(...added);
                 renderAttachments();
+                if (input.dataset.attachmentKind === "Agreement") clearSectionError(document.getElementById("agreement-upload-area"));
                 markDirty();
             } catch (error) {
-                if (status) status.textContent = error.message;
+                showErrors([error.message || "Vedlegget kunne ikke legges til."]);
+                if (status) status.textContent = "";
             } finally {
                 uploadsPending--;
                 input.value = "";
@@ -438,6 +621,26 @@
     form.dispatchEvent(new Event("change"));
     const supervisionRowsForSync = document.getElementById("supervision-rows");
     supervisionRowsForSync?.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const initialErrors = [];
+    (initialDraft.InitialErrors || []).forEach(error => {
+        const field = error.Field
+            ? form.querySelector(`[name='${CSS.escape(error.Field)}']`)
+            : null;
+        if (field) {
+            field.required = true;
+            markFieldError(field, error.Message);
+            initialErrors.push({ input: field, message: `${fieldLabel(field)}: ${error.Message}` });
+            return;
+        }
+
+        const section = error.Field ? document.getElementById(error.Field) : null;
+        if (section) {
+            markSectionError(section.closest(".table-responsive") || section, error.Message);
+            initialErrors.push({ target: section.closest(".table-responsive") || section, message: error.Message });
+        }
+    });
+    if (initialErrors.length) showErrors(initialErrors);
 
     const nextButton = document.getElementById("next-step");
     if (nextButton) {
@@ -511,8 +714,16 @@
         return;
     }
 
-    form.addEventListener("input", markDirty);
-    form.addEventListener("change", markDirty);
+    form.addEventListener("input", event => {
+        markDirty();
+        const input = event.target.closest("input,select,textarea");
+        if (input?.validity.valid && input.getAttribute("aria-invalid") === "true") removeFieldError(input);
+    });
+    form.addEventListener("change", event => {
+        markDirty();
+        const input = event.target.closest("input,select,textarea");
+        if (input?.validity.valid && input.getAttribute("aria-invalid") === "true") removeFieldError(input);
+    });
     form.addEventListener("click", event => {
         if (event.target.closest("[data-hours],.remove-supervision,.remove-employment,#add-supervision,#add-employment")) {
             markDirty();
@@ -600,11 +811,13 @@
         input.addEventListener("input", () => {
             updateSuggestions();
             validateMunicipality(input);
+            if (input.validity.valid && input.getAttribute("aria-invalid") === "true") removeFieldError(input);
         });
 
         input.addEventListener("change", () => {
             const match = validateMunicipality(input);
             if (match) input.value = match;
+            if (input.validity.valid && input.getAttribute("aria-invalid") === "true") removeFieldError(input);
         });
     });
 

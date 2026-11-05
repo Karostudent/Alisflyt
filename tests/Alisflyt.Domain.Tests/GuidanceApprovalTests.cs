@@ -351,6 +351,7 @@ public class GuidanceApprovalTests
         {
             HprNumber = "123456789",
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Allmennlege"],
             ConfirmsSpecialization = true,
@@ -392,7 +393,6 @@ public class GuidanceApprovalTests
                     }
                 ]
             },
-            Attachments = [],
             ProductivityRequestedAmount = 0m,
             AbsenceCompensation = 0m,
             LearningActivityExpenses = 0m,

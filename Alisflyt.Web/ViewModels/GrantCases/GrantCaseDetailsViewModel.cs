@@ -43,6 +43,14 @@ namespace Alisflyt.Web.ViewModels.GrantCases
 
         public bool GuidanceCorrectionRequired { get; init; }
         public string? GuidanceCorrectionReason { get; init; }
+        public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
+        public bool GuidanceApprovalRequired { get; init; }
+        public bool GuidanceApprovalApproved { get; init; }
+        public bool HasGuidanceForDisplay => Status != GrantCaseStatus.Draft
+            && ApplicationData?.Certificate?.Sessions?.Count > 0
+            && GuidanceApprovalStatus is Alisflyt.Domain.Enums.GuidanceApprovalStatus.Pending
+                or Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved
+                or Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection;
 
         // Full application data
         public Alisflyt.Domain.Forms.GrantApplicationData? ApplicationData { get; init; }

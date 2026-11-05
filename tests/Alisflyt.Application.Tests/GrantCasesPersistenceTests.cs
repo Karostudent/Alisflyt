@@ -24,6 +24,7 @@ namespace Alisflyt.Application.Tests
                 DoctorName = "Dr Test",
                 DoctorProfessions = new List<string> { "Allmennlege", "Undervisning" },
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
+                Attachments = new List<ApplicationAttachment> { new() { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) } },
                 ConfirmsSpecialization = true,
                 SpecializationStartDate = new DateOnly(2022, 1, 1),
                 ExpectedCompletionDate = new DateOnly(2026, 1, 1),

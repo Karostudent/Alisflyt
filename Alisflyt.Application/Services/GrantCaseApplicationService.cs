@@ -177,6 +177,7 @@ namespace Alisflyt.Application.Services
 
         private static GrantCaseDto MapToDto(GrantCase c)
         {
+            var currentApproval = c.GetCurrentGuidanceApproval();
             return new GrantCaseDto
             {
                 ApplicationData = c.ApplicationDataJson is null ? null : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(c.ApplicationDataJson),
@@ -193,7 +194,11 @@ namespace Alisflyt.Application.Services
                 LastModifiedAtUtc = c.LastModifiedAtUtc,
                 ReadyForAuditorApprovalAtUtc = c.ReadyForAuditorApprovalAtUtc,
                 GuidanceApprovalRequired = c.RequiresGuidanceApproval(),
-                GuidanceApprovalApproved = c.HasApprovedCurrentGuidanceApproval()
+                GuidanceApprovalApproved = c.HasApprovedCurrentGuidanceApproval(),
+                GuidanceApprovalStatus = currentApproval?.Status,
+                GuidanceCorrectionReason = currentApproval?.Status == Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection
+                    ? currentApproval.RequestedRevisionReason
+                    : null
             };
         }
     }

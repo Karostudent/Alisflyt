@@ -186,7 +186,83 @@ namespace Alisflyt.Web.Controllers
             };
             var model = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationFormViewModel>(System.Text.Json.JsonSerializer.Serialize(form))!;
             model.Id = data.Id;
+            model.InitialErrors = BuildInitialFieldErrors(form);
             return model;
+        }
+
+        private static List<GrantApplicationFieldError> BuildInitialFieldErrors(Alisflyt.Domain.Forms.GrantApplicationData data)
+        {
+            var errors = new List<GrantApplicationFieldError>();
+            var periods = data.EmploymentPeriods ?? [];
+
+            if (data.SelectedPositionTypes.Count == 0)
+            {
+                errors.Add(new()
+                {
+                    Field = "position-types",
+                    Code = "PositionTypes",
+                    Message = "Velg hvilke stillingstyper legen har hatt i perioden."
+                });
+            }
+
+            if (data.SelectedPositionTypes.Contains(Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum)
+                && !data.FirstRegularGpOrLocumDate.HasValue)
+            {
+                errors.Add(new()
+                {
+                    Field = nameof(Alisflyt.Domain.Forms.GrantApplicationData.FirstRegularGpOrLocumDate),
+                    Code = "FirstRegularGpOrLocumDate",
+                    Message = "Oppgi når legen første gang startet som fastlege eller fastlegevikar."
+                });
+            }
+
+            if (data.GrantType == Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision
+                && !data.Attachments.Any(a => a is not null && string.Equals(a.Kind, "Agreement", StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add(new()
+                {
+                    Field = "agreement-upload-area",
+                    Code = "AgreementAttachment",
+                    Message = "Last opp ALIS-avtalen før søknaden kan sendes inn."
+                });
+            }
+
+            if (periods.Count == 0)
+            {
+                errors.Add(new() { Field = "employment-rows", Code = "EmploymentPeriods", Message = "Legg til minst én stillingsperiode med tilskuddsperiode." });
+                return errors;
+            }
+
+            for (var index = 0; index < periods.Count; index++)
+            {
+                var period = periods[index];
+                if (period is null) continue;
+                var prefix = $"EmploymentPeriods[{index}]";
+                if (!period.PositionType.HasValue)
+                    errors.Add(new() { Field = prefix + ".PositionType", Code = "EmploymentPeriodPositionType", Message = "Velg stillingstype." });
+                else if (!data.SelectedPositionTypes.Contains(period.PositionType.Value))
+                    errors.Add(new() { Field = prefix + ".PositionType", Code = "EmploymentPeriodPositionType", Message = "Stillingstypen må også være krysset av under hvilke stillinger legen har hatt." });
+                if (!period.PositionPercentage.HasValue)
+                    errors.Add(new() { Field = prefix + ".PositionPercentage", Code = "EmploymentPercentage", Message = "Oppgi stillingsprosent." });
+                if (!period.EmploymentStartDate.HasValue)
+                    errors.Add(new() { Field = prefix + ".EmploymentStartDate", Code = "EmploymentStartDate", Message = "Oppgi dato for tiltredelse." });
+                if (!period.FundingFrom.HasValue)
+                    errors.Add(new() { Field = prefix + ".FundingFrom", Code = "FundingFrom", Message = "Oppgi dato for «Tilskudd fra»." });
+                if (!period.FundingThrough.HasValue)
+                    errors.Add(new() { Field = prefix + ".FundingThrough", Code = "FundingThrough", Message = "Oppgi dato for «Tilskudd til og med»." });
+            }
+
+            foreach (var type in data.SelectedPositionTypes.Distinct().Where(t => !periods.Any(p => p?.PositionType == t)))
+            {
+                errors.Add(new()
+                {
+                    Field = "position-types",
+                    Code = "PositionTypes",
+                    Message = "Legg til en stillingsperiode for den valgte stillingstypen."
+                });
+            }
+
+            return errors;
         }
 
         [HttpGet]
@@ -262,9 +338,13 @@ namespace Alisflyt.Web.Controllers
                 LastModifiedAtUtc = d.LastModifiedAtUtc,
                 ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
-                ReturnedAtUtc = d.ReturnedAtUtc,
-                ApplicationData = d.ApplicationData
-            };
+                    ReturnedAtUtc = d.ReturnedAtUtc,
+                    ApplicationData = d.ApplicationData,
+                    GuidanceApprovalStatus = d.GuidanceApprovalStatus,
+                    GuidanceApprovalRequired = d.GuidanceApprovalRequired,
+                    GuidanceApprovalApproved = d.GuidanceApprovalApproved,
+                    GuidanceCorrectionReason = d.GuidanceCorrectionReason
+                };
 
             if (_repository is not null)
             {
@@ -289,6 +369,9 @@ namespace Alisflyt.Web.Controllers
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,
+                        GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                        GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                        GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
                         GuidanceCorrectionRequired = true,
                         GuidanceCorrectionReason = currentApproval!.RequestedRevisionReason
                     };
@@ -321,6 +404,9 @@ namespace Alisflyt.Web.Controllers
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,
+                        GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                        GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                        GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
                         GuidanceCorrectionRequired = vm.GuidanceCorrectionRequired,
                         GuidanceCorrectionReason = vm.GuidanceCorrectionReason,
                         Calculation = calc

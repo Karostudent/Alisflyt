@@ -8,6 +8,7 @@ namespace Alisflyt.Domain.Tests;
 
 public class ApplicationFormChangesTests
 {
+    private static ApplicationAttachment AgreementAttachment() => new() { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) };
     private static GrantApplicationData Read(GrantCase c) => JsonSerializer.Deserialize<GrantApplicationData>(c.ApplicationDataJson!)!;
     private static GrantCase Create(GrantApplicationData data)
     {
@@ -23,6 +24,7 @@ public class ApplicationFormChangesTests
             HprNumber = "123456789",
             DoctorName = "Anna Hansen",
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [AgreementAttachment()],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),
@@ -61,6 +63,7 @@ public class ApplicationFormChangesTests
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Lege"],
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [AgreementAttachment()],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),
@@ -88,6 +91,7 @@ public class ApplicationFormChangesTests
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Lege"],
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [AgreementAttachment()],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),

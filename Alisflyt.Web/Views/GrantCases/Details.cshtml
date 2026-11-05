@@ -9,6 +9,7 @@
     var through = periods?.Where(p => p.FundingThrough.HasValue).Select(p => p.FundingThrough).Max();
     ViewData["AttachmentCaseId"] = Model.Id;
     ViewData["Calculation"] = Model.Calculation;
+    ViewData["CalculationEditUrl"] = editable ? Url.Action("Edit", "GrantCases", new { id = Model.Id }) : null;
 }
 <link rel="stylesheet" href="~/css/public-dashboards.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/case-details.css" asp-append-version="true" />
@@ -17,7 +18,14 @@
     <header class="public-page-heading"><div><p class="public-role">ALIS · SØKNAD</p><h1>@Model.CaseNumber</h1><p>@(string.IsNullOrWhiteSpace(Model.ApplicationData?.DoctorName) ? "Søknadsoversikt og beregnet tilskudd" : Model.ApplicationData.DoctorName)</p></div><span class="public-status public-status-@Model.Status">@status</span></header>
     @if (!ViewData.ModelState.IsValid)
     {
-        <section class="case-error" role="alert" aria-labelledby="error-heading"><h2 id="error-heading">Søknaden kunne ikke sendes inn</h2><div asp-validation-summary="ModelOnly"></div>@if (editable) { <p><a asp-action="Edit" asp-route-id="@Model.Id">Åpne skjemaet for å rette opplysningene</a>. Husk å lagre utkastet før du sender inn på nytt.</p> }</section>
+        <section class="case-error" role="alert" aria-labelledby="error-heading">
+            <h2 id="error-heading"><span aria-hidden="true">⚠</span> Søknaden kunne ikke sendes inn</h2>
+            <div asp-validation-summary="All"></div>
+            @if (editable)
+            {
+                <p><a asp-action="Edit" asp-route-id="@Model.Id">Åpne skjemaet for å rette opplysningene</a>. Husk å lagre utkastet før du sender inn på nytt.</p>
+            }
+        </section>
     }
     @if (Model.Status == GrantCaseStatus.ReturnedForCorrection)
     {
@@ -26,6 +34,21 @@
     @if (Model.Status == GrantCaseStatus.AwaitingAuditorApproval)
     {
         <section class="case-return" aria-labelledby="auditor-heading"><h2 id="auditor-heading">Klar for revisorkontroll</h2><p>Kommunens behandling er ferdigstilt. Søknaden er klar for revisors kontroll før eventuell innsending til Helsedirektoratet. Søknaden er ikke oversendt fra ALISflyt.</p><p class="text-muted">Ferdigstilt @Model.ReadyForAuditorApprovalAtUtc?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p></section>
+    }
+    @if (Model.HasGuidanceForDisplay)
+    {
+        if (Model.GuidanceApprovalStatus == GuidanceApprovalStatus.Approved && Model.GuidanceApprovalApproved)
+        {
+            <section class="alert alert-success" role="status" aria-label="Veiledningsgodkjenning"><strong>✓</strong> Godkjent fra veileder.</section>
+        }
+        else if (Model.GuidanceApprovalStatus == GuidanceApprovalStatus.NeedsCorrection)
+        {
+            <section class="alert alert-danger" role="alert" aria-label="Veiledningsgodkjenning"><strong aria-hidden="true">⚠</strong> Veiledningsattest må korrigeres.@if (!string.IsNullOrWhiteSpace(Model.GuidanceCorrectionReason)) { <text> @Model.GuidanceCorrectionReason</text> }</section>
+        }
+        else
+        {
+            <section class="alert alert-secondary" role="status" aria-label="Veiledningsgodkjenning"><strong aria-hidden="true">◷</strong> Avventer godkjenning fra veileder.</section>
+        }
     }
     @if (Model.GuidanceCorrectionRequired)
     {

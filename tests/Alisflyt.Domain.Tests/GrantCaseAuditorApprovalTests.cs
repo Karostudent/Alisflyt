@@ -140,6 +140,7 @@ public class GrantCaseAuditorApprovalTests
         DoctorName = "Anna Hansen",
         DoctorProfessions = ["Allmennlege"],
         GrantType = GrantType.AlisAgreementIncludingSupervision,
+        Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
         ConfirmsSpecialization = true,
         SpecializationStartDate = new DateOnly(2025, 1, 1),
         ExpectedCompletionDate = new DateOnly(2028, 1, 1),

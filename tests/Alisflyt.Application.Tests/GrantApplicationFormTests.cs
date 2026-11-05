@@ -57,7 +57,8 @@ public class GrantApplicationFormTests
     private static GrantApplicationData CompleteForm() => new()
     {
         HprNumber = "1234567", DoctorName = "Test Lege", DoctorProfessions = ["Lege"],
-        GrantType = GrantType.AlisAgreementIncludingSupervision, 
+        GrantType = GrantType.AlisAgreementIncludingSupervision,
+        Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
         ConfirmsSpecialization = true,
         SpecializationStartDate = new(2025, 1, 1), 
         ExpectedCompletionDate = new(2030, 1, 1),
@@ -213,6 +214,28 @@ public class GrantApplicationFormTests
         Assert.Contains("Oppgi når ALIS-avtalen gjelder fra.", error.Errors);
         data.GrantType = GrantType.SupervisionOnly;
         data.ValidateSubmission();
+    }
+
+    [Fact]
+    public void Agreement_attachment_is_required_only_for_agreement_grants()
+    {
+        var data = CompleteForm();
+        data.Attachments = [new ApplicationAttachment { Kind = "Receipt", FileName = "bilag.pdf", ContentBase64 = Convert.ToBase64String("receipt"u8.ToArray()) }];
+
+        var error = Assert.Throws<SubmissionValidationException>(() => data.ValidateSubmission());
+
+        Assert.Contains("Last opp ALIS-avtalen før søknaden kan sendes inn.", error.Errors);
+        data.GrantType = GrantType.SupervisionOnly;
+        data.ValidateSubmission();
+    }
+
+    [Fact]
+    public void Draft_can_be_saved_without_an_agreement_attachment()
+    {
+        var data = CompleteForm();
+        data.Attachments = [];
+
+        data.ValidateDraft();
     }
 
     [Fact]

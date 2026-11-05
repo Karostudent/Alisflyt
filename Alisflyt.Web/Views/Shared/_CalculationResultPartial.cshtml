@@ -8,7 +8,21 @@
 	}
 	else if (Model is null || !Model.IsAvailable)
 	{
-		<div class="alert alert-info">@((Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.")</div>
+		var unavailableReason = (Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.";
+		var blocksProgress = unavailableReason.Contains("Mangler dato", StringComparison.OrdinalIgnoreCase)
+			|| unavailableReason.Contains("Ufullstendig søknad", StringComparison.OrdinalIgnoreCase)
+			|| unavailableReason.Contains("Ugyldig søknadsdata", StringComparison.OrdinalIgnoreCase);
+		<div class="alert @(blocksProgress ? "alert-danger" : "alert-info")" role="@(blocksProgress ? "alert" : "status")">
+			@if (blocksProgress)
+			{
+				<h4 class="alert-heading"><span aria-hidden="true">⚠</span> Opplysninger må korrigeres</h4>
+			}
+			<p class="mb-@(blocksProgress ? "2" : "0")">@unavailableReason</p>
+			@if (blocksProgress && ViewData["CalculationEditUrl"] is string editUrl)
+			{
+				<a href="@editUrl" class="alert-link">Åpne søknaden for å rette opplysningene</a>
+			}
+		</div>
 	}
 	else
 	{

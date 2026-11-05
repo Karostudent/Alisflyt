@@ -13,6 +13,10 @@
 		Alisflyt.Domain.Enums.GrantCaseStatus.AwaitingAuditorApproval => "Klar for revisorkontroll",
 		_ => Model.Status.ToString()
 	};
+	var centralityGrade6Value = TempData["CentralityGrade6"] as string;
+	var centralityAmountValue = TempData["CentralityAmount"] as string;
+	var centralityGrade6Error = TempData["CentralityGrade6Error"] as string;
+	var centralityAmountError = TempData["CentralityAmountError"] as string;
 }
 
 <partial name="~/Views/Shared/_RoleContextPartial.cshtml" model='@("Koordinatorvisning")' />
@@ -54,14 +58,29 @@
     else
     {
         <form asp-action="SaveCentrality" method="post">
+            @Html.AntiForgeryToken()
             <input type="hidden" name="id" value="@Model.Id" />
-            <fieldset class="mb-3">
-                <legend>Er kommunen registrert med sentralitetsgrad 6?</legend>
-                <label><input type="radio" name="grade6" value="true" checked="@(Model.ApplicationData?.IsCentralityGrade6 == true)" required /> Ja</label>
-                <label class="ms-3"><input type="radio" name="grade6" value="false" checked="@(Model.ApplicationData?.IsCentralityGrade6 == false)" required /> Nei</label>
+            <fieldset class="mb-3 @(centralityGrade6Error is not null ? "border border-danger rounded p-2" : string.Empty)" aria-invalid="@(centralityGrade6Error is not null ? "true" : "false")" aria-describedby="@(centralityGrade6Error is not null ? "centrality-grade6-error" : null)">
+                <legend>
+                    @if (centralityGrade6Error is not null) { <span class="text-danger" aria-hidden="true">⚠</span> }
+                    Er kommunen registrert med sentralitetsgrad 6?
+                </legend>
+                <label><input id="centrality-grade6-yes" type="radio" name="grade6" value="true" checked="@(centralityGrade6Value == "true" || (centralityGrade6Value is null && Model.ApplicationData?.IsCentralityGrade6 == true))" required /> Ja</label>
+                <label class="ms-3"><input id="centrality-grade6-no" type="radio" name="grade6" value="false" checked="@(centralityGrade6Value == "false" || (centralityGrade6Value is null && Model.ApplicationData?.IsCentralityGrade6 == false))" required /> Nei</label>
+                @if (centralityGrade6Error is not null)
+                {
+                    <div id="centrality-grade6-error" class="text-danger">@centralityGrade6Error</div>
+                }
             </fieldset>
-            <label for="centrality-amount" class="form-label">Beløpet kommunen søker om i sentralitetstillegg (kr)</label>
-            <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-control mb-3" />
+            <label for="centrality-amount" class="form-label">
+                @if (centralityAmountError is not null) { <span class="text-danger" aria-hidden="true">⚠</span> }
+                Beløpet kommunen søker om i sentralitetstillegg (kr)
+            </label>
+            <input id="centrality-amount" name="amount" type="number" min="0" step="0.01" value="@(centralityAmountValue ?? Model.ApplicationData?.CentralitySupplementRequestedAmount?.ToString(System.Globalization.CultureInfo.InvariantCulture))" class="form-control mb-3 @(centralityAmountError is not null ? "is-invalid" : string.Empty)" aria-invalid="@(centralityAmountError is not null ? "true" : "false")" aria-describedby="@(centralityAmountError is not null ? "centrality-amount-error" : null)" />
+            @if (centralityAmountError is not null)
+            {
+                <div id="centrality-amount-error" class="invalid-feedback d-block">@centralityAmountError</div>
+            }
             <p class="form-text">Oppgi søkt beløp når kommunen er registrert med sentralitetsgrad 6.</p>
             <button class="btn btn-primary" type="submit">Lagre sentralitetsopplysninger</button>
         </form>
@@ -90,11 +109,37 @@
 	<dd class="col-sm-9">@Model.LastModifiedAtUtc.ToLocalTime().ToString("g")</dd>
 </dl>
 
+	@{
+		ViewData["CoordinatorDetailsView"] = true;
+		ViewData["CoordinatorGuidanceApprovalStatus"] = Model.GuidanceApprovalStatus;
+		ViewData["CoordinatorGuidanceApprovalApproved"] = Model.GuidanceApprovalApproved;
+	}
 	@await Html.PartialAsync("~/Views/Shared/_ApplicationDetailsPartial.cshtml", Model.ApplicationData)
 
-	@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
+	@if (!Model.GuidanceApprovalRequired)
+	{
+		<div class="alert alert-secondary mt-3" role="status"><strong>ℹ</strong> Veiledningsgodkjenning er ikke påkrevd for denne saken.</div>
+	}
+	else if (Model.GuidanceApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved && Model.GuidanceApprovalApproved)
+	{
+		<div class="alert alert-success mt-3" role="status"><strong>✓</strong> Veiledningsattest godkjent.</div>
+	}
+	else if (Model.GuidanceApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+	{
+		<div class="alert alert-danger mt-3" role="alert"><strong aria-hidden="true">⚠</strong> Veiledningsattest må korrigeres.@if (!string.IsNullOrWhiteSpace(Model.GuidanceCorrectionReason)) { <text> @Model.GuidanceCorrectionReason</text> }</div>
+	}
+	else if (Model.GuidanceApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.Pending)
+	{
+		<div class="alert alert-secondary mt-3" role="status"><strong aria-hidden="true">◷</strong> Avventer godkjenning fra veileder.</div>
+	}
+	else
+	{
+		<div class="alert alert-secondary mt-3" role="status">Det finnes ingen aktiv godkjenningsforespørsel for denne attestversjonen.</div>
+	}
 
-<div class="mt-3">
+		@await Html.PartialAsync("~/Views/Shared/_CalculationResultPartial.cshtml", Model.Calculation)
+
+	<div class="mt-3">
 	<a asp-action="Index" class="btn btn-secondary">Tilbake</a>
 </div>
 
@@ -138,7 +183,7 @@
 	</form>
 	@if (!canMarkReady)
 	{
-		<p class="form-text">Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.</p>
+		<div class="alert alert-danger mt-2" role="alert"><strong aria-hidden="true">⚠</strong> Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder. Det må være gjeldende veiledningsattest som er godkjent.</div>
 	}
 }
 

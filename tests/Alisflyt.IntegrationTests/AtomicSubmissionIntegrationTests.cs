@@ -191,6 +191,7 @@ public class AtomicSubmissionIntegrationTests
         {
             HprNumber = "123456789",
             GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new Alisflyt.Domain.Forms.ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2028, 1, 1),

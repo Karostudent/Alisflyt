@@ -7,13 +7,16 @@
     var requiresGuidanceApproval = ViewData["RequiresGuidanceApproval"] as bool? ?? false;
     var sessions = Model.ApplicationData?.Certificate?.Sessions ?? new List<Alisflyt.Domain.Forms.SupervisionSessionInputModel>();
     var totalHours = sessions.Sum(s => s.Hours ?? 0m);
+    var approvalConfirmationError = TempData["ApprovalConfirmationError"] as string;
+    var correctionReasonError = TempData["CorrectionReasonError"] as string;
+    var correctionReason = TempData["CorrectionReason"] as string ?? string.Empty;
 }
 
 <div class="container py-4">
     <h1 class="mb-3">Veiledningsattest</h1>
     <p class="text-muted mb-4">Sak @Model.CaseNumber</p>
 
-    @if (TempData["Error"] is string error)
+    @if (TempData["Error"] is string error && approvalConfirmationError is null && correctionReasonError is null)
     {
         <div class="alert alert-danger">@error</div>
     }
@@ -42,18 +45,28 @@
                             {
                                 if (requiresGuidanceApproval)
                                 {
-                                    <span class="badge text-bg-warning">Avventer godkjenning</span>
+                                    <span class="badge text-bg-secondary">Ingen aktiv godkjenningsforespørsel</span>
                                 }
                                 else
                                 {
                                     <span class="badge text-bg-secondary">Godkjenning ikke påkrevd</span>
                                 }
                             }
+                            else if (approval.Status == GuidanceApprovalStatus.Approved)
+                            {
+                                <div class="alert alert-success mb-0 py-2" role="status"><strong>✓</strong> Veiledningsattest godkjent</div>
+                            }
+                            else if (approval.Status == GuidanceApprovalStatus.NeedsCorrection)
+                            {
+                                <div class="alert alert-danger mb-0 py-2" role="alert"><strong aria-hidden="true">⚠</strong> Veiledningsattest må korrigeres</div>
+                            }
+                            else if (approval.Status == GuidanceApprovalStatus.Pending)
+                            {
+                                <div class="alert alert-secondary mb-0 py-2" role="status"><strong aria-hidden="true">◷</strong> Avventer godkjenning fra veileder</div>
+                            }
                             else
                             {
-                                <span class="badge @(approval.Status == GuidanceApprovalStatus.Pending ? "text-bg-warning" : approval.Status == GuidanceApprovalStatus.Approved ? "text-bg-success" : approval.Status == GuidanceApprovalStatus.NeedsCorrection ? "text-bg-danger" : "text-bg-secondary")">
-                                    @(approval.Status == GuidanceApprovalStatus.Pending ? "Avventer godkjenning" : approval.Status == GuidanceApprovalStatus.Approved ? "Godkjent" : approval.Status == GuidanceApprovalStatus.NeedsCorrection ? "Korrigering nødvendig" : approval.Status == GuidanceApprovalStatus.Superseded ? "Tidligere attestversjon / erstattet" : approval.Status.ToString())
-                                </span>
+                                <div class="alert alert-secondary mb-0 py-2" role="status">Denne attestversjonen er erstattet av en nyere versjon.</div>
                             }
                         </dd>
                     </dl>
@@ -175,9 +188,13 @@
             <form asp-action="Approve" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" name="confirmsAccuracy" value="true" id="confirmsAccuracy" required />
-                    <label class="form-check-label" for="confirmsAccuracy">Jeg har kontrollert veiledningsattesten og bekrefter at opplysningene er riktige.</label>
+                <div class="form-check mb-3 @(approvalConfirmationError is not null ? "text-danger" : string.Empty)">
+                    <input class="form-check-input @(approvalConfirmationError is not null ? "is-invalid" : string.Empty)" type="checkbox" name="confirmsAccuracy" value="true" id="confirmsAccuracy" required aria-invalid="@(approvalConfirmationError is not null ? "true" : "false")" aria-describedby="@(approvalConfirmationError is not null ? "approval-confirmation-error" : null)" />
+                    <label class="form-check-label" for="confirmsAccuracy">@(approvalConfirmationError is not null ? "⚠ " : string.Empty)Jeg har kontrollert veiledningsattesten og bekrefter at opplysningene er riktige.</label>
+                    @if (approvalConfirmationError is not null)
+                    {
+                        <div id="approval-confirmation-error" class="invalid-feedback d-block">@approvalConfirmationError</div>
+                    }
                 </div>
                 <button type="submit" class="btn btn-primary">Godkjenn veiledningstimer</button>
             </form>
@@ -188,8 +205,12 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <div class="mb-3">
-                    <label for="reason" class="form-label">Begrunnelse for korrigering</label>
-                    <textarea class="form-control" id="reason" name="reason" rows="4" required placeholder="F.eks. Det er registrert 3 timer 19. oktober, men vi gjennomførte bare 2 timer."></textarea>
+                    <label for="reason" class="form-label">@(correctionReasonError is not null ? "⚠ " : string.Empty)Begrunnelse for korrigering</label>
+                    <textarea class="form-control @(correctionReasonError is not null ? "is-invalid" : string.Empty)" id="reason" name="reason" rows="4" maxlength="1000" required aria-invalid="@(correctionReasonError is not null ? "true" : "false")" aria-describedby="@(correctionReasonError is not null ? "correction-reason-error" : null)" placeholder="F.eks. Det er registrert 3 timer 19. oktober, men vi gjennomførte bare 2 timer.">@correctionReason</textarea>
+                    @if (correctionReasonError is not null)
+                    {
+                        <div id="correction-reason-error" class="invalid-feedback d-block">@correctionReasonError</div>
+                    }
                 </div>
                 <button type="submit" class="btn btn-outline-warning">Be om korrigering</button>
             </form>

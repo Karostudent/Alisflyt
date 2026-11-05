@@ -26,6 +26,7 @@ public class CoordinatorCentralityTests
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Lege"],
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),
@@ -90,6 +91,37 @@ public class CoordinatorCentralityTests
     }
 
     [Fact]
+    public async Task SaveCentrality_marks_missing_grade6_as_group_error_and_preserves_input()
+    {
+        var grantCase = CreateSubmittedCase();
+        grantCase.StartReview(DateTimeOffset.UtcNow);
+        var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
+
+        var result = await controller.SaveCentrality(
+            grantCase.Id, null, 1250m, new InMemoryGrantCaseRepository(grantCase), TimeProvider.System, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Null(controller.TempData!["Error"]);
+        Assert.Equal("1250", controller.TempData["CentralityAmount"]);
+        Assert.Equal("Velg Ja eller Nei for sentralitetsgrad 6.", controller.TempData["CentralityGrade6Error"]);
+    }
+
+    [Fact]
+    public async Task SaveCentrality_marks_missing_amount_when_grade6_is_selected()
+    {
+        var grantCase = CreateSubmittedCase();
+        grantCase.StartReview(DateTimeOffset.UtcNow);
+        var controller = CoordinatorTestFactory.Create(new FakeGrantCaseApplicationService());
+
+        var result = await controller.SaveCentrality(
+            grantCase.Id, true, null, new InMemoryGrantCaseRepository(grantCase), TimeProvider.System, default);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Beløpet er påkrevd når sentralitetsgrad 6 er Ja.", controller.TempData!["CentralityAmountError"]);
+        Assert.Null(controller.TempData["Error"]);
+    }
+
+    [Fact]
     public async Task SaveCentrality_updates_values_during_review()
     {
         var now = DateTimeOffset.UtcNow;
@@ -119,6 +151,7 @@ public class CoordinatorCentralityTests
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Lege"],
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),
@@ -170,6 +203,7 @@ public class CoordinatorCentralityTests
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Lege"],
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             ConfirmsSpecialization = true,
             SpecializationStartDate = new DateOnly(2025, 1, 1),
             ExpectedCompletionDate = new DateOnly(2030, 1, 1),
