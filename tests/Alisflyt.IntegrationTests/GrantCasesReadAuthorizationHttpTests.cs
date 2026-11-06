@@ -39,6 +39,25 @@ public sealed class GrantCasesReadAuthorizationHttpTests : IClassFixture<Isolate
     }
 
     [Fact]
+    public async Task Coordinator_can_download_attachment_from_available_case_and_invalid_urls_are_controlled()
+    {
+        var created = await CreateCaseAsync("123456789", includeAttachment: true);
+        using var client = CreateClient();
+        var login = await client.GetAsync("/Account/Login?role=Koordinator");
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+        var download = await client.GetAsync($"/GrantCases/DownloadAttachment/{created.caseId}?attachmentId={created.attachmentId}");
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        Assert.Equal(new byte[] { 1, 2, 3 }, await download.Content.ReadAsByteArrayAsync());
+
+        var missingAttachment = await client.GetAsync($"/GrantCases/DownloadAttachment/{created.caseId}?attachmentId={Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, missingAttachment.StatusCode);
+
+        var missingCase = await client.GetAsync($"/GrantCases/DownloadAttachment/{Guid.NewGuid()}?attachmentId={created.attachmentId}");
+        Assert.Equal(HttpStatusCode.NotFound, missingCase.StatusCode);
+    }
+
+    [Fact]
     public async Task Alis_overviews_contain_only_cases_owned_by_logged_in_alis()
     {
         await CreateCaseAsync("123456789", includeAttachment: false, caseNumber: "OWN-HTTP");

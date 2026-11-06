@@ -68,6 +68,30 @@ public class GrantCasesSaveTests
     }
 
     [Fact]
+    public async Task SaveApplication_preserves_supervision_only_grant_type()
+    {
+        var savedId = Guid.NewGuid();
+        var dto = new GrantCaseDto { Id = savedId, HprNumber = "123456789" };
+        var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto, CreateDraftResponse = dto };
+        var controller = new GrantCasesController(fake)
+        {
+            Url = new GrantCaseUrlHelper(),
+            ControllerContext = new ControllerContext { HttpContext = GrantCasesTestContext.CreateAlis() }
+        };
+        var model = new GrantApplicationFormViewModel
+        {
+            HprNumber = "123456789",
+            GrantType = GrantType.SupervisionOnly
+        };
+
+        var result = Assert.IsType<OkObjectResult>(await controller.SaveApplication(model, default));
+
+        Assert.Equal(GrantType.SupervisionOnly, model.GrantType);
+        Assert.Equal(GrantType.SupervisionOnly, Assert.Single(fake.CreateDraftCalls).request.ApplicationData.GrantType);
+        Assert.Equal(savedId, JsonSerializer.SerializeToElement(result.Value).GetProperty("id").GetGuid());
+    }
+
+    [Fact]
     public async Task SaveApplication_persists_real_form_data_across_updates()
     {
         var repository = new InMemoryGrantCaseRepository();

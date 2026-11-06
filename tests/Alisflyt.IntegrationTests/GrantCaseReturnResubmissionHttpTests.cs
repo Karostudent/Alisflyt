@@ -18,6 +18,8 @@ namespace Alisflyt.IntegrationTests;
 
 public sealed class GrantCaseReturnResubmissionHttpTests : IClassFixture<IsolatedWebApplicationFactory>
 {
+    private static readonly Guid AgreementAttachmentId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid BasisAttachmentId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private readonly IsolatedWebApplicationFactory _factory;
 
     public GrantCaseReturnResubmissionHttpTests(IsolatedWebApplicationFactory factory)
@@ -140,6 +142,15 @@ public sealed class GrantCaseReturnResubmissionHttpTests : IClassFixture<Isolate
             });
         Assert.Equal(HttpStatusCode.Redirect, resumeReviewResponse.StatusCode);
         await AssertCaseStateAsync(caseId, GrantCaseStatus.UnderReview, caseNumber, 1, returnReason, "Anna Hansen – korrigert");
+        await AssertAttachmentsAsync(caseId);
+
+        var agreementDownload = await coordinatorClient.GetAsync($"/GrantCases/DownloadAttachment/{caseId}?attachmentId={AgreementAttachmentId}");
+        Assert.Equal(HttpStatusCode.OK, agreementDownload.StatusCode);
+        Assert.Equal(Encoding.UTF8.GetBytes("agreement"), await agreementDownload.Content.ReadAsByteArrayAsync());
+
+        var basisDownload = await coordinatorClient.GetAsync($"/GrantCases/DownloadAttachment/{caseId}?attachmentId={BasisAttachmentId}");
+        Assert.Equal(HttpStatusCode.OK, basisDownload.StatusCode);
+        Assert.Equal(Encoding.UTF8.GetBytes("basis"), await basisDownload.Content.ReadAsByteArrayAsync());
 
         Assert.Equal(initialCaseCount, await CountCasesAsync());
     }
@@ -160,6 +171,19 @@ public sealed class GrantCaseReturnResubmissionHttpTests : IClassFixture<Isolate
     {
         await using var context = _factory.CreateDbContext();
         return await context.GrantCases.CountAsync();
+    }
+
+    private async Task AssertAttachmentsAsync(Guid id)
+    {
+        await using var context = _factory.CreateDbContext();
+        var persisted = await context.GrantCases.SingleAsync(c => c.Id == id);
+        var data = JsonSerializer.Deserialize<GrantApplicationData>(persisted.ApplicationDataJson!)!;
+
+        Assert.Equal(2, data.Attachments.Count);
+        Assert.Equal(AgreementAttachmentId, data.Attachments[0].Id);
+        Assert.Equal("agreement", Encoding.UTF8.GetString(Convert.FromBase64String(data.Attachments[0].ContentBase64)));
+        Assert.Equal(BasisAttachmentId, data.Attachments[1].Id);
+        Assert.Equal("basis", Encoding.UTF8.GetString(Convert.FromBase64String(data.Attachments[1].ContentBase64)));
     }
 
     private async Task AssertCaseStateAsync(
@@ -220,7 +244,23 @@ public sealed class GrantCaseReturnResubmissionHttpTests : IClassFixture<Isolate
             }
         ],
         Certificate = new SupervisionCertificateViewModel(),
-        Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("agreement")) }],
+        Attachments =
+        [
+            new ApplicationAttachment
+            {
+                Id = AgreementAttachmentId,
+                Kind = "Agreement",
+                FileName = "avtale.pdf",
+                ContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("agreement"))
+            },
+            new ApplicationAttachment
+            {
+                Id = BasisAttachmentId,
+                Kind = "CalculationBasis",
+                FileName = "grunnlag.pdf",
+                ContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes("basis"))
+            }
+        ],
         ProductivityRequestedAmount = 0m,
         AbsenceCompensation = 0m,
         LearningActivityExpenses = 0m,

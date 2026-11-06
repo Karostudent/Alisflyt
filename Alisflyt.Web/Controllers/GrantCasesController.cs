@@ -78,13 +78,14 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> DownloadAttachment(Guid id, Guid attachmentId, CancellationToken cancellationToken)
         {
-            if (!IsGrantCaseReader())
+            var coordinator = DemoAuthentication.IsInRole(HttpContext, "Koordinator");
+            if (!IsGrantCaseReader() && !coordinator)
                 return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (!UserCanAccessCase(data.HprNumber))
+                if (!coordinator && !UserCanAccessCase(data.HprNumber))
                     return StatusCode(StatusCodes.Status403Forbidden);
 
                 var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
@@ -159,7 +160,6 @@ namespace Alisflyt.Web.Controllers
             model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
-            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             try
             {
                 var saved = model.Id == Guid.Empty
@@ -610,7 +610,6 @@ namespace Alisflyt.Web.Controllers
                 return BadRequest();
 
             var model = FormModel(d);
-            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             return View("Application", model);
         }
 

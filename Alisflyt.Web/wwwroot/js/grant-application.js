@@ -607,7 +607,7 @@
 
     for (const input of form.querySelectorAll("input[name],select[name],textarea[name]")) {
         if (input.name === "__RequestVerificationToken" || input.name.endsWith(".Index")) continue;
-        const value = input.name === "GrantType" && form.dataset.readonly !== "true" ? 1 : getValue(input.name);
+        const value = getValue(input.name);
         if (value === undefined || value === null) continue;
         if (input.type === "checkbox") {
             input.checked = Array.isArray(value) ? value.map(String).includes(input.value) : value === true;
