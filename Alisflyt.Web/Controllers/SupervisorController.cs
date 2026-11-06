@@ -74,6 +74,13 @@ public class SupervisorController(
         {
             IsAvailable = calculation.IsAvailable,
             GuidanceAmount = calculation.GuidanceAmount,
+            RegisteredGuidanceHours = calculation.RegisteredGuidanceHours,
+            GuidancePaidHours = calculation.GuidancePaidHours,
+            GuidanceHourlyRate = calculation.GuidanceHourlyRate,
+            GuidanceHonorariumAmount = calculation.GuidanceHonorariumAmount,
+            GuidanceHonorariumMaximumAmount = calculation.GuidanceHonorariumMaximumAmount,
+            GuidanceHonorariumCappedAmount = calculation.GuidanceHonorariumCappedAmount,
+            GuidanceHonorariumApprovalStatus = calculation.GuidanceHonorariumApprovalStatus,
             RateSetName = calculation.RateSetName,
             RateSetValidFrom = calculation.RateSetValidFrom,
             RateSetValidTo = calculation.RateSetValidTo,

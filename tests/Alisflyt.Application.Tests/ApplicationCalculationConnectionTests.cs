@@ -50,6 +50,83 @@ public class ApplicationCalculationConnectionTests
     }
 
     [Theory]
+    [InlineData(0, 0)]
+    [InlineData(2, 4348.4375)]
+    [InlineData(6, 13045.3125)]
+    [InlineData(28, 60878.125)]
+    [InlineData(42, 91317.1875)]
+    public void Guidance_honorarium_uses_registered_hours_and_excel_factor(decimal hours, decimal expected)
+    {
+        var form = Form();
+        form.Certificate.Sessions = [new() { Date = new(2025, 7, 1), Hours = hours }];
+
+        var result = new GrantCalculationService().Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        Assert.Equal(hours, result.RegisteredGuidanceHours);
+        Assert.Equal(hours * 1.375m, result.GuidancePaidHours);
+        Assert.Equal(1375m * 1.15m, result.GuidanceHourlyRate);
+        Assert.Equal(expected, result.GuidanceHonorariumAmount);
+        Assert.Equal(Math.Min(expected, 91317.1875m), result.GuidanceHonorariumCappedAmount);
+    }
+
+    [Fact]
+    public void Guidance_honorarium_counts_in_period_sessions_once_across_overlapping_periods()
+    {
+        var form = Form();
+        form.EmploymentPeriods.Add(new()
+        {
+            PositionType = PositionType.IntroductoryDoctor,
+            PositionPercentage = 20,
+            EmploymentStartDate = new(2025, 6, 1),
+            FundingFrom = new(2025, 6, 1),
+            FundingThrough = new(2026, 5, 31)
+        });
+        form.Certificate.Sessions =
+        [
+            new() { Date = new(2025, 5, 31), Hours = 3 },
+            new() { Date = new(2025, 6, 1), Hours = 2 },
+            new() { Date = new(2026, 5, 31), Hours = 4 },
+            new() { Date = new(2026, 6, 1), Hours = 3 },
+            new() { Hours = 5 }
+        ];
+
+        var result = new GrantCalculationService().Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        Assert.Equal(6m, result.RegisteredGuidanceHours);
+        Assert.Equal(13045.3125m, result.GuidanceHonorariumAmount);
+    }
+
+    [Fact]
+    public void Guidance_honorarium_ignores_non_positive_session_hours()
+    {
+        var form = Form();
+        form.Certificate.Sessions =
+        [
+            new() { Date = new(2025, 7, 1), Hours = 0 },
+            new() { Date = new(2025, 7, 2), Hours = -2 }
+        ];
+
+        var result = new GrantCalculationService().Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        Assert.Equal(0m, result.RegisteredGuidanceHours);
+        Assert.Equal(0m, result.GuidanceHonorariumAmount);
+    }
+
+    [Fact]
+    public void Guidance_honorarium_does_not_change_guidance_amount_or_total()
+    {
+        var form = Form();
+        form.SupervisionExpenses = 50_000m;
+        form.Certificate.Sessions = [new() { Date = new(2025, 7, 1), Hours = 6 }];
+
+        var result = new GrantCalculationService().Calculate(GrantCalculationInputMapper.From(form), Rates());
+
+        Assert.Equal(50_000m, result.GuidanceAmount);
+        Assert.Equal(50_000m, result.TotalAmount - result.PracticeCompensationAmount - result.LearningActivitiesAmount - result.ProductivityAmount - result.FacilitationAmount - result.CentralitySupplementAmount);
+        Assert.NotEqual(result.GuidanceAmount, result.GuidanceHonorariumAmount);
+    }
+
+    [Theory]
     [InlineData(0)]
     [InlineData(10000)]
     [InlineData(200000)]

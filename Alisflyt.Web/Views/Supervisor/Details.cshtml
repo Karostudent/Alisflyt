@@ -167,6 +167,26 @@
             <dl class="row mb-0">
                 <dt class="col-sm-5">Veiledningsbeløp</dt>
                 <dd class="col-sm-7">@guidanceCalculation.GuidanceAmount.ToString("N0") kr</dd>
+                <dt class="col-sm-5">Beregnet veilederhonorar basert på registrerte timer</dt>
+                <dd class="col-sm-7">
+                    @guidanceCalculation.GuidanceHonorariumAmount.ToString("N2") kr
+                    @if (guidanceCalculation.GuidanceHonorariumApprovalStatus == GuidanceApprovalStatus.Approved)
+                    {
+                        <span class="text-success">(attest godkjent)</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">(foreløpig – attest ikke godkjent)</span>
+                    }
+                </dd>
+                <dt class="col-sm-5">Registrerte timer</dt>
+                <dd class="col-sm-7">@guidanceCalculation.RegisteredGuidanceHours.ToString("0.##")</dd>
+                <dt class="col-sm-5">For-/etterarbeid</dt>
+                <dd class="col-sm-7">@((guidanceCalculation.GuidancePaidHours - guidanceCalculation.RegisteredGuidanceHours).ToString("0.##")) timer</dd>
+                <dt class="col-sm-5">Honorerbare timer</dt>
+                <dd class="col-sm-7">@guidanceCalculation.GuidancePaidHours.ToString("0.##")</dd>
+                <dt class="col-sm-5">Maksimalgrense</dt>
+                <dd class="col-sm-7">@guidanceCalculation.GuidanceHonorariumMaximumAmount.ToString("N2") kr; etter grense: @guidanceCalculation.GuidanceHonorariumCappedAmount.ToString("N2") kr</dd>
                 @if (!string.IsNullOrWhiteSpace(guidanceCalculation.RateSetName))
                 {
                     <dt class="col-sm-5">Satssett</dt>

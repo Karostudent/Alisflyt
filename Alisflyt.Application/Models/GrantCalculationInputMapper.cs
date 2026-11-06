@@ -47,6 +47,14 @@ public static class GrantCalculationInputMapper
             LearningActivityExpenses =
                 applicationData.LearningActivityExpenses ?? 0m,
 
+            RegisteredGuidanceHours = (applicationData.Certificate?.Sessions ?? [])
+                .Where(session => session?.Date.HasValue == true
+                    && session.Hours is > 0m
+                    && employmentPeriods.Any(period =>
+                        session.Date.Value >= period.FundingFrom
+                        && session.Date.Value <= period.FundingThrough))
+                .Sum(session => session.Hours!.Value),
+
             SupervisionExpenses =
                 applicationData.SupervisionExpenses ?? 0m,
 

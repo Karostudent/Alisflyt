@@ -6,6 +6,7 @@ using Alisflyt.Application.Models;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Xunit;
 
@@ -472,6 +473,58 @@ namespace Alisflyt.Application.Tests
 
             Assert.False(res.IsAvailable);
             Assert.Contains("Mangler dato", res.UnavailableReason);
+        }
+
+        [Fact]
+        public async Task Honorarium_status_tracks_current_attestation_approval_only()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+            rateRepo.Items.Add(CreateRateSet("RS1", new DateOnly(2023, 1, 1), new DateOnly(2023, 12, 31)));
+
+            var appData = new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
+                ],
+                Certificate = new SupervisionCertificateViewModel
+                {
+                    Sessions = [new() { Date = new(2023, 2, 1), Hours = 2, Topic = "Tema" }]
+                }
+            };
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-HONORARIUM-STATUS", now);
+            grantCase.UpdateApplication(appData, now);
+            caseRepo.Case = grantCase;
+
+            var approval = grantCase.RequestGuidanceApproval("D", "V", "veileder", now);
+            var service = new GrantCalculationApplicationService(caseRepo, rateRepo);
+
+            Assert.Equal(GuidanceApprovalStatus.Pending, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            approval.Approve(now.AddMinutes(1), "veileder");
+            Assert.Equal(GuidanceApprovalStatus.Approved, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            approval.RequestCorrection("Korriger", now.AddMinutes(2));
+            Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            var changed = new GrantApplicationData
+            {
+                GrantType = appData.GrantType,
+                EmploymentPeriods = appData.EmploymentPeriods,
+                Certificate = new SupervisionCertificateViewModel
+                {
+                    Sessions = [new() { Date = new(2023, 2, 1), Hours = 6, Topic = "Oppdatert tema" }]
+                }
+            };
+            grantCase.UpdateApplication(changed, now.AddMinutes(3));
+
+            var resultAfterSuperseding = await service.CalculateForCaseAsync(grantCase.Id);
+            Assert.Null(resultAfterSuperseding.GuidanceHonorariumApprovalStatus);
+            Assert.Equal(6m, resultAfterSuperseding.RegisteredGuidanceHours);
+            Assert.Equal(GuidanceApprovalStatus.Superseded, approval.Status);
         }
 
         [Fact]

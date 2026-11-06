@@ -76,7 +76,16 @@ internal static class GrantCalculationAudit
         }
         Cap("Veiledning", input.SupervisionExpenses, guidanceMax, result.GuidanceAmount);
         if (isAlisAgreement)
-            Cap("Sentralitetstillegg", input.CentralitySupplementRequestedAmount, centralityMax, result.CentralitySupplementAmount);
+        {
+            Add("Registrerte veiledningstimer", "Daterte økter innenfor tilskuddsperioden", "SUM(timer)", result.RegisteredGuidanceHours);
+            Add("Honorerbare veiledningstimer", "Registrerte timer × (1 + 1,5 / 4)", $"{N(result.RegisteredGuidanceHours)} × 1,375", result.GuidancePaidHours);
+            Add("Veilederhonorarsats", "Lønnssats × veiledningsfaktor", $"{N(rates.SalaryRate)} × {N(rates.GuidanceRate)}", result.GuidanceHourlyRate);
+            Add("Beregnet veilederhonorar", "Honorerbare timer × veilederhonorarsats", $"{N(result.GuidancePaidHours)} × {N(result.GuidanceHourlyRate)}", result.GuidanceHonorariumAmount);
+            Add("Veilederhonorar – maksimalgrense", "Samme periodiserte veiledningsramme som ordinær veiledning", "Maksimum for stilling og periode", result.GuidanceHonorariumMaximumAmount);
+            Add("Veilederhonorar – etter maksimalgrense", "MIN(beregnet honorar; maksimalgrense)", $"MIN({N(result.GuidanceHonorariumAmount)}; {N(result.GuidanceHonorariumMaximumAmount)})", result.GuidanceHonorariumCappedAmount);
+        }
+        if (isAlisAgreement)
+            Add("Sentralitetstillegg", "Krever sentralitetsgrad 6 og ALIS-avtale inkl. veiledning", input.IsCentralityGrade6 && input.GrantType == GrantType.AlisAgreementIncludingSupervision ? $"{N(rates.CentralitySupplementMaxAmount)} × stillingsprosent / 100 × dager / 365" : "Vilkårene er ikke oppfylt", result.CentralitySupplementAmount);
         else
             Add("Sentralitetstillegg", "Ikke aktuelt for kun veiledning", "Ikke beregnet", 0m);
         Add("Totalt beregnet tilskudd", "Sum av alle seks beregningsposter", $"{N(result.PracticeCompensationAmount)} + {N(result.LearningActivitiesAmount)} + {N(result.ProductivityAmount)} + {N(result.FacilitationAmount)} + {N(result.GuidanceAmount)} + {N(result.CentralitySupplementAmount)}", result.TotalAmount);

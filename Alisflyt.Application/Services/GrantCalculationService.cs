@@ -24,8 +24,12 @@ public class GrantCalculationService
         var productivity = isAlisAgreement
             ? CalculateProductivity(input, rateSet)
             : 0m;
+        var guidanceMaximum = CalculateGuidanceMaximum(input, rateSet);
         var guidance =
-            CalculateGuidance(input, rateSet);
+            Math.Min(input.SupervisionExpenses, guidanceMaximum);
+        var guidanceHonorarium = isAlisAgreement
+            ? CalculateGuidanceHonorarium(input, rateSet, guidanceMaximum)
+            : (RegisteredHours: 0m, PaidHours: 0m, HourlyRate: 0m, Amount: 0m, Maximum: 0m, CappedAmount: 0m);
         var standardElements =
             practiceCompensation.Amount
             + learningActivities
@@ -48,6 +52,12 @@ public class GrantCalculationService
             LearningActivitiesAmount = learningActivities,
             ProductivityAmount = productivity,
             GuidanceAmount = guidance,
+            RegisteredGuidanceHours = guidanceHonorarium.RegisteredHours,
+            GuidancePaidHours = guidanceHonorarium.PaidHours,
+            GuidanceHourlyRate = guidanceHonorarium.HourlyRate,
+            GuidanceHonorariumAmount = guidanceHonorarium.Amount,
+            GuidanceHonorariumMaximumAmount = guidanceHonorarium.Maximum,
+            GuidanceHonorariumCappedAmount = guidanceHonorarium.CappedAmount,
             FacilitationAmount = facilitation,
             CentralitySupplementAmount = centralitySupplement,
             CentralityExplanation = DetermineCentralityExplanation(input, centralitySupplement)
@@ -217,7 +227,7 @@ public class GrantCalculationService
         return amount;
     }
 
-    private static decimal CalculateGuidance(
+    private static decimal CalculateGuidanceMaximum(
     GrantCalculationInput input,
     GrantRateSet rateSet)
     {
@@ -251,10 +261,28 @@ public class GrantCalculationService
                 * periodFraction;
         }
 
-        return Math.Min(
-            input.SupervisionExpenses,
-            maximumAmount);
+        return maximumAmount;
     }
+
+    private static (decimal RegisteredHours, decimal PaidHours, decimal HourlyRate, decimal Amount, decimal Maximum, decimal CappedAmount) CalculateGuidanceHonorarium(
+        GrantCalculationInput input,
+        GrantRateSet rateSet,
+        decimal maximumAmount)
+    {
+        const decimal preparationFactor = 1m + 1.5m / 4m;
+        var hourlyRate = rateSet.SalaryRate * rateSet.GuidanceRate;
+        var paidHours = input.RegisteredGuidanceHours * preparationFactor;
+        var amount = paidHours * hourlyRate;
+
+        return (
+            input.RegisteredGuidanceHours,
+            paidHours,
+            hourlyRate,
+            amount,
+            maximumAmount,
+            Math.Min(amount, maximumAmount));
+    }
+
     private static decimal CalculateCentralitySupplement(
     GrantCalculationInput input,
     GrantRateSet rateSet)

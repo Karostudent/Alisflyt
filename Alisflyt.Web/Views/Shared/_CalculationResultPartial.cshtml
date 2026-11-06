@@ -38,6 +38,21 @@
 				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
 				<tr><th>Lavere produktivitet</th><td>@Model.ProductivityAmount.ToString("N0") kr<br /><span class="small text-muted">Beregnes automatisk etter fastlegeandel, tilskuddsperiode og de første 24 månedene.</span></td></tr>
 				<tr><th>Tilskudd til veiledning</th><td data-guidance-amount>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
+				<tr><th colspan="2">Beregnet veilederhonorar basert på registrerte timer</th></tr>
+				<tr><th>Registrerte timer</th><td>@Model.RegisteredGuidanceHours.ToString("0.##")</td></tr>
+				<tr><th>For-/etterarbeid</th><td>@((Model.GuidancePaidHours - Model.RegisteredGuidanceHours).ToString("0.##")) timer</td></tr>
+				<tr><th>Samlet antall honorerbare timer</th><td>@Model.GuidancePaidHours.ToString("0.##")</td></tr>
+				<tr><th>Timesats</th><td>@Model.GuidanceHourlyRate.ToString("N2") kr</td></tr>
+				<tr><th>Beregnet veilederhonorar</th><td>@Model.GuidanceHonorariumAmount.ToString("N2") kr</td></tr>
+				<tr><th>Etter eventuell maksimalgrense</th><td>@Model.GuidanceHonorariumCappedAmount.ToString("N2") kr <span class="small text-muted">Maks: @Model.GuidanceHonorariumMaximumAmount.ToString("N2") kr</span></td></tr>
+				@if (Model.GuidanceHonorariumApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved)
+				{
+					<tr><td colspan="2"><span class="text-success">Veiledningsattesten er godkjent.</span></td></tr>
+				}
+				else if (Model.RegisteredGuidanceHours > 0)
+				{
+					<tr><td colspan="2"><span class="text-muted">Foreløpig beregning – veiledningsattesten er ikke godkjent.</span></td></tr>
+				}
 				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>
 		@if (!string.IsNullOrWhiteSpace(Model.CentralityExplanation))
