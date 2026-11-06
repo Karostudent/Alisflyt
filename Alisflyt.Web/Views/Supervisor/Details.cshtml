@@ -167,7 +167,7 @@
             <dl class="row mb-0">
                 <dt class="col-sm-5">Veiledningsbeløp</dt>
                 <dd class="col-sm-7">@guidanceCalculation.GuidanceAmount.ToString("N0") kr</dd>
-                <dt class="col-sm-5">Beregnet veilederhonorar basert på registrerte timer</dt>
+                <dt class="col-sm-5">Veilederhonorar – separat beregning (inngår ikke i samlet tilskuddsgrunnlag)</dt>
                 <dd class="col-sm-7">
                     @guidanceCalculation.GuidanceHonorariumAmount.ToString("N2") kr
                     @if (guidanceCalculation.GuidanceHonorariumApprovalStatus == GuidanceApprovalStatus.Approved)
@@ -187,6 +187,8 @@
                 <dd class="col-sm-7">@guidanceCalculation.GuidancePaidHours.ToString("0.##")</dd>
                 <dt class="col-sm-5">Maksimalgrense</dt>
                 <dd class="col-sm-7">@guidanceCalculation.GuidanceHonorariumMaximumAmount.ToString("N2") kr; etter grense: @guidanceCalculation.GuidanceHonorariumCappedAmount.ToString("N2") kr</dd>
+                <dt class="col-sm-5">Merk</dt>
+                <dd class="col-sm-7"><div class="alert alert-warning py-2 mb-2" role="note"><span aria-hidden="true">ⓘ</span> <strong>Merk:</strong> Beregnet veilederhonorar vises kun til informasjon og er ikke inkludert i «Beregnet samlet tilskuddsgrunnlag» nederst i tabellen. Tilskudd til veiledning beregnes separat ut fra oppgitte veiledningskostnader, i påvente av faglig avklaring.</div></dd>
                 @if (!string.IsNullOrWhiteSpace(guidanceCalculation.RateSetName))
                 {
                     <dt class="col-sm-5">Satssett</dt>
