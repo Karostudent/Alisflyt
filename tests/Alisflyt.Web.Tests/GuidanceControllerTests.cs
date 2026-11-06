@@ -170,6 +170,9 @@ namespace Alisflyt.Web.Tests
             public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
                 => Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>(Array.Empty<Alisflyt.Domain.Entities.GrantCase>());
 
+            public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+                => Task.FromResult<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>>(Array.Empty<Alisflyt.Application.Models.GrantCaseListItemDto>());
+
             public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
                 => Task.CompletedTask;
 
@@ -205,10 +208,13 @@ namespace Alisflyt.Web.Tests
                 };
                 case1.UpdateApplication(app, now);
                 case1.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now, "Per Olsen");
-                return Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([case1]);
-            }
+                    return Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([case1]);
+                }
 
-            public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
+                public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+                    => Task.FromResult<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>>(Array.Empty<Alisflyt.Application.Models.GrantCaseListItemDto>());
+
+                public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
                 => Task.CompletedTask;
 
             public Task AddGuidanceApprovalAsync(Alisflyt.Domain.Entities.GuidanceApproval approval, CancellationToken cancellationToken = default)
@@ -782,6 +788,9 @@ namespace Alisflyt.Web.Tests
 
             public Task<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>> ListAsync(CancellationToken cancellationToken = default)
                 => Task.FromResult<IReadOnlyList<Alisflyt.Domain.Entities.GrantCase>>([_grantCase]);
+
+            public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+                => Task.FromResult<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>>(Array.Empty<Alisflyt.Application.Models.GrantCaseListItemDto>());
 
             public Task AddAsync(Alisflyt.Domain.Entities.GrantCase grantCase, CancellationToken cancellationToken = default)
                 => Task.CompletedTask;

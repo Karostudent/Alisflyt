@@ -27,7 +27,7 @@ namespace Alisflyt.Web.Controllers
             if (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
                 return StatusCode(StatusCodes.Status403Forbidden);
 
-            var listResult = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
+            var listResult = await _svc.ListOverviewAsync(cancellationToken).ConfigureAwait(false);
             var list = listResult ?? new System.Collections.Generic.List<GrantCaseListItemDto>();
             var cases = (list ?? new System.Collections.Generic.List<GrantCaseListItemDto>()).Where(c => c != null).ToList();
 

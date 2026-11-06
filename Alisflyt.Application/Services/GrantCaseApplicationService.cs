@@ -135,6 +135,11 @@ namespace Alisflyt.Application.Services
             }).ToList();
         }
 
+        public Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+        {
+            return _repository.ListOverviewAsync(cancellationToken);
+        }
+
         public async Task SubmitAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var grantCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)

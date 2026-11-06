@@ -34,6 +34,7 @@ namespace Alisflyt.Web.Tests.Fakes
         public List<(Guid id, UpdateGrantCaseDraftRequest request, CancellationToken ct)> UpdateDraftCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> GetByIdCalls { get; } = new();
         public List<CancellationToken> ListCalls { get; } = new();
+        public List<CancellationToken> ListOverviewCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
         public List<(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken ct)> AtomicSubmitCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
@@ -73,6 +74,14 @@ namespace Alisflyt.Web.Tests.Fakes
             // Safe default: empty list
             var list = new List<GrantCaseListItemDto>();
             return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)list);
+        }
+
+        public Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+        {
+            ListOverviewCalls.Add(cancellationToken);
+            if (ListException != null) throw ListException;
+            if (ListResponse != null) return Task.FromResult(ListResponse);
+            return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)new List<GrantCaseListItemDto>());
         }
 
         public Task SubmitAsync(Guid id, CancellationToken cancellationToken = default)

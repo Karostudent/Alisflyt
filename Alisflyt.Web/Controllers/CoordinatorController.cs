@@ -33,7 +33,7 @@ namespace Alisflyt.Web.Controllers
             if (!IsCoordinator())
                 return StatusCode(StatusCodes.Status403Forbidden);
 
-            var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
+            var list = await _svc.ListOverviewAsync(cancellationToken).ConfigureAwait(false);
 
             // Only support All or Submitted filters for the coordinator dashboard
             // Support filtering by status using enum names from domain

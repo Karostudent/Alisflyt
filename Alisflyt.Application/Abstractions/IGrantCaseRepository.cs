@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Alisflyt.Application.Models;
 using Alisflyt.Domain.Entities;
 
 namespace Alisflyt.Application.Abstractions
@@ -10,6 +11,7 @@ namespace Alisflyt.Application.Abstractions
     {
         Task<GrantCase?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default);
         Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default);
         Task AddGuidanceApprovalAsync(GuidanceApproval approval, CancellationToken cancellationToken = default);
         Task SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -37,7 +37,7 @@ namespace Alisflyt.Web.Tests
             var result = await ctrl.Index(default);
 
             Assert.Equal(Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden, Assert.IsType<StatusCodeResult>(result).StatusCode);
-            Assert.Empty(fake.ListCalls);
+            Assert.Empty(fake.ListOverviewCalls);
         }
 
         [Fact]
@@ -61,7 +61,7 @@ namespace Alisflyt.Web.Tests
             Assert.Equal(1, model.SubmittedCount);
             Assert.Contains(model.Cases, c => c.Id == dto1.Id && c.CaseNumber == dto1.CaseNumber && c.HprNumber == dto1.HprNumber && c.Status == dto1.Status && c.LastModifiedAtUtc == dto1.LastModifiedAtUtc);
             Assert.Contains(model.Cases, c => c.Id == dto2.Id && c.CaseNumber == dto2.CaseNumber && c.HprNumber == dto2.HprNumber && c.Status == dto2.Status && c.LastModifiedAtUtc == dto2.LastModifiedAtUtc);
-            Assert.Single(fake.ListCalls);
+            Assert.Single(fake.ListOverviewCalls);
         }
 
         [Theory]

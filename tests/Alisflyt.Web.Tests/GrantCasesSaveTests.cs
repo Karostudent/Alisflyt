@@ -470,6 +470,9 @@ public class GrantCasesSaveTests
         public Task<IReadOnlyList<GrantCase>> ListAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<GrantCase>>(_store.Values.ToList());
 
+        public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>>(Array.Empty<Alisflyt.Application.Models.GrantCaseListItemDto>());
+
         public Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default)
         {
             _store[grantCase.Id] = grantCase;

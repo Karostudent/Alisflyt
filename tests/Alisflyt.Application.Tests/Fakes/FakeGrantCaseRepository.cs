@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Abstractions;
+using Alisflyt.Application.Models;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 
 namespace Alisflyt.Application.Tests.Fakes
 {
@@ -44,6 +46,28 @@ namespace Alisflyt.Application.Tests.Fakes
         {
             IReadOnlyList<GrantCase> list = _store.Values.ToList();
             return Task.FromResult(list);
+        }
+
+        public Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+        {
+            var list = _store.Values
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id)
+                .Select(c => new GrantCaseListItemDto
+                {
+                    Id = c.Id,
+                    CaseNumber = c.CaseNumber,
+                    HprNumber = c.HprNumber,
+                    Status = c.Status,
+                    ReturnReason = c.ReturnReason,
+                    GuidanceApprovalStatus = c.GetCurrentGuidanceApproval()?.Status,
+                    GuidanceCorrectionReason = c.GetCurrentGuidanceApproval()?.Status == GuidanceApprovalStatus.NeedsCorrection
+                        ? c.GetCurrentGuidanceApproval()?.RequestedRevisionReason
+                        : null,
+                    LastModifiedAtUtc = c.LastModifiedAtUtc
+                })
+                .ToList();
+            return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)list);
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken = default)

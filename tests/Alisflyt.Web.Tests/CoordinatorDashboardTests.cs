@@ -26,7 +26,7 @@ namespace Alisflyt.Web.Tests
             var model = Assert.IsType<Alisflyt.Web.ViewModels.Dashboards.CoordinatorDashboardViewModel>(view.Model);
             Assert.Equal("All", model.Filter);
             Assert.Equal(2, ((System.Collections.ICollection)model.Cases).Count);
-            Assert.Single(fake.ListCalls);
+            Assert.Single(fake.ListOverviewCalls);
         }
 
         [Fact]
@@ -45,7 +45,7 @@ namespace Alisflyt.Web.Tests
             Assert.Equal("Submitted", model.Filter);
             Assert.Equal(1, ((System.Collections.ICollection)model.Cases).Count);
             Assert.All(model.Cases, c => Assert.Equal(Alisflyt.Domain.Enums.GrantCaseStatus.Submitted, c.Status));
-            Assert.Single(fake.ListCalls);
+            Assert.Single(fake.ListOverviewCalls);
         }
 
         [Fact]

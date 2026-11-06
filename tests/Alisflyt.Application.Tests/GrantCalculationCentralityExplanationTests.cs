@@ -17,6 +17,7 @@ namespace Alisflyt.Application.Tests
             public Task AddGuidanceApprovalAsync(GuidanceApproval approval, System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
             public Task<GrantCase?> GetByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default) => Task.FromResult(Case);
             public Task<IReadOnlyList<GrantCase>> ListAsync(System.Threading.CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<GrantCase>)new List<GrantCase>());
+            public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(System.Threading.CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>)new List<Alisflyt.Application.Models.GrantCaseListItemDto>());
             public Task SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
         }
 
