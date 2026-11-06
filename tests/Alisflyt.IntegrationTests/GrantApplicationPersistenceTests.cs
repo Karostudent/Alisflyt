@@ -19,7 +19,7 @@ public class GrantApplicationPersistenceTests
         var id = Guid.NewGuid();
         var data = new GrantApplicationData { DoctorName = "Test Lege", HprNumber = "1234567",
             EmploymentPeriods = [new() { PositionPercentage = 80 }, new() { PositionPercentage = 20 }],
-            Certificate = new() { SupervisorName = "Test Veileder", Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } };
+            Certificate = new() { SupervisorName = "Test Veileder", Sessions = [new() { Hours = 2m, Topic = "Tema" }] } };
         try
         {
             await using (var db = new ApplicationDbContext(options))

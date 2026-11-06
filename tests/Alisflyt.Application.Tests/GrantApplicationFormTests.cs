@@ -82,7 +82,7 @@ public class GrantApplicationFormTests
         Certificate = new() { DoctorName = "Test Lege", SupervisorName = "Test Veileder",
             DoctorSigningPlace = "Oslo", DoctorSigningDate = new(2026, 6, 30),
             SupervisorSigningPlace = "Oslo", SupervisorSigningDate = new(2026, 6, 30),
-            Sessions = [new() { Date = new(2026, 2, 1), Hours = 1.5m, Topic = "Kommunikasjon" }, new() { Date = new(2026, 3, 1), Hours = 2, Topic = "Diagnostikk" }] }
+            Sessions = [new() { Date = new(2026, 2, 1), Hours = 2m, Topic = "Kommunikasjon" }, new() { Date = new(2026, 3, 1), Hours = 2, Topic = "Diagnostikk" }] }
     };
 
     [Fact]

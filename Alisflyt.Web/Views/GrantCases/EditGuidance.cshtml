@@ -48,7 +48,7 @@
 							</div>
 							<div class="col-md-3">
 								<label for="Sessions_@(i)__Hours" class="form-label">Timer</label>
-								<input name="Sessions[@i].Hours" id="Sessions_@(i)__Hours" value="@Model.Sessions[i].Hours" class="form-control" inputmode="decimal" step="0.25" min="0.25" max="24" />
+								<input name="Sessions[@i].Hours" id="Sessions_@(i)__Hours" value="@Model.Sessions[i].Hours" class="form-control" type="number" inputmode="numeric" step="1" min="1" max="24" />
 							</div>
 							<div class="col-md-6">
 								<label for="Sessions_@(i)__Topic" class="form-label">Tema</label>
@@ -78,7 +78,7 @@
 			</div>
 			<div class="col-md-3">
 				<label for="Sessions_0__Hours" class="form-label">Timer</label>
-				<input name="Sessions[0].Hours" id="Sessions_0__Hours" class="form-control" inputmode="decimal" step="0.25" min="0.25" max="24" />
+				<input name="Sessions[0].Hours" id="Sessions_0__Hours" class="form-control" type="number" inputmode="numeric" step="1" min="1" max="24" />
 			</div>
 			<div class="col-md-6">
 				<label for="Sessions_0__Topic" class="form-label">Tema</label>

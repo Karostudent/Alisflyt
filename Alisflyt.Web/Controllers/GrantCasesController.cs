@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -159,7 +160,17 @@ namespace Alisflyt.Web.Controllers
 
             model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)
-                return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
+            {
+                var hasInvalidGuidanceHours = ModelState.Keys.Any(key =>
+                    key.Contains("Sessions", StringComparison.OrdinalIgnoreCase)
+                    && key.EndsWith("Hours", StringComparison.OrdinalIgnoreCase));
+                return BadRequest(new
+                {
+                    message = hasInvalidGuidanceHours
+                        ? "Veiledningstimer må oppgis som hele timer mellom 1 og 24."
+                        : "Kontroller tall og datoer før du lagrer."
+                });
+            }
             try
             {
                 var saved = model.Id == Guid.Empty
@@ -500,6 +511,16 @@ namespace Alisflyt.Web.Controllers
                 model.HprNumber = grantCase.HprNumber;
                 model.CorrectionReason = currentApproval.RequestedRevisionReason;
 
+                if (Request.HasFormContentType)
+                {
+                    var form = await Request.ReadFormAsync(cancellationToken);
+                    foreach (var key in form.Keys.Where(key => key.StartsWith("Sessions[", StringComparison.Ordinal) && key.EndsWith("].Hours", StringComparison.Ordinal)))
+                    {
+                        if (!IsValidWholeGuidanceHours(form[key].FirstOrDefault()))
+                            ModelState.AddModelError(nameof(model.Sessions), "Veiledningstimer må oppgis som hele timer mellom 1 og 24.");
+                    }
+                }
+
                 if (model.Sessions is null || model.Sessions.Count == 0)
                     ModelState.AddModelError(nameof(model.Sessions), "Legg til minst én veiledningsøkt.");
                 else
@@ -558,6 +579,14 @@ namespace Alisflyt.Web.Controllers
                 ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
                 return View("EditGuidance", model);
             }
+        }
+
+        private static bool IsValidWholeGuidanceHours(string? value)
+        {
+            return !string.IsNullOrWhiteSpace(value)
+                && value.All(char.IsDigit)
+                && int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var hours)
+                && hours is >= 1 and <= 24;
         }
 
         [HttpGet]

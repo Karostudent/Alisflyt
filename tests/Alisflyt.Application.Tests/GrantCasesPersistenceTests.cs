@@ -56,7 +56,7 @@ namespace Alisflyt.Application.Tests
                     SupervisorSigningDate = new DateOnly(2024,1,2),
                     Sessions = new System.Collections.Generic.List<SupervisionSessionInputModel>
                     {
-                        new() { Date = new DateOnly(2024,2,1), Hours = 1.5m, Topic = "Tema A" },
+                        new() { Date = new DateOnly(2024,2,1), Hours = 2m, Topic = "Tema A" },
                         new() { Date = new DateOnly(2024,3,1), Hours = 2m, Topic = "Tema B" }
                     }
                 }
@@ -175,7 +175,7 @@ namespace Alisflyt.Application.Tests
 
             // extend to 3 employment periods and 3 sessions
             data.EmploymentPeriods.Insert(1, new EmploymentPeriodInputModel { PositionType = PositionType.GeneralPractitionerOutsideRegularGpScheme, PositionPercentage = 10, EmploymentStartDate = new DateOnly(2021,1,1), FundingFrom = new DateOnly(2021,1,1), FundingThrough = new DateOnly(2021,12,31) });
-            data.Certificate.Sessions.Insert(1, new SupervisionSessionInputModel { Date = new DateOnly(2024,5,1), Hours = 0.5m, Topic = "Mid" });
+            data.Certificate.Sessions.Insert(1, new SupervisionSessionInputModel { Date = new DateOnly(2024,5,1), Hours = 1m, Topic = "Mid" });
 
             var created = await svc.CreateDraftAsync(new CreateGrantCaseRequest { ApplicationData = data, HprNumber = data.HprNumber });
             var id = created.Id;

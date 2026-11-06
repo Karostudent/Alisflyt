@@ -46,7 +46,7 @@ public class GrantCasesSaveTests
         };
         var model = new GrantApplicationFormViewModel { Id = existing ? savedId : Guid.Empty, HprNumber = "123456789",
             EmploymentPeriods = [new() { PositionPercentage = 50 }, new() { PositionPercentage = 25 }],
-            Certificate = new() { Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } };
+            Certificate = new() { Sessions = [new() { Hours = 2m, Topic = "Tema" }] } };
         var result = Assert.IsType<OkObjectResult>(await controller.SaveApplication(model, default));
         if (existing)
         {
@@ -143,7 +143,7 @@ public class GrantCasesSaveTests
                 SupervisorSigningDate = new DateOnly(2024, 6, 2),
                 Sessions =
                 [
-                    new SupervisionSessionInputModel { Date = new DateOnly(2024, 2, 1), Hours = 1.5m, Topic = "Kommunikasjon" }
+                    new SupervisionSessionInputModel { Date = new DateOnly(2024, 2, 1), Hours = 2m, Topic = "Kommunikasjon" }
                 ]
             }
         };
@@ -279,7 +279,7 @@ public class GrantCasesSaveTests
                 DoctorName = "Anna Hansen",
                 SupervisorHprNumber = "987654321",
                 SupervisorName = "Per Olsen",
-                Sessions = [new SupervisionSessionInputModel { Date = new DateOnly(2024, 2, 1), Hours = 1.5m, Topic = "Opprinnelig tema" }]
+                Sessions = [new SupervisionSessionInputModel { Date = new DateOnly(2024, 2, 1), Hours = 2m, Topic = "Opprinnelig tema" }]
             }
         };
 

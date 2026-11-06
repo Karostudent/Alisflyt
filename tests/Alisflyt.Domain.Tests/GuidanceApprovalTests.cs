@@ -169,6 +169,36 @@ public class GuidanceApprovalTests
         Assert.Equal(GuidanceApprovalStatus.Pending, replacementApproval.Status);
     }
 
+    [Fact]
+    public void UpdateGuidanceSessions_rejects_fractional_hours_without_creating_new_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+
+        var exception = Assert.Throws<ArgumentException>(() => grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 1.5m, Topic = "Desimaltid" }],
+            now.AddMinutes(5)));
+
+        Assert.Contains("hele timer", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(grantCase.GuidanceApprovals);
+        Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, grantCase.GetCurrentGuidanceApproval()!.Status);
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_accepts_fifteen_whole_hours()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+
+        var replacement = grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 15m, Topic = "Lang veiledning" }],
+            now.AddMinutes(5));
+
+        Assert.Equal(GuidanceApprovalStatus.Pending, replacement.Status);
+        var data = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+        Assert.Equal(15m, data.Certificate.Sessions[0].Hours);
+    }
+
     [Theory]
     [InlineData(GrantCaseStatus.Submitted)]
     [InlineData(GrantCaseStatus.UnderReview)]

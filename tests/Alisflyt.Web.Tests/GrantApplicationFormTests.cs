@@ -15,7 +15,7 @@ public class GrantApplicationFormTests
     public async Task Edit_reopens_full_application_and_certificate()
     {
         var dto = new GrantCaseDto { Id = Guid.NewGuid(), Status = GrantCaseStatus.Draft,
-            ApplicationData = new() { GrantType = GrantType.SupervisionOnly, DoctorName = "Lege", Certificate = new() { SupervisorHprNumber = "1234567", Sessions = [new() { Hours = 1.5m, Topic = "Tema" }] } } };
+            ApplicationData = new() { GrantType = GrantType.SupervisionOnly, DoctorName = "Lege", Certificate = new() { SupervisorHprNumber = "1234567", Sessions = [new() { Hours = 2m, Topic = "Tema" }] } } };
         var controller = new GrantCasesController(new FakeGrantCaseApplicationService { GetByIdResponse = dto });
         var result = Assert.IsType<ViewResult>(await controller.Edit(dto.Id, default));
         var model = Assert.IsType<GrantApplicationFormViewModel>(result.Model);
@@ -23,7 +23,7 @@ public class GrantApplicationFormTests
         Assert.Equal(GrantType.SupervisionOnly, model.GrantType);
         Assert.Equal("Lege", model.DoctorName);
         Assert.Equal("1234567", model.Certificate.SupervisorHprNumber);
-        Assert.Equal(1.5m, Assert.Single(model.Certificate.Sessions).Hours);
+        Assert.Equal(2m, Assert.Single(model.Certificate.Sessions).Hours);
     }
 
     [Fact]

@@ -88,8 +88,10 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         Assert.Null(persisted.ReadyForAuditorApprovalAtUtc);
     }
 
-    [Fact]
-    public async Task Alis_can_submit_guidance_correction_and_persist_new_pending_approval_through_http()
+    [Theory]
+    [InlineData("2", 2)]
+    [InlineData("15", 15)]
+    public async Task Alis_can_submit_whole_hour_guidance_correction_and_persist_new_pending_approval_through_http(string hours, decimal expectedHours)
     {
         var caseId = await CreateUnderReviewCaseWithCorrectionRequestedAsync();
         using var client = CreateClient();
@@ -109,7 +111,7 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
                 ["Sessions[0].Hours"] = "4",
                 ["Sessions[0].Topic"] = "Korrigert veiledning",
                 ["Sessions[1].Date"] = "2026-02-11",
-                ["Sessions[1].Hours"] = "1,5",
+                ["Sessions[1].Hours"] = hours,
                 ["Sessions[1].Topic"] = "Ny veiledningsøkt",
                 ["__RequestVerificationToken"] = token
             })
@@ -132,8 +134,49 @@ public sealed class CoordinatorAuthorizationHttpTests : IClassFixture<IsolatedWe
         Assert.Equal(2, data.Certificate.Sessions.Count);
         Assert.Equal(4m, data.Certificate.Sessions[0].Hours);
         Assert.Equal("Korrigert veiledning", data.Certificate.Sessions[0].Topic);
-        Assert.Equal(1.5m, data.Certificate.Sessions[1].Hours);
+        Assert.Equal(expectedHours, data.Certificate.Sessions[1].Hours);
         Assert.Equal("Ny veiledningsøkt", data.Certificate.Sessions[1].Topic);
+    }
+
+    [Theory]
+    [InlineData("1,5")]
+    [InlineData("1.5")]
+    public async Task Alis_cannot_submit_fractional_guidance_hours_or_create_new_approval(string invalidHours)
+    {
+        var caseId = await CreateUnderReviewCaseWithCorrectionRequestedAsync();
+        using var client = CreateClient();
+        await LoginAsAlisAsync(client);
+
+        var edit = await client.GetAsync($"/GrantCases/EditGuidance/{caseId}");
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+        var token = ExtractAntiForgeryToken(await edit.Content.ReadAsStringAsync());
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/GrantCases/UpdateGuidance")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["id"] = caseId.ToString(),
+                ["CaseId"] = caseId.ToString(),
+                ["Sessions[0].Date"] = "2026-02-10",
+                ["Sessions[0].Hours"] = invalidHours,
+                ["Sessions[0].Topic"] = "Ugyldig desimaltid",
+                ["__RequestVerificationToken"] = token
+            })
+        };
+        var response = await client.SendAsync(request);
+
+        var responseBody = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("hele timer", responseBody, StringComparison.OrdinalIgnoreCase);
+
+        await using var verificationContext = _factory.CreateDbContext();
+        var persisted = await verificationContext.GrantCases
+            .Include(x => x.GuidanceApprovals)
+            .SingleAsync(x => x.Id == caseId);
+        Assert.Single(persisted.GuidanceApprovals);
+        Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, persisted.GetCurrentGuidanceApproval()!.Status);
+        var data = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(persisted.ApplicationDataJson!)!;
+        Assert.Equal(2m, data.Certificate.Sessions[0].Hours);
     }
 
     [Theory]
