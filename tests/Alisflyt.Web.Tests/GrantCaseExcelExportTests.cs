@@ -109,6 +109,7 @@ public class GrantCaseExcelExportTests
         Assert.Contains("Søkt beløp (kr, ikke nødvendigvis innvilget)", xml.ToString());
         Assert.Contains("Automatisk beregnet tilskudd (kr)", xml.ToString());
         Assert.Contains("Totalt søkt beløp (ikke nødvendigvis innvilget)", xml.ToString());
+        Assert.Contains("Merk: Beregnet veilederhonorar vises kun til informasjon og er ikke inkludert i «Beregnet samlet tilskuddsgrunnlag» nederst i tabellen. Tilskudd til veiledning beregnes separat ut fra oppgitte veiledningskostnader, i påvente av faglig avklaring.", xml.ToString());
         var totalRow = Assert.Single(xml.Descendants("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")
             .Where(row => row.Value.Contains("Totalt søkt beløp", StringComparison.Ordinal)));
         var cells = totalRow.Elements("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c").ToList();

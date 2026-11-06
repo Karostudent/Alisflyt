@@ -110,6 +110,7 @@ public static class GrantCaseExcelExport
         Amount("Læringsaktiviteter", data?.LearningActivityExpenses, calculation.LearningActivitiesAmount);
         Amount("Lavere produktivitet (beregnet)", null, calculation.ProductivityAmount);
         Amount("Tilskudd til veiledning", data?.SupervisionExpenses, calculation.GuidanceAmount);
+        Row("Merknad", "Merk: Beregnet veilederhonorar vises kun til informasjon og er ikke inkludert i «Beregnet samlet tilskuddsgrunnlag» nederst i tabellen. Tilskudd til veiledning beregnes separat ut fra oppgitte veiledningskostnader, i påvente av faglig avklaring.");
         Amount("Tilrettelegging", null, calculation.FacilitationAmount);
         Amount("Sentralitetstillegg", data?.CentralitySupplementRequestedAmount, calculation.CentralitySupplementAmount);
         var requestedAmounts = new[] { data?.AbsenceCompensation, data?.LearningActivityExpenses, data?.SupervisionExpenses, data?.CentralitySupplementRequestedAmount };
