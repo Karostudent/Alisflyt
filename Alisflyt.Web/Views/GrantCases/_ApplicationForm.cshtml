@@ -6,8 +6,11 @@
 <form id="grant-application-form" method="post" asp-action="SaveApplication" data-readonly="@Model.ReadOnly.ToString().ToLowerInvariant()">
 <input asp-for="Id" type="hidden" />
 <link rel="stylesheet" href="~/css/grant-application.css" asp-append-version="true" />
-<div class="mb-3"><a asp-action="Index">Åpne lagrede søknader</a> · <a id="case-details" asp-action="Details" asp-route-id="@Model.Id" hidden="@(Model.Id == Guid.Empty)">Til saksoversikt og innsending</a></div>
 <p id="draft-status" role="status" aria-live="polite"></p>
+<div id="application-errors" class="alert alert-danger" role="alert" aria-labelledby="application-errors-heading" hidden>
+    <h2 id="application-errors-heading" class="h5"><span aria-hidden="true">⚠</span> Kontroller opplysningene</h2>
+    <ul id="application-error-list" class="mb-0"></ul>
+</div>
 <div id="application-step">
 <p class="text-muted">Trinn 1 av 2 · Søknadsopplysninger</p>
 <h1 id="application-heading" tabindex="-1" class="mb-4">Opplysninger om lege i spesialisering</h1>
@@ -26,9 +29,7 @@
                 <div class="col-md-8">
                     <label asp-for="DoctorName" class="form-label">Navn</label>
                     <input asp-for="DoctorName" class="form-control" />
-                    <label for="doctor-professions" class="form-label mt-3">Profesjoner</label>
-                    <input id="doctor-professions" value="@string.Join(", ", Model.DoctorProfessions)" class="form-control" aria-describedby="professions-help" />
-                    <small id="professions-help" class="text-muted">Skill flere profesjoner med komma.</small>
+                    
                 </div>
             </div>
                 <div class="form-check mb-4">
@@ -63,12 +64,13 @@
                     <label asp-for="AgreementEffectiveFrom" class="form-label">Når er ALIS-avtalen gjeldende fra? <span class="text-danger conditional-required d-none">*</span></label>
                     <input asp-for="AgreementEffectiveFrom" type="date" class="form-control date-input" />
                 </div>
-                <div class="mb-4">
+                <div id="agreement-upload-area" class="mb-4">
                     <label for="agreement-upload" class="form-label">Last opp ALIS-avtale</label>
-                    <input id="agreement-upload" type="file" data-attachment-kind="Agreement" accept=".pdf,.png,.jpg,.jpeg" class="form-control" />
+                    <input id="agreement-upload" type="file" data-attachment-kind="Agreement" accept=".pdf,.png,.jpg,.jpeg" class="form-control" aria-describedby="agreement-upload-help" />
+                    <div id="agreement-upload-help" class="form-text">Avtalen må være lagret før søknaden kan sendes inn.</div>
                 </div>
             </fieldset>
-            <fieldset class="mb-4">
+            <fieldset id="position-types" class="mb-4">
                 <legend>Hvilke stillinger har legen hatt i perioden det søkes tilskudd for? <span class="text-danger">*</span></legend>
                 @foreach (var option in Html.GetEnumSelectList<PositionType>())
                 {
@@ -119,13 +121,14 @@
                     <label asp-for="AbsenceCompensation" class="form-label">Praksiskompensasjon</label>
                     <input asp-for="AbsenceCompensation" type="number" min="0" step="0.01" class="form-control" aria-describedby="practice-maximum-hint" />
                     <small id="practice-maximum-hint" class="text-muted" aria-live="polite" hidden></small>
+                    <small class="form-text">Oppgi faktiske kostnader til fravær fra fastlegepraksis ved gjennomførte læringsaktiviteter. ALISflyt kontrollerer beløpet mot gjeldende maksimalramme, men beregner ikke kompensasjonen fra registrerte fraværstimer. Kostnadene må kunne dokumenteres.</small>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="LearningActivityExpenses" class="form-label">Utgifter til gjennomførte læringsaktiviteter</label>
                     <input asp-for="LearningActivityExpenses" type="number" min="0" step="0.01" class="form-control" />
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="SupervisionExpenses" class="form-label">Faktiske veiledningskostnader (kr)</label>
+                        <label asp-for="SupervisionExpenses" class="form-label">Veiledningskostnader</label>
                     <input asp-for="SupervisionExpenses" type="number" min="0" step="0.01" class="form-control" aria-describedby="guidance-expenses-help" />
                     <small id="guidance-expenses-help" class="text-muted">Oppgi faktiske kostnader. Tilskuddet begrenses av maksimum for stilling og tilskuddsperiode.</small>
                 </div>
@@ -140,11 +143,12 @@
                     <input id="additional-supervision-costs-no" name="HasAdditionalSupervisionCosts" type="radio" value="false" class="form-check-input" checked="@(Model.HasAdditionalSupervisionCosts == false)" />
                     <label for="additional-supervision-costs-no" class="form-check-label">Nei</label>
                 </div>
-                <fieldset id="additional-costs-fields" hidden disabled>
-                    <label asp-for="AdditionalSupervisionCosts" class="form-label">Ekstra veiledningskostnader (kr)</label>
-                    <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control" />
+                    <fieldset id="additional-costs-fields" hidden disabled>
+                        <label asp-for="AdditionalSupervisionCosts" class="form-label">Ekstra veiledningskostnader (kr)</label>
+                        <input asp-for="AdditionalSupervisionCosts" type="number" min="0" step="0.01" class="form-control" aria-describedby="additional-supervision-costs-help" />
+                        <small id="additional-supervision-costs-help" class="form-text">Ekstra veiledningskostnader kan søkes dekket etter særskilt vurdering. Beløpet inngår ikke i den automatiske tilskuddsberegningen.</small>
+                    </fieldset>
                 </fieldset>
-            </fieldset>
                 <div class="alert alert-info mb-4" role="note">
                     <strong>Om beregningen i denne prototypen</strong>
 
@@ -176,7 +180,7 @@
             </div>
             <div class="mb-4" id="calculation-preview-section">
                 <h3>Beregnet tilskudd</h3>
-                <p class="text-muted">Dette er en forhåndsvisning basert på opplysningene som er registrert. Endelig behandling skjer etter innsending.</p>
+                <p class="text-muted">Dette er en forhåndsvisning basert på sist lagrede søknadsopplysninger. Beregningen av lavere produktivitet skjer automatisk etter fastlegeandel, tilskuddsperiode og de første 24 månedene. Endelig behandling skjer etter innsending.</p>
 
                 <div class="mb-2 small">
                     For å beregne tilskudd må søknaden minst inneholde:
@@ -195,7 +199,7 @@
             </div>
         </div>
         <div class="form-actions">
-            <span>Du kan lagre utkastet når som helst.</span>
+            <span>Utkastet lagres automatisk når du velger Neste. Du kan også bruke Lagre utkast når som helst.</span>
             <button type="button"
                     class="btn btn-outline-primary save-draft">
                 Lagre utkast

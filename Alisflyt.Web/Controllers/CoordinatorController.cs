@@ -1,7 +1,10 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
 using Alisflyt.Web.ViewModels.GrantCases;
@@ -13,15 +16,24 @@ namespace Alisflyt.Web.Controllers
     public class CoordinatorController : Controller
     {
         private readonly IGrantCaseApplicationService _svc;
+        private readonly ILogger<CoordinatorController> _logger;
 
-        public CoordinatorController(IGrantCaseApplicationService svc)
+        private bool IsCoordinator() => Alisflyt.Web.Models.DemoAuthentication.IsInRole(HttpContext, "Koordinator");
+
+        public CoordinatorController(
+            IGrantCaseApplicationService svc,
+            ILogger<CoordinatorController>? logger = null)
         {
             _svc = svc;
+            _logger = logger ?? NullLogger<CoordinatorController>.Instance;
         }
 
         public async Task<IActionResult> Index(string status = "All", CancellationToken cancellationToken = default)
         {
-            var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
+            var list = await _svc.ListOverviewAsync(cancellationToken).ConfigureAwait(false);
 
             // Only support All or Submitted filters for the coordinator dashboard
             // Support filtering by status using enum names from domain
@@ -40,6 +52,10 @@ namespace Alisflyt.Web.Controllers
             else if (status == "ReturnedForCorrection")
             {
                 list = list.Where(c => c.Status == GrantCaseStatus.ReturnedForCorrection).ToList();
+            }
+            else if (status == "AwaitingAuditorApproval")
+            {
+                list = list.Where(c => c.Status == GrantCaseStatus.AwaitingAuditorApproval).ToList();
             }
 
             var vm = new CoordinatorDashboardViewModel
@@ -60,6 +76,9 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -80,12 +99,16 @@ namespace Alisflyt.Web.Controllers
                 EmploymentEndDate = d.EmploymentEndDate,
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
-                LastModifiedAtUtc = d.LastModifiedAtUtc
-                ,
+                LastModifiedAtUtc = d.LastModifiedAtUtc,
+                ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
                 ReturnedAtUtc = d.ReturnedAtUtc,
-                ApplicationData = d.ApplicationData
-            };
+                    ApplicationData = d.ApplicationData,
+                    GuidanceApprovalRequired = d.GuidanceApprovalRequired,
+                    GuidanceApprovalApproved = d.GuidanceApprovalApproved,
+                    GuidanceApprovalStatus = d.GuidanceApprovalStatus,
+                    GuidanceCorrectionReason = d.GuidanceCorrectionReason
+                };
 
             try
             {
@@ -104,19 +127,54 @@ namespace Alisflyt.Web.Controllers
                         Status = vm.Status,
                         CreatedAtUtc = vm.CreatedAtUtc,
                         LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
                         ReturnReason = vm.ReturnReason,
-                        ReturnedAtUtc = vm.ReturnedAtUtc,
-                        ApplicationData = vm.ApplicationData,
-                        Calculation = calc
-                    };
+                            ReturnedAtUtc = vm.ReturnedAtUtc,
+                            ApplicationData = vm.ApplicationData,
+                            GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                            GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
+                            GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                            GuidanceCorrectionReason = vm.GuidanceCorrectionReason,
+                            Calculation = calc
+                        };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignore calculation errors and render details without calculation.
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(Details), d.Id);
+                ViewData["CalculationError"] = "Beregningen kunne ikke lastes på grunn av en teknisk feil.";
             }
 
             return View("~/Views/Coordinator/Details.cshtml", vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkReadyForAuditorApproval(System.Guid id, CancellationToken cancellationToken)
+        {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
+            try
+            {
+                await _svc.MarkReadyForAuditorApprovalAsync(id, cancellationToken).ConfigureAwait(false);
+                TempData["Success"] = "Søknaden er klar for revisorkontroll.";
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (InvalidOperationException)
+            {
+                TempData["Error"] = "Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.";
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(MarkReadyForAuditorApproval), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         [HttpGet]
@@ -124,6 +182,9 @@ namespace Alisflyt.Web.Controllers
             [FromServices] IGrantCalculationApplicationService calculationService,
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             Alisflyt.Application.Models.GrantCaseDto application;
             try
             {
@@ -134,8 +195,8 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            if (application.Status != GrantCaseStatus.UnderReview)
-                return BadRequest("Eksport er bare tilgjengelig når saken er under behandling.");
+            if (application.Status is not (GrantCaseStatus.UnderReview or GrantCaseStatus.AwaitingAuditorApproval))
+                return BadRequest("Eksport er bare tilgjengelig når saken er under behandling eller klar for revisorkontroll.");
 
             var calculation = await calculationService.CalculateForCaseAsync(id, cancellationToken);
             var bytes = Alisflyt.Web.Exports.GrantCaseExcelExport.Create(application, calculation, timeProvider.GetUtcNow());
@@ -149,9 +210,35 @@ namespace Alisflyt.Web.Controllers
             [FromServices] Alisflyt.Application.Abstractions.IGrantCaseRepository repository,
             [FromServices] TimeProvider timeProvider, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
-                if (!ModelState.IsValid || !grade6.HasValue) throw new ArgumentException("Velg sentralitetsgrad og kontroller beløpet.");
+                if (!grade6.HasValue)
+                {
+                    SetCentralityValidationState(grade6, amount, "Velg Ja eller Nei for sentralitetsgrad 6.", null);
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    SetCentralityValidationState(grade6, amount, "Oppgi et gyldig beløp.", null);
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (grade6.Value && !amount.HasValue)
+                {
+                    SetCentralityValidationState(grade6, amount, "Oppgi søkt beløp når sentralitetsgrad 6 er Ja.", "Beløpet er påkrevd når sentralitetsgrad 6 er Ja.");
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                if (amount < 0)
+                {
+                    SetCentralityValidationState(grade6, amount, "Beløpet kan ikke være negativt.", "Beløpet kan ikke være negativt.");
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
                 var grantCase = await repository.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException();
                 grantCase.UpdateCentrality(grade6.Value, amount, timeProvider.GetUtcNow());
                 await repository.SaveChangesAsync(cancellationToken);
@@ -159,6 +246,11 @@ namespace Alisflyt.Web.Controllers
             catch (KeyNotFoundException) { return NotFound(); }
             catch (ArgumentException ex) { TempData["Error"] = ex.Message; }
             catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(SaveCentrality), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
+            }
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -166,6 +258,9 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> StartReview(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
                 await _svc.StartReviewAsync(id, cancellationToken).ConfigureAwait(false);
@@ -177,13 +272,22 @@ namespace Alisflyt.Web.Controllers
             }
             catch (InvalidOperationException)
             {
-                TempData["Error"] = "Saken kan ikke settes til behandling.";
+                TempData["Error"] = "Saken kan bare settes til behandling når den er sendt inn av ALIS.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(StartReview), id);
+                TempData["Error"] = "Endringen kunne ikke lagres. Prøv igjen.";
                 return RedirectToAction(nameof(Details), new { id });
             }
         }
 
         public async Task<IActionResult> ReturnForCorrection(System.Guid id, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -196,7 +300,7 @@ namespace Alisflyt.Web.Controllers
 
             if (d.Status != Domain.Enums.GrantCaseStatus.UnderReview)
             {
-                TempData["Error"] = "Saken er ikke i behandling og kan ikke returneres.";
+                TempData["Error"] = "Saken kan bare returneres for korrigering mens den er under behandling.";
                 return RedirectToAction(nameof(Details), new { id });
             }
 
@@ -213,6 +317,9 @@ namespace Alisflyt.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ReturnForCorrection(ViewModels.Coordinator.ReturnForCorrectionViewModel model, CancellationToken cancellationToken)
         {
+            if (!IsCoordinator())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             if (!ModelState.IsValid)
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
 
@@ -229,14 +336,37 @@ namespace Alisflyt.Web.Controllers
             }
             catch (ArgumentException)
             {
-                ModelState.AddModelError(string.Empty, "Ugyldig begrunnelse.");
+                ModelState.AddModelError(nameof(model.Reason), GetReturnReasonError(model.Reason));
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
             catch (InvalidOperationException)
             {
-                ModelState.AddModelError(string.Empty, "Saken kan ikke returneres i gjeldende tilstand.");
+                ModelState.AddModelError(string.Empty, "Saken kan bare returneres for korrigering mens den er under behandling.");
                 return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(ReturnForCorrection), model.Id);
+                ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
+                return View("~/Views/Coordinator/ReturnForCorrection.cshtml", model);
+            }
+        }
+
+        private void SetCentralityValidationState(bool? grade6, decimal? amount, string summary, string? amountError)
+        {
+            TempData["CentralityGrade6"] = grade6?.ToString()?.ToLowerInvariant();
+            TempData["CentralityAmount"] = amount?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TempData["CentralityGrade6Error"] = grade6.HasValue ? null : summary;
+            TempData["CentralityAmountError"] = amountError;
+        }
+
+        private static string GetReturnReasonError(string? reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return "Skriv en begrunnelse før saken returneres.";
+            return reason.Trim().Length > 1000
+                ? "Begrunnelsen kan være på maksimalt 1000 tegn."
+                : "Ugyldig begrunnelse.";
         }
     }
 }

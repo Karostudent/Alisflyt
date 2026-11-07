@@ -46,10 +46,19 @@ public class GrantApplicationFormTests
 
     private static GrantCaseApplicationService Service() => new(new FakeGrantCaseRepository(), new FakeCaseNumberGenerator("FORM-1"), TimeProvider.System);
 
+    private static SubmitGrantCaseRequest GuidanceRequest() => new()
+    {
+        DoctorHprNumber = "123456789",
+        SupervisorHprNumber = "987654321",
+        SupervisorUserKey = "veileder-per",
+        SupervisorName = "Test Veileder"
+    };
+
     private static GrantApplicationData CompleteForm() => new()
     {
         HprNumber = "1234567", DoctorName = "Test Lege", DoctorProfessions = ["Lege"],
-        GrantType = GrantType.AlisAgreementIncludingSupervision, 
+        GrantType = GrantType.AlisAgreementIncludingSupervision,
+        Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
         ConfirmsSpecialization = true,
         SpecializationStartDate = new(2025, 1, 1), 
         ExpectedCompletionDate = new(2030, 1, 1),
@@ -73,7 +82,7 @@ public class GrantApplicationFormTests
         Certificate = new() { DoctorName = "Test Lege", SupervisorName = "Test Veileder",
             DoctorSigningPlace = "Oslo", DoctorSigningDate = new(2026, 6, 30),
             SupervisorSigningPlace = "Oslo", SupervisorSigningDate = new(2026, 6, 30),
-            Sessions = [new() { Date = new(2026, 2, 1), Hours = 1.5m, Topic = "Kommunikasjon" }, new() { Date = new(2026, 3, 1), Hours = 2, Topic = "Diagnostikk" }] }
+            Sessions = [new() { Date = new(2026, 2, 1), Hours = 2m, Topic = "Kommunikasjon" }, new() { Date = new(2026, 3, 1), Hours = 2, Topic = "Diagnostikk" }] }
     };
 
     [Fact]
@@ -90,7 +99,7 @@ public class GrantApplicationFormTests
         reopened.ApplicationData.SelectedPositionTypes.RemoveAt(1);
         Assert.Equal(2, (await service.GetByIdAsync(created.Id)).ApplicationData!.Certificate.Sessions.Count);
         await service.UpdateDraftAsync(created.Id, new() { ApplicationData = reopened.ApplicationData });
-        await service.SubmitAsync(created.Id);
+        await service.SubmitAsync(created.Id, GuidanceRequest());
         await service.StartReviewAsync(created.Id);
         var reviewed = await service.GetByIdAsync(created.Id);
         Assert.Equal(GrantCaseStatus.UnderReview, reviewed.Status);
@@ -106,7 +115,7 @@ public class GrantApplicationFormTests
         Assert.False(corrected.HasAdditionalSupervisionCosts);
         Assert.Null(corrected.AdditionalSupervisionCosts);
         Assert.Equal(0, corrected.AbsenceCompensation);
-        await service.SubmitAsync(created.Id);
+        await service.SubmitAsync(created.Id, GuidanceRequest());
         var resubmitted = (await service.GetByIdAsync(created.Id)).ApplicationData!;
         Assert.Equal(2, resubmitted.Certificate.Sessions.Count);
         Assert.False(resubmitted.HasAdditionalSupervisionCosts);
@@ -146,7 +155,7 @@ public class GrantApplicationFormTests
         var data = CompleteForm();
         data.EmploymentPeriods[1].FundingFrom = null;
         var created = await service.CreateDraftAsync(new() { ApplicationData = data });
-        var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id));
+        var error = await Assert.ThrowsAsync<SubmissionValidationException>(() => service.SubmitAsync(created.Id, GuidanceRequest()));
         Assert.Equal("Stilling i kommunen, rad 2: Oppgi «Tilskudd fra».", Assert.Single(error.Errors));
     }
 
@@ -205,6 +214,28 @@ public class GrantApplicationFormTests
         Assert.Contains("Oppgi når ALIS-avtalen gjelder fra.", error.Errors);
         data.GrantType = GrantType.SupervisionOnly;
         data.ValidateSubmission();
+    }
+
+    [Fact]
+    public void Agreement_attachment_is_required_only_for_agreement_grants()
+    {
+        var data = CompleteForm();
+        data.Attachments = [new ApplicationAttachment { Kind = "Receipt", FileName = "bilag.pdf", ContentBase64 = Convert.ToBase64String("receipt"u8.ToArray()) }];
+
+        var error = Assert.Throws<SubmissionValidationException>(() => data.ValidateSubmission());
+
+        Assert.Contains("Last opp ALIS-avtalen før søknaden kan sendes inn.", error.Errors);
+        data.GrantType = GrantType.SupervisionOnly;
+        data.ValidateSubmission();
+    }
+
+    [Fact]
+    public void Draft_can_be_saved_without_an_agreement_attachment()
+    {
+        var data = CompleteForm();
+        data.Attachments = [];
+
+        data.ValidateDraft();
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Models;
+using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Application.Services
 {
@@ -11,9 +12,13 @@ namespace Alisflyt.Application.Services
         Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default);
         Task<GrantCaseDto> UpdateDraftAsync(Guid id, UpdateGrantCaseDraftRequest request, CancellationToken cancellationToken = default);
         Task<GrantCaseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<GuidanceCorrectionResult> UpdateGuidanceAsync(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<GrantCaseListItemDto>> ListAsync(CancellationToken cancellationToken = default);
+        Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default);
         Task SubmitAsync(Guid id, CancellationToken cancellationToken = default);
+        Task<GrantCaseDto> SubmitAsync(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken cancellationToken = default);
         Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default);
+        Task MarkReadyForAuditorApprovalAsync(Guid id, CancellationToken cancellationToken = default);
         Task ReturnForCorrectionAsync(Guid id, ReturnForCorrectionRequest request, CancellationToken cancellationToken = default);
         // Calculation helper (implemented in separate service) -- left here commented to avoid interface drift
     }

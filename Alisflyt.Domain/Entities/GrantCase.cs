@@ -19,6 +19,7 @@ namespace Alisflyt.Domain.Entities
         public GrantCaseStatus Status { get; private set; }
         public DateTimeOffset CreatedAtUtc { get; private set; }
         public DateTimeOffset LastModifiedAtUtc { get; private set; }
+        public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; private set; }
         public ICollection<GuidanceApproval> GuidanceApprovals { get; private set; } = [];
 
         private GrantCase(Guid id, string caseNumber, DateTimeOffset createdAtUtc)
@@ -131,6 +132,51 @@ namespace Alisflyt.Domain.Entities
             var data = ApplicationDataJson is null
                 ? throw new InvalidOperationException("Saken mangler søknadsdata.")
                 : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+
+            return RequestGuidanceApproval(data, doctorHprNumber, supervisorHprNumber, supervisorUserKey, now, supervisorName);
+        }
+
+        public GuidanceApproval UpdateGuidanceSessions(
+            IReadOnlyCollection<Alisflyt.Domain.Forms.SupervisionSessionInputModel> sessions,
+            DateTimeOffset now)
+        {
+            ArgumentNullException.ThrowIfNull(sessions);
+
+            if (Status is not (GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview))
+                throw new InvalidOperationException("Veiledningen kan ikke korrigeres i denne statusen.");
+
+            var currentApproval = GetCurrentGuidanceApproval();
+            if (currentApproval?.Status != GuidanceApprovalStatus.NeedsCorrection)
+                throw new InvalidOperationException("Veiledningen kan bare korrigeres etter at veileder har bedt om korrigering.");
+
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)!;
+            data.Certificate ??= new();
+            data.Certificate.Sessions = sessions.ToList();
+
+            if (data.Certificate.Sessions.Count == 0)
+                throw new InvalidOperationException("Det finnes ingen veiledningstimer som kan sendes til godkjenning.");
+
+            data.ValidateDraft();
+
+            return RequestGuidanceApproval(
+                data,
+                currentApproval.DoctorHprNumber,
+                currentApproval.SupervisorHprNumber,
+                currentApproval.SupervisorUserKey,
+                now,
+                currentApproval.SupervisorName);
+        }
+
+        private GuidanceApproval RequestGuidanceApproval(
+            Alisflyt.Domain.Forms.GrantApplicationData data,
+            string doctorHprNumber,
+            string supervisorHprNumber,
+            string supervisorUserKey,
+            DateTimeOffset now,
+            string? supervisorName)
+        {
             if (data.Certificate is null || data.Certificate.Sessions is null || data.Certificate.Sessions.Count == 0)
                 throw new InvalidOperationException("Det finnes ingen veiledningstimer som kan sendes til godkjenning.");
 
@@ -140,9 +186,7 @@ namespace Alisflyt.Domain.Entities
                 .OrderByDescending(a => a.VersionNumber)
                 .FirstOrDefault(a => string.Equals(a.AttestationSnapshotHash, snapshotHash, StringComparison.Ordinal));
             if (existingMatchingApproval is not null)
-            {
                 return existingMatchingApproval;
-            }
 
             var nextVersion = GuidanceApprovals.Count == 0 ? 1 : GuidanceApprovals.Max(a => a.VersionNumber) + 1;
             var approval = GuidanceApproval.Create(
@@ -179,6 +223,31 @@ namespace Alisflyt.Domain.Entities
                 .FirstOrDefault();
         }
 
+        public bool RequiresGuidanceApproval()
+        {
+            var data = ApplicationDataJson is null
+                ? null
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson);
+            return data?.Certificate?.Sessions?.Count > 0;
+        }
+
+        public bool HasApprovedCurrentGuidanceApproval()
+        {
+            if (!RequiresGuidanceApproval())
+                return true;
+
+            var data = ApplicationDataJson is null
+                ? throw new InvalidOperationException("Saken mangler søknadsdata.")
+                : JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(ApplicationDataJson)
+                    ?? throw new InvalidOperationException("Saken mangler søknadsdata.");
+            var currentApproval = GetCurrentGuidanceApproval();
+            var currentSnapshotHash = GuidanceApproval.CreateAttestationSnapshotHash(data);
+
+            return currentApproval is not null
+                && currentApproval.Status == GuidanceApprovalStatus.Approved
+                && string.Equals(currentApproval.AttestationSnapshotHash, currentSnapshotHash, StringComparison.Ordinal);
+        }
+
         public void SynchronizeLegacySupervisorApproval(DateTimeOffset? approvedAtUtc, DateTimeOffset now)
         {
             var data = ApplicationDataJson is null
@@ -193,7 +262,7 @@ namespace Alisflyt.Domain.Entities
 
         public void UpdateCentrality(bool grade6, decimal? amount, DateTimeOffset now)
         {
-            if (Status is not (GrantCaseStatus.Draft or GrantCaseStatus.Submitted or GrantCaseStatus.UnderReview or GrantCaseStatus.ReturnedForCorrection))
+            if (Status != GrantCaseStatus.UnderReview)
                 throw new InvalidOperationException("Saken kan ikke redigeres i denne statusen.");
             if (amount < 0 || (grade6 && !amount.HasValue))
                 throw new ArgumentException("Oppgi et gyldig beløp for sentralitetstillegg.");
@@ -239,6 +308,19 @@ namespace Alisflyt.Domain.Entities
                 throw new InvalidOperationException("Can only start review for submitted cases.");
 
             Status = GrantCaseStatus.UnderReview;
+            LastModifiedAtUtc = now;
+        }
+
+        public void MarkReadyForAuditorApproval(DateTimeOffset now)
+        {
+            if (Status != GrantCaseStatus.UnderReview)
+                throw new InvalidOperationException("Only cases under review can be marked ready for auditor approval.");
+
+            if (!HasApprovedCurrentGuidanceApproval())
+                throw new InvalidOperationException("Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.");
+
+            Status = GrantCaseStatus.AwaitingAuditorApproval;
+            ReadyForAuditorApprovalAtUtc = now;
             LastModifiedAtUtc = now;
         }
 

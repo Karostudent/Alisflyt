@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Alisflyt.Web.Models;
 
@@ -128,7 +129,7 @@ public static class DemoAuthentication
         return true;
     }
 
-    public static DemoUser? GetCurrentUser(HttpContext httpContext)
+    public static DemoUser? GetCurrentUser(HttpContext httpContext, ILogger? logger = null)
     {
         if (httpContext == null)
             return null;
@@ -141,36 +142,44 @@ public static class DemoAuthentication
 
             return JsonSerializer.Deserialize<DemoUser>(serialized);
         }
-        catch
+        catch (Exception ex)
         {
+            logger?.LogError(ex, "Demo authentication session read failed.");
             return null;
         }
     }
 
-    public static void SignIn(HttpContext httpContext, DemoUser user)
+    public static bool SignIn(HttpContext httpContext, DemoUser user, ILogger? logger = null)
     {
         if (httpContext == null || user == null)
-            return;
+            return false;
 
         try
         {
             httpContext.Session.SetString(SessionKey, JsonSerializer.Serialize(user));
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // Session is not configured in some test contexts; ignore the demo login in those cases.
+            logger?.LogError(ex, "Demo authentication session write failed during sign-in.");
+            return false;
         }
     }
 
-    public static void SignOut(HttpContext httpContext)
+    public static bool SignOut(HttpContext httpContext, ILogger? logger = null)
     {
+        if (httpContext is null)
+            return false;
+
         try
         {
-            httpContext?.Session.Remove(SessionKey);
+            httpContext.Session.Remove(SessionKey);
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // Session is not configured in some test contexts; ignore.
+            logger?.LogError(ex, "Demo authentication session removal failed during sign-out.");
+            return false;
         }
     }
 

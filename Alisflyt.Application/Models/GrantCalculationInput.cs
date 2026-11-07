@@ -15,6 +15,8 @@ public sealed class GrantCalculationInput
 
     public decimal LearningActivityExpenses { get; init; }
 
+    public decimal RegisteredGuidanceHours { get; init; }
+
     public decimal SupervisionExpenses { get; init; }
 
     public decimal AdditionalSupervisionCosts { get; init; }

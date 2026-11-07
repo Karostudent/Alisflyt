@@ -25,12 +25,21 @@ namespace Alisflyt.Web.ViewModels.Coordinator
 
         [Display(Name = "Status")]
         public GrantCaseStatus Status { get; init; }
+        public bool CanEditCentrality => Status == GrantCaseStatus.UnderReview;
 
         [Display(Name = "Opprettet")]
         public DateTimeOffset CreatedAtUtc { get; init; }
 
         [Display(Name = "Sist endret")]
         public DateTimeOffset LastModifiedAtUtc { get; init; }
+
+        [Display(Name = "Klar for revisorkontroll")]
+        public DateTimeOffset? ReadyForAuditorApprovalAtUtc { get; init; }
+
+        public bool GuidanceApprovalRequired { get; init; }
+        public bool GuidanceApprovalApproved { get; init; }
+        public GuidanceApprovalStatus? GuidanceApprovalStatus { get; init; }
+        public string? GuidanceCorrectionReason { get; init; }
 
         [Display(Name = "Returnert begrunnelse")]
         public string? ReturnReason { get; init; }

@@ -15,7 +15,7 @@ namespace Alisflyt.Web.Tests
             var returnedAt = DateTimeOffset.Parse("2026-01-02T03:04:05Z");
             var dto = new Alisflyt.Application.Models.GrantCaseDto { Id = id, CaseNumber = "CN-R", Status = Alisflyt.Domain.Enums.GrantCaseStatus.ReturnedForCorrection, ReturnReason = "Feil i periode", ReturnedAtUtc = returnedAt, CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.Details(id, default);
 

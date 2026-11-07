@@ -64,10 +64,10 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+            if (HttpContext is null || currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+                return StatusCode(StatusCodes.Status403Forbidden);
 
-            var assignedDoctors = DemoAuthentication.GetAssignedDoctorUserKeys(currentUser?.Key)
+            var assignedDoctors = DemoAuthentication.GetAssignedDoctorUserKeys(currentUser.Key)
                 .Select(key => DemoAuthentication.DemoUsers.FirstOrDefault(u => string.Equals(u.Key, key, StringComparison.OrdinalIgnoreCase)))
                 .Where(u => u is not null)
                 .Select(u => u!.Name)
@@ -85,7 +85,9 @@ namespace Alisflyt.Web.Controllers
             var approved = 0;
             var caseSummaries = new List<GuidanceDashboardCaseViewModel>();
 
-            foreach (var grantCase in cases.OrderByDescending(c => c.LastModifiedAtUtc))
+            foreach (var grantCase in cases
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id))
             {
                 var approval = grantCase.GetCurrentGuidanceApproval();
                 var hasSessions = HasRelevantGuidanceSessions(grantCase);
@@ -151,10 +153,10 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> Applications([FromServices] IGrantCaseApplicationService service, string status = "All", CancellationToken cancellationToken = default)
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+            if (HttpContext is null || currentUser is null || !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase))
+                return StatusCode(StatusCodes.Status403Forbidden);
 
-            var allowedDoctors = new HashSet<string>(DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser?.Key), StringComparer.OrdinalIgnoreCase);
+            var allowedDoctors = new HashSet<string>(DemoAuthentication.GetAssignedDoctorHprNumbers(currentUser.Key), StringComparer.OrdinalIgnoreCase);
             var cases = (await service.ListAsync(cancellationToken))
                 .Where(c => allowedDoctors.Contains(c.HprNumber ?? string.Empty))
                 .ToList();
@@ -164,7 +166,6 @@ namespace Alisflyt.Web.Controllers
             {
                 Filter = status,
                 Cases = cases.Where(c => status == "All" || c.Status.ToString() == status)
-                    .OrderByDescending(c => c.LastModifiedAtUtc)
                     .Select(c => new GrantCaseListItemViewModel
                     {
                         Id = c.Id,

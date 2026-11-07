@@ -17,6 +17,8 @@ namespace Alisflyt.Infrastructure.Persistence
         {
             modelBuilder.Entity<GrantCase>(b =>
             {
+                b.Property(x => x.ReadyForAuditorApprovalAtUtc)
+                    .HasColumnType("datetimeoffset");
                 b.HasMany(g => g.GuidanceApprovals)
                     .WithOne(a => a.GrantCase)
                     .HasForeignKey(a => a.GrantCaseId)

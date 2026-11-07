@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Alisflyt.Application.Services;
 using Alisflyt.Web.ViewModels.Dashboards;
@@ -22,12 +23,15 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
-            var listResult = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+                return StatusCode(StatusCodes.Status403Forbidden);
+
+            var listResult = await _svc.ListOverviewAsync(cancellationToken).ConfigureAwait(false);
             var list = listResult ?? new System.Collections.Generic.List<GrantCaseListItemDto>();
             var cases = (list ?? new System.Collections.Generic.List<GrantCaseListItemDto>()).Where(c => c != null).ToList();
 
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
             {
                 cases = cases
                     .Where(c => string.Equals(c.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
@@ -42,6 +46,9 @@ namespace Alisflyt.Web.Controllers
                     CaseNumber = c.CaseNumber,
                     HprNumber = c.HprNumber,
                     Status = c.Status,
+                    ReturnReason = c.ReturnReason,
+                    GuidanceApprovalStatus = c.GuidanceApprovalStatus,
+                    GuidanceCorrectionReason = c.GuidanceCorrectionReason,
                     LastModifiedAtUtc = c.LastModifiedAtUtc
                 }).ToList()
             };

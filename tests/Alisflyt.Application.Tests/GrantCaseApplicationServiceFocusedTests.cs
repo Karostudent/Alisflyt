@@ -113,6 +113,26 @@ namespace Alisflyt.Application.Tests
         }
 
         [Fact]
+        public async Task ListAsync_orders_newest_created_case_first_even_when_older_case_was_modified_later()
+        {
+            var repo = new FakeGrantCaseRepository();
+            var gen = new FakeCaseNumberGenerator("CN-ORDER");
+            var tp = new FakeTimeProvider(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+            var svc = new GrantCaseApplicationService(repo, gen, tp);
+
+            var older = await svc.CreateDraftAsync(new CreateGrantCaseRequest());
+            tp.Advance(TimeSpan.FromMinutes(1));
+            var newer = await svc.CreateDraftAsync(new CreateGrantCaseRequest());
+            tp.Advance(TimeSpan.FromMinutes(1));
+            await svc.UpdateDraftAsync(older.Id, new UpdateGrantCaseDraftRequest());
+
+            var list = await svc.ListAsync();
+
+            Assert.Equal(newer.Id, list[0].Id);
+            Assert.Equal(older.Id, list[1].Id);
+        }
+
+        [Fact]
         public async Task UpdateDraftAsync_updates_draft()
         {
             var repo = new FakeGrantCaseRepository();
@@ -183,6 +203,147 @@ namespace Alisflyt.Application.Tests
             var svc = new GrantCaseApplicationService(repo, gen, tp);
 
             await Assert.ThrowsAsync<KeyNotFoundException>(() => svc.SubmitAsync(Guid.NewGuid()));
+        }
+
+        [Fact]
+        public async Task SubmitAsync_with_guidance_creates_pending_approval_and_saves_once()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = CreateCaseWithGuidance(now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-12"), new FakeTimeProvider(now));
+
+            await svc.SubmitAsync(grantCase.Id, new SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = "123456789",
+                SupervisorHprNumber = "987654321",
+                SupervisorUserKey = "veileder-per",
+                SupervisorName = "Per Olsen"
+            });
+
+            Assert.Equal(GrantCaseStatus.Submitted, grantCase.Status);
+            var approval = Assert.Single(grantCase.GuidanceApprovals);
+            Assert.Equal(GuidanceApprovalStatus.Pending, approval.Status);
+            Assert.Equal(1, approval.VersionNumber);
+            Assert.Equal(1, repo.SaveChangesCallCount);
+        }
+
+        [Fact]
+        public async Task LegacySubmitAsync_rejects_case_with_guidance_sessions_without_saving()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = CreateCaseWithGuidance(now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-LEGACY"), new FakeTimeProvider(now));
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SubmitAsync(grantCase.Id));
+
+            Assert.Contains("veiledningstimer", error.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(GrantCaseStatus.Draft, grantCase.Status);
+            Assert.Empty(grantCase.GuidanceApprovals);
+            Assert.Equal(0, repo.SaveChangesCallCount);
+        }
+
+        [Fact]
+        public async Task SubmitAsync_without_guidance_does_not_create_approval()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CN-13", now);
+            grantCase.UpdateDraft("123456789", 50m, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-13"), new FakeTimeProvider(now));
+
+            await svc.SubmitAsync(grantCase.Id, guidanceRequest: null);
+
+            Assert.Equal(GrantCaseStatus.Submitted, grantCase.Status);
+            Assert.Empty(grantCase.GuidanceApprovals);
+            Assert.Equal(1, repo.SaveChangesCallCount);
+        }
+
+        [Fact]
+        public async Task SubmitAsync_when_guidance_creation_fails_does_not_save()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = CreateCaseWithGuidance(now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-14"), new FakeTimeProvider(now));
+
+            await Assert.ThrowsAsync<ArgumentException>(() => svc.SubmitAsync(grantCase.Id, new SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = "123456789",
+                SupervisorHprNumber = "987654321",
+                SupervisorUserKey = ""
+            }));
+
+            Assert.Equal(0, repo.SaveChangesCallCount);
+            Assert.Equal(GrantCaseStatus.Draft, grantCase.Status);
+        }
+
+        [Fact]
+        public async Task SubmitAsync_propagates_save_failure_after_single_save_attempt()
+        {
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = CreateCaseWithGuidance(now);
+            var repo = new FakeGrantCaseRepository { SaveChangesException = new InvalidOperationException("save failed") };
+            await repo.AddAsync(grantCase);
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-15"), new FakeTimeProvider(now));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SubmitAsync(grantCase.Id, new SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = "123456789",
+                SupervisorHprNumber = "987654321",
+                SupervisorUserKey = "veileder-per"
+            }));
+
+            Assert.Equal(1, repo.SaveChangesCallCount);
+        }
+
+        private static Alisflyt.Domain.Entities.GrantCase CreateCaseWithGuidance(DateTimeOffset now)
+        {
+            var grantCase = Alisflyt.Domain.Entities.GrantCase.Create(Guid.NewGuid(), "CN-GUIDANCE", now);
+            grantCase.UpdateDraft("123456789", 50m, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), now);
+            grantCase.UpdateApplication(new Alisflyt.Domain.Forms.GrantApplicationData
+            {
+                HprNumber = "123456789",
+                GrantType = Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision,
+                Attachments = [new Alisflyt.Domain.Forms.ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = new DateOnly(2025, 1, 1),
+                ExpectedCompletionDate = new DateOnly(2028, 1, 1),
+                ConfirmsAlisAgreement = true,
+                ConfirmsOfficialAgreementTemplate = true,
+                ConfirmsNoCommercialAgencyAffiliation = true,
+                AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+                FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
+                DoctorName = "Anna Hansen",
+                DoctorProfessions = ["Allmennlege"],
+                SelectedPositionTypes = [Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum],
+                EmploymentPeriods = [new Alisflyt.Domain.Forms.EmploymentPeriodInputModel
+                {
+                    PositionType = Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum,
+                    PositionPercentage = 50m,
+                    EmploymentStartDate = new DateOnly(2026, 1, 1),
+                    FundingFrom = new DateOnly(2026, 1, 1),
+                    FundingThrough = new DateOnly(2026, 12, 31)
+                }],
+                Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel
+                {
+                    DoctorName = "Anna Hansen",
+                    SupervisorHprNumber = "987654321",
+                    SupervisorName = "Per Olsen",
+                    Sessions = [new Alisflyt.Domain.Forms.SupervisionSessionInputModel
+                    {
+                        Date = new DateOnly(2026, 1, 10),
+                        Hours = 2m,
+                        Topic = "Veiledning"
+                    }]
+                }
+            }, now);
+            return grantCase;
         }
     }
 }

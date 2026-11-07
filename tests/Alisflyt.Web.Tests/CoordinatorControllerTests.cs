@@ -12,7 +12,7 @@ namespace Alisflyt.Web.Tests
         public async Task CoordinatorController_Details_ReturnsNotFound_When_Service_Throws_KeyNotFoundException()
         {
             var fake = new FakeGrantCaseApplicationService { GetByIdException = new KeyNotFoundException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.Details(Guid.NewGuid(), default);
 

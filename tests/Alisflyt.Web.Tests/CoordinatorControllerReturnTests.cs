@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Web.Tests.Fakes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Xunit;
 
 namespace Alisflyt.Web.Tests
@@ -13,7 +17,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.StartReview(id, default);
 
@@ -25,15 +29,151 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
+        public async Task CoordinatorController_StartReview_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { StartReviewException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = CoordinatorTestFactory.Create(fake).TempData,
+                ControllerContext = CoordinatorTestFactory.Create(fake).ControllerContext
+            };
+
+            var result = await ctrl.StartReview(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", ctrl.TempData!["Error"]);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
+            Assert.DoesNotContain("HPR", entry.State, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_StartReview_Post_ShowsSpecificStatusError()
+        {
+            var fake = new FakeGrantCaseApplicationService { StartReviewException = new InvalidOperationException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+
+            var result = await ctrl.StartReview(Guid.NewGuid(), default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Saken kan bare settes til behandling når den er sendt inn av ALIS.", ctrl.TempData!["Error"]);
+        }
+
+        [Fact]
         public async Task CoordinatorController_StartReview_Post_NotFound_When_Service_Throws()
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { StartReviewException = new KeyNotFoundException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.StartReview(id, default);
 
             Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_Redirects_OnSuccess()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService();
+            var ctrl = CreateControllerForRole(fake, "Koordinator");
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            var redirect = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Details", redirect.ActionName);
+            Assert.Single(fake.MarkReadyForAuditorApprovalCalls);
+            Assert.Equal(id, fake.MarkReadyForAuditorApprovalCalls[0].id);
+        }
+
+        [Theory]
+        [InlineData("ALIS")]
+        [InlineData("Veileder")]
+        [InlineData(null)]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_Forbids_non_coordinators_before_service(string? role)
+        {
+            var fake = new FakeGrantCaseApplicationService();
+            var ctrl = CreateControllerForRole(fake, role);
+
+            var result = await ctrl.MarkReadyForAuditorApproval(Guid.NewGuid(), default);
+
+            var forbidden = Assert.IsType<StatusCodeResult>(result);
+            Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+            Assert.Empty(fake.MarkReadyForAuditorApprovalCalls);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { MarkReadyForAuditorApprovalException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var baseController = CoordinatorTestFactory.Create(fake);
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = baseController.TempData,
+                ControllerContext = baseController.ControllerContext
+            };
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Endringen kunne ikke lagres. Prøv igjen.", ctrl.TempData!["Error"]);
+            Assert.DoesNotContain("Success", ctrl.TempData.Keys);
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
+        }
+
+        [Fact]
+        public async Task CoordinatorController_MarkReadyForAuditorApproval_Post_ShowsError_OnDomainFailure()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { MarkReadyForAuditorApprovalException = new InvalidOperationException() };
+            var ctrl = CreateControllerForRole(fake, "Koordinator");
+
+            var result = await ctrl.MarkReadyForAuditorApproval(id, default);
+
+            Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal("Saken kan ikke klargjøres for revisorkontroll før veiledningen er godkjent av veileder.", ctrl.TempData!["Error"]);
+        }
+
+        private static Alisflyt.Web.Controllers.CoordinatorController CreateControllerForRole(FakeGrantCaseApplicationService fake, string? role)
+        {
+            var httpContext = new DefaultHttpContext { Session = new TestSession() };
+            if (role is not null)
+            {
+                Alisflyt.Web.Models.DemoAuthentication.SignIn(httpContext, new Alisflyt.Web.Models.DemoUser
+                {
+                    Key = role.ToLowerInvariant() + "-test",
+                    Role = role,
+                    Name = role + " Test"
+                });
+            }
+
+            var controller = new Alisflyt.Web.Controllers.CoordinatorController(fake)
+            {
+                TempData = new TempDataDictionary(httpContext, new TestTempDataProvider())
+            };
+            controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+            return controller;
+        }
+
+        private sealed class TestSession : ISession
+        {
+            private readonly Dictionary<string, byte[]> _store = new();
+            public IEnumerable<string> Keys => _store.Keys;
+            public string Id { get; } = Guid.NewGuid().ToString();
+            public bool IsAvailable => true;
+            public void Clear() => _store.Clear();
+            public Task CommitAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            public void Remove(string key) => _store.Remove(key);
+            public void Set(string key, byte[] value) => _store[key] = value;
+            public bool TryGetValue(string key, out byte[] value) => _store.TryGetValue(key, out value!);
         }
 
         [Fact]
@@ -42,7 +182,7 @@ namespace Alisflyt.Web.Tests
             var id = Guid.NewGuid();
             var dto = new Alisflyt.Application.Models.GrantCaseDto { Id = id, CaseNumber = "CN-1", Status = Alisflyt.Domain.Enums.GrantCaseStatus.UnderReview, CreatedAtUtc = DateTimeOffset.UtcNow, LastModifiedAtUtc = DateTimeOffset.UtcNow };
             var fake = new FakeGrantCaseApplicationService { GetByIdResponse = dto };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var result = await ctrl.ReturnForCorrection(id, default);
 
@@ -57,7 +197,7 @@ namespace Alisflyt.Web.Tests
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
             ctrl.ModelState.AddModelError("Reason", "Required");
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id };
@@ -69,11 +209,38 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_Maps_Empty_Reason_Error()
+        {
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new ArgumentException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = Guid.NewGuid(), Reason = " " }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[nameof(Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel.Reason)]!.Errors,
+                e => e.ErrorMessage == "Skriv en begrunnelse før saken returneres.");
+        }
+
+        [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_Maps_TooLong_Reason_Error()
+        {
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new ArgumentException() };
+            var ctrl = CoordinatorTestFactory.Create(fake);
+            var reason = new string('x', 1001);
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = Guid.NewGuid(), Reason = reason }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[nameof(Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel.Reason)]!.Errors,
+                e => e.ErrorMessage == "Begrunnelsen kan være på maksimalt 1000 tegn.");
+        }
+
+        [Fact]
         public async Task CoordinatorController_ReturnForCorrection_Post_Valid_CallsService_AndRedirects()
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService();
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "Please fix" };
 
@@ -87,11 +254,33 @@ namespace Alisflyt.Web.Tests
         }
 
         [Fact]
+        public async Task CoordinatorController_ReturnForCorrection_Post_ShowsDatabaseError_And_Logs()
+        {
+            var id = Guid.NewGuid();
+            var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new Microsoft.EntityFrameworkCore.DbUpdateException("save failed") };
+            var logger = new TestLogger<Alisflyt.Web.Controllers.CoordinatorController>();
+            var baseController = CoordinatorTestFactory.Create(fake);
+            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake, logger)
+            {
+                TempData = baseController.TempData,
+                ControllerContext = baseController.ControllerContext
+            };
+
+            var result = await ctrl.ReturnForCorrection(new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "Rett opp" }, default);
+
+            Assert.IsType<ViewResult>(result);
+            Assert.Contains(ctrl.ModelState[string.Empty]!.Errors, e => e.ErrorMessage == "Endringen kunne ikke lagres. Prøv igjen.");
+            var entry = Assert.Single(logger.Entries);
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Error, entry.Level);
+            Assert.Contains(id.ToString(), entry.State);
+        }
+
+        [Fact]
         public async Task CoordinatorController_ReturnForCorrection_Post_ServiceDomainError_ShowsModelError()
         {
             var id = Guid.NewGuid();
             var fake = new FakeGrantCaseApplicationService { ReturnForCorrectionException = new InvalidOperationException() };
-            var ctrl = new Alisflyt.Web.Controllers.CoordinatorController(fake);
+            var ctrl = CoordinatorTestFactory.Create(fake);
 
             var vm = new Alisflyt.Web.ViewModels.Coordinator.ReturnForCorrectionViewModel { Id = id, Reason = "x" };
 
@@ -100,6 +289,12 @@ namespace Alisflyt.Web.Tests
             var view = Assert.IsType<ViewResult>(result);
             Assert.True(ctrl.ModelState.ErrorCount > 0);
         }
+    }
+
+    internal sealed class TestTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext context) => new Dictionary<string, object?>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object?> values) { }
     }
 
     // No helper throwing fakes remain; tests use configured exception properties on the existing FakeGrantCaseApplicationService.

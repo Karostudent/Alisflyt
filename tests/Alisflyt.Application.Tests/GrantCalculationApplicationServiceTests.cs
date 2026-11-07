@@ -6,6 +6,7 @@ using Alisflyt.Application.Models;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 using Xunit;
 
@@ -40,17 +41,59 @@ namespace Alisflyt.Application.Tests
             var result = await new GrantCalculationApplicationService(new FakeCaseRepo { Case = grantCase }, rateRepo).CalculateForCaseAsync(grantCase.Id);
 
             decimal Amount(string item) => Assert.Single(result.AuditRows.Where(x => x.Item == item)).Amount;
-            Assert.Equal(9m, Amount("Periode 1 – beregningsmåneder"));
-            Assert.Equal(1875000m, Amount("Periode 1 – praksismaks"));
+            Assert.Equal(275m, Amount("Periode 1 – beregningsdager"));
+            Assert.InRange(Amount("Periode 1 – praksismaks"), 1883561.6438356164383561643m, 1883561.6438356164383561644m);
             Assert.Equal(0m, Amount("Periode 2 – praksismaks"));
-            Assert.Equal(5000m, Amount("Periode 1 – produktivitet"));
+            Assert.InRange(Amount("Periode 1 – produktivitet"), 5041.0958904109589041095890m, 5041.0958904109589041095891m);
             Assert.Equal(0m, Amount("Periode 2 – produktivitet"));
-            Assert.Equal(8750m, Amount("Læringsaktiviteter"));
+            Assert.InRange(Amount("Læringsaktiviteter"), 8808.2191780821917808219178m, 8808.2191780821917808219179m);
             Assert.Equal(100m, Amount("Veiledning"));
-            Assert.Equal(centrality ? 4375m : 0m, Amount("Sentralitetstillegg"));
+            if (centrality)
+                Assert.InRange(Amount("Sentralitetstillegg"), 4404.1095890410958904109589m, 4404.1095890410958904109590m);
+            else
+                Assert.Equal(0m, Amount("Sentralitetstillegg"));
             Assert.Equal(result.TotalAmount, Amount("Totalt beregnet tilskudd"));
             Assert.Equal((result.PracticeCompensationAmount + result.LearningActivitiesAmount + result.ProductivityAmount + result.GuidanceAmount) * .05m, Amount("Tilrettelegging"));
             Assert.Contains(result.AuditRows, x => x.Item == "Periode 1 – produktivitet" && x.Substitution.Contains("31.12.2023"));
+        }
+
+        [Fact]
+        public async Task SupervisionOnly_AuditAndTotalContainGuidanceOnly()
+        {
+            var application = new GrantApplicationData
+            {
+                GrantType = GrantType.SupervisionOnly,
+                AbsenceCompensation = 100000m,
+                LearningActivityExpenses = 100000m,
+                ProductivityRequestedAmount = 100000m,
+                SupervisionExpenses = 300000m,
+                IsCentralityGrade6 = true,
+                CentralitySupplementRequestedAmount = 100000m,
+                FirstRegularGpOrLocumDate = new DateOnly(2023, 1, 1),
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
+                ]
+            };
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "SUPERVISION-ONLY", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(application, DateTimeOffset.UtcNow);
+            var rateRepo = new FakeRateRepo();
+            rateRepo.Items.Add(CreateRateSet("Supervision only", new(2023, 1, 1), new(2023, 12, 31)));
+
+            var result = await new GrantCalculationApplicationService(new FakeCaseRepo { Case = grantCase }, rateRepo)
+                .CalculateForCaseAsync(grantCase.Id);
+
+            Assert.True(result.IsAvailable);
+            Assert.Equal(250000m, result.GuidanceAmount);
+            Assert.Equal(250000m, result.TotalAmount);
+            Assert.Equal(0m, result.PracticeCompensationAmount);
+            Assert.Equal(0m, result.LearningActivitiesAmount);
+            Assert.Equal(0m, result.ProductivityAmount);
+            Assert.Equal(0m, result.FacilitationAmount);
+            Assert.Equal(0m, result.CentralitySupplementAmount);
+            Assert.Equal(result.TotalAmount, Assert.Single(result.AuditRows.Where(x => x.Item == "Totalt beregnet tilskudd")).Amount);
+            Assert.Equal(0m, Assert.Single(result.AuditRows.Where(x => x.Item == "Praksiskompensasjon")).Amount);
+            Assert.Equal(0m, Assert.Single(result.AuditRows.Where(x => x.Item == "Tilrettelegging")).Amount);
         }
 
         [Fact]
@@ -59,18 +102,20 @@ namespace Alisflyt.Application.Tests
             var grantCase = GrantCase.Create(Guid.NewGuid(), "SAVED-VALUES", DateTimeOffset.UtcNow);
             grantCase.UpdateApplication(new GrantApplicationData
             {
+                HprNumber = "123456789",
+                DoctorName = "Anna Hansen",
+                DoctorProfessions = ["Lege"],
                 GrantType = GrantType.AlisAgreementIncludingSupervision,
-                Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
-                EmploymentPeriods =
-                [
-                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100,
-                        EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
-                ]
-            }, DateTimeOffset.UtcNow);
-            grantCase.UpdateCentrality(true, 3000m, DateTimeOffset.UtcNow);
-            grantCase.UpdateApplication(new GrantApplicationData
-            {
-                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
+                ConfirmsSpecialization = true,
+                SpecializationStartDate = new(2022, 1, 1),
+                ExpectedCompletionDate = new(2026, 12, 31),
+                ConfirmsAlisAgreement = true,
+                ConfirmsOfficialAgreementTemplate = true,
+                ConfirmsNoCommercialAgencyAffiliation = true,
+                AgreementEffectiveFrom = new(2022, 1, 1),
+                FirstRegularGpOrLocumDate = new(2022, 1, 1),
+                SelectedPositionTypes = [PositionType.RegularGpOrLocum],
                 Certificate = new() { DoctorSigningPlace = "Oslo", SupervisorSigningPlace = "Oslo" },
                 EmploymentPeriods =
                 [
@@ -80,6 +125,9 @@ namespace Alisflyt.Application.Tests
                 HasAdditionalSupervisionCosts = true,
                 AdditionalSupervisionCosts = 125m
             }, DateTimeOffset.UtcNow);
+            grantCase.Submit(DateTimeOffset.UtcNow);
+            grantCase.StartReview(DateTimeOffset.UtcNow);
+            grantCase.UpdateCentrality(true, 3000m, DateTimeOffset.UtcNow);
 
             var saved = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
             var input = GrantCalculationInputMapper.From(saved);
@@ -102,6 +150,7 @@ namespace Alisflyt.Application.Tests
             public Task AddGuidanceApprovalAsync(GuidanceApproval approval, System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
             public Task<GrantCase?> GetByIdAsync(Guid id, System.Threading.CancellationToken cancellationToken = default) => Task.FromResult(Case);
             public Task<IReadOnlyList<GrantCase>> ListAsync(System.Threading.CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<GrantCase>)new List<GrantCase>());
+            public Task<IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>> ListOverviewAsync(System.Threading.CancellationToken cancellationToken = default) => Task.FromResult((IReadOnlyList<Alisflyt.Application.Models.GrantCaseListItemDto>)new List<Alisflyt.Application.Models.GrantCaseListItemDto>());
             public Task SaveChangesAsync(System.Threading.CancellationToken cancellationToken = default) => Task.CompletedTask;
         }
 
@@ -332,6 +381,74 @@ namespace Alisflyt.Application.Tests
             Assert.Equal(new DateOnly(2026, 6, 20), saved.EmploymentPeriods[0].FundingThrough);
         }
 
+        [Theory]
+        [InlineData("2025-06-01", "2026-05-31", true)]
+        [InlineData("2025-05-31", "2026-05-31", false)]
+        [InlineData("2025-06-01", "2026-06-01", false)]
+        [InlineData("2025-05-31", "2026-06-01", false)]
+        public async Task Calculation_requires_selected_rate_set_to_cover_entire_period(string fromText, string throughText, bool expectedAvailable)
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+            var appData = new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods =
+                [
+                    new()
+                    {
+                        PositionType = PositionType.RegularGpOrLocum,
+                        PositionPercentage = 100,
+                        EmploymentStartDate = DateOnly.Parse(fromText),
+                        FundingFrom = DateOnly.Parse(fromText),
+                        FundingThrough = DateOnly.Parse(throughText)
+                    }
+                ]
+            };
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-RATE-COVERAGE", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(appData, DateTimeOffset.UtcNow);
+            caseRepo.Case = grantCase;
+            rateRepo.Items.Add(CreateRateSet("2025/2026", new DateOnly(2025, 6, 1), new DateOnly(2026, 5, 31)));
+
+            var result = await new GrantCalculationApplicationService(caseRepo, rateRepo).CalculateForCaseAsync(grantCase.Id);
+
+            Assert.Equal(expectedAvailable, result.IsAvailable);
+            if (!expectedAvailable)
+            {
+                var reason = result.UnavailableReason ?? string.Empty;
+                Assert.True(
+                    reason.Contains("Tilskuddsperioden dekkes ikke", StringComparison.Ordinal)
+                    || reason.Contains("mangler et gyldig satssett", StringComparison.Ordinal));
+                Assert.Contains("kan fortsatt lagres som utkast", reason, StringComparison.Ordinal);
+            }
+        }
+
+        [Fact]
+        public async Task Calculation_rejects_multiple_periods_when_one_is_outside_selected_rate_set()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+            var appData = new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 60, EmploymentStartDate = new DateOnly(2025, 6, 1), FundingFrom = new DateOnly(2025, 6, 1), FundingThrough = new DateOnly(2025, 12, 31) },
+                    new() { PositionType = PositionType.IntroductoryDoctor, PositionPercentage = 40, EmploymentStartDate = new DateOnly(2026, 5, 1), FundingFrom = new DateOnly(2026, 5, 1), FundingThrough = new DateOnly(2026, 6, 1) }
+                ]
+            };
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-RATE-MULTI", DateTimeOffset.UtcNow);
+            grantCase.UpdateApplication(appData, DateTimeOffset.UtcNow);
+            caseRepo.Case = grantCase;
+            rateRepo.Items.Add(CreateRateSet("2025/2026", new DateOnly(2025, 6, 1), new DateOnly(2026, 5, 31)));
+
+            var result = await new GrantCalculationApplicationService(caseRepo, rateRepo).CalculateForCaseAsync(grantCase.Id);
+
+            Assert.False(result.IsAvailable);
+            Assert.Contains("Tilskuddsperioden dekkes ikke", result.UnavailableReason, StringComparison.Ordinal);
+            Assert.Contains("kan fortsatt lagres som utkast", result.UnavailableReason, StringComparison.Ordinal);
+        }
+
         [Fact]
         public async Task IncompleteApplication_ReturnsUnavailable_NoException()
         {
@@ -357,6 +474,58 @@ namespace Alisflyt.Application.Tests
 
             Assert.False(res.IsAvailable);
             Assert.Contains("Mangler dato", res.UnavailableReason);
+        }
+
+        [Fact]
+        public async Task Honorarium_status_tracks_current_attestation_approval_only()
+        {
+            var caseRepo = new FakeCaseRepo();
+            var rateRepo = new FakeRateRepo();
+            rateRepo.Items.Add(CreateRateSet("RS1", new DateOnly(2023, 1, 1), new DateOnly(2023, 12, 31)));
+
+            var appData = new GrantApplicationData
+            {
+                GrantType = GrantType.AlisAgreementIncludingSupervision,
+                EmploymentPeriods =
+                [
+                    new() { PositionType = PositionType.RegularGpOrLocum, PositionPercentage = 100, EmploymentStartDate = new(2023, 1, 1), FundingFrom = new(2023, 1, 1), FundingThrough = new(2023, 12, 31) }
+                ],
+                Certificate = new SupervisionCertificateViewModel
+                {
+                    Sessions = [new() { Date = new(2023, 2, 1), Hours = 2, Topic = "Tema" }]
+                }
+            };
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-HONORARIUM-STATUS", now);
+            grantCase.UpdateApplication(appData, now);
+            caseRepo.Case = grantCase;
+
+            var approval = grantCase.RequestGuidanceApproval("D", "V", "veileder", now);
+            var service = new GrantCalculationApplicationService(caseRepo, rateRepo);
+
+            Assert.Equal(GuidanceApprovalStatus.Pending, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            approval.Approve(now.AddMinutes(1), "veileder");
+            Assert.Equal(GuidanceApprovalStatus.Approved, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            approval.RequestCorrection("Korriger", now.AddMinutes(2));
+            Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, (await service.CalculateForCaseAsync(grantCase.Id)).GuidanceHonorariumApprovalStatus);
+
+            var changed = new GrantApplicationData
+            {
+                GrantType = appData.GrantType,
+                EmploymentPeriods = appData.EmploymentPeriods,
+                Certificate = new SupervisionCertificateViewModel
+                {
+                    Sessions = [new() { Date = new(2023, 2, 1), Hours = 6, Topic = "Oppdatert tema" }]
+                }
+            };
+            grantCase.UpdateApplication(changed, now.AddMinutes(3));
+
+            var resultAfterSuperseding = await service.CalculateForCaseAsync(grantCase.Id);
+            Assert.Null(resultAfterSuperseding.GuidanceHonorariumApprovalStatus);
+            Assert.Equal(6m, resultAfterSuperseding.RegisteredGuidanceHours);
+            Assert.Equal(GuidanceApprovalStatus.Superseded, approval.Status);
         }
 
         [Fact]

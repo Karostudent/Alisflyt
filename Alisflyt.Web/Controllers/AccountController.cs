@@ -1,10 +1,18 @@
 using Alisflyt.Web.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Alisflyt.Web.Controllers;
 
 public class AccountController : Controller
 {
+    private readonly ILogger<AccountController> _logger;
+
+    public AccountController(ILogger<AccountController>? logger = null)
+    {
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;
+    }
+
     [HttpGet]
     public IActionResult Login(string? role = null)
     {
@@ -19,7 +27,11 @@ public class AccountController : Controller
             return NotFound();
         }
 
-        DemoAuthentication.SignIn(HttpContext, user);
+        if (!DemoAuthentication.SignIn(HttpContext, user, _logger))
+        {
+            TempData["Error"] = "Innlogging kunne ikke fullføres. Prøv igjen.";
+            return RedirectToAction(nameof(Login));
+        }
 
         return role switch
         {
@@ -42,7 +54,11 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Login));
         }
 
-        DemoAuthentication.SignIn(HttpContext, user);
+        if (!DemoAuthentication.SignIn(HttpContext, user, _logger))
+        {
+            TempData["Error"] = "Innlogging kunne ikke fullføres. Prøv igjen.";
+            return RedirectToAction(nameof(Login));
+        }
 
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
             return Redirect(returnUrl);
@@ -59,7 +75,9 @@ public class AccountController : Controller
 
     public IActionResult Logout()
     {
-        DemoAuthentication.SignOut(HttpContext);
+        if (!DemoAuthentication.SignOut(HttpContext, _logger))
+            TempData["Error"] = "Utlogging kunne ikke fullføres. Prøv igjen.";
+
         return RedirectToAction("Index", "Home");
     }
 }

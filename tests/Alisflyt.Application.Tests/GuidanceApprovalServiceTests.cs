@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Alisflyt.Application.Models;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Tests.Fakes;
 using Alisflyt.Domain.Entities;
@@ -85,6 +86,33 @@ public class GuidanceApprovalServiceTests
         var corrected = await service.RequestCorrectionAsync(grantCase.Id, approval.Id, "Timer må etterkontrolleres.");
         Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, corrected.Status);
         Assert.Equal("Timer må etterkontrolleres.", corrected.RequestedRevisionReason);
+    }
+
+    [Fact]
+    public async Task Case_details_expose_current_approval_status_and_correction_reason()
+    {
+        var now = new DateTimeOffset(2026, 1, 1, 8, 0, 0, TimeSpan.Zero);
+        var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-206", now);
+        grantCase.UpdateApplication(CreateApplicationData(), now.AddMinutes(1));
+        var repository = new FakeGrantCaseRepository();
+        await repository.AddAsync(grantCase);
+
+        var applicationService = new GrantCaseApplicationService(repository, new FakeCaseNumberGenerator("CASE-206"), new FakeTimeProvider(now.AddMinutes(2)));
+        var guidanceService = new GuidanceApprovalService(repository, new FakeTimeProvider(now.AddMinutes(2)));
+        await guidanceService.RequestApprovalAsync(grantCase.Id, "123456789", "987654321", "veileder-per", "Per Olsen");
+
+        var pending = await applicationService.GetByIdAsync(grantCase.Id);
+        Assert.Equal(GuidanceApprovalStatus.Pending, pending.GuidanceApprovalStatus);
+        Assert.True(pending.GuidanceApprovalRequired);
+        Assert.False(pending.GuidanceApprovalApproved);
+
+        var approval = grantCase.GetCurrentGuidanceApproval()!;
+        await guidanceService.RequestCorrectionAsync(grantCase.Id, approval.Id, "Timer må korrigeres.");
+
+        var needsCorrection = await applicationService.GetByIdAsync(grantCase.Id);
+        Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, needsCorrection.GuidanceApprovalStatus);
+        Assert.Equal("Timer må korrigeres.", needsCorrection.GuidanceCorrectionReason);
+        Assert.False(needsCorrection.GuidanceApprovalApproved);
     }
 
     [Fact]

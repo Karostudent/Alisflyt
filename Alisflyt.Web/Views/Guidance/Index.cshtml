@@ -71,15 +71,15 @@
         else
         {
             <div class="table-responsive">
-                <table class="table align-middle mb-0">
+                <table class="table align-middle mb-0 sortable-table">
                     <thead>
                         <tr>
-                            <th scope="col">ALIS-lege</th>
-                            <th scope="col">Saksnummer</th>
-                            <th scope="col">Periode</th>
-                            <th scope="col">Timer</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Sist endret</th>
+                            <th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">ALIS-lege <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">Saksnummer <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="text" tabindex="0" role="button" aria-sort="none">Periode <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="number" tabindex="0" role="button" aria-sort="none">Timer <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="status" tabindex="0" role="button" aria-sort="none">Status <span class="sort-indicator"></span></th>
+                            <th scope="col" data-sortable="true" data-sort-type="date" tabindex="0" role="button" aria-sort="none">Sist endret <span class="sort-indicator"></span></th>
                             <th scope="col">Handling</th>
                         </tr>
                     </thead>
@@ -90,9 +90,9 @@
                                 <td>@item.DoctorName @if (!string.IsNullOrWhiteSpace(item.HprNumber)) { <span class="text-muted small">(@item.HprNumber)</span> }</td>
                                 <td>@item.CaseNumber</td>
                                 <td>@item.PeriodText</td>
-                                <td>@item.TotalHours.ToString("0.##")</td>
-                                <td><span class="badge text-bg-light border">@item.StatusText</span></td>
-                                <td>@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td data-sort-value="@item.TotalHours.ToString(System.Globalization.CultureInfo.InvariantCulture)">@item.TotalHours.ToString("0.##")</td>
+                                <td data-sort-value="@item.Status"><span class="badge text-bg-light border">@item.StatusText</span></td>
+                                <td data-sort-value="@item.LastModifiedAtUtc.ToString("o")">@item.LastModifiedAtUtc.ToLocalTime().ToString("g")</td>
                                 <td><a asp-controller="Supervisor" asp-action="Details" asp-route-id="@item.Id">Se veiledningstimer</a></td>
                             </tr>
                         }

@@ -1,9 +1,12 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Alisflyt.Application.Abstractions;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
@@ -16,13 +19,16 @@ namespace Alisflyt.Web.Controllers
     {
         private readonly IGrantCaseApplicationService _svc;
         private readonly IGrantCaseRepository? _repository;
-        private readonly IGuidanceApprovalService? _guidanceApprovalService;
+        private readonly ILogger<GrantCasesController> _logger;
 
-        public GrantCasesController(IGrantCaseApplicationService svc, IGuidanceApprovalService? guidanceApprovalService = null, IGrantCaseRepository? repository = null)
+        public GrantCasesController(
+            IGrantCaseApplicationService svc,
+            IGrantCaseRepository? repository = null,
+            ILogger<GrantCasesController>? logger = null)
         {
             _svc = svc ?? throw new ArgumentNullException(nameof(svc));
-            _guidanceApprovalService = guidanceApprovalService;
             _repository = repository;
+            _logger = logger ?? NullLogger<GrantCasesController>.Instance;
         }
 
         private bool UserCanAccessCase(string? doctorHprNumber)
@@ -30,8 +36,19 @@ namespace Alisflyt.Web.Controllers
             return DemoAuthentication.CanAccessCaseForCurrentUser(HttpContext, doctorHprNumber);
         }
 
+        private bool IsGrantCaseReader()
+        {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            return currentUser is not null
+                && (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase));
+        }
+
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
+            if (!IsGrantCaseReader())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             var list = await _svc.ListAsync(cancellationToken).ConfigureAwait(false);
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase))
@@ -62,10 +79,14 @@ namespace Alisflyt.Web.Controllers
         [HttpGet]
         public async Task<IActionResult> DownloadAttachment(Guid id, Guid attachmentId, CancellationToken cancellationToken)
         {
+            var coordinator = DemoAuthentication.IsInRole(HttpContext, "Koordinator");
+            if (!IsGrantCaseReader() && !coordinator)
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                if (!coordinator && !UserCanAccessCase(data.HprNumber))
                     return StatusCode(StatusCodes.Status403Forbidden);
 
                 var attachment = data.ApplicationData?.Attachments.FirstOrDefault(a => a.Id == attachmentId);
@@ -98,27 +119,58 @@ namespace Alisflyt.Web.Controllers
         public async Task<IActionResult> SaveApplication([FromBody] GrantApplicationFormViewModel model, CancellationToken cancellationToken)
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
+            if (currentUser is null
+                || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(currentUser.HprNumber))
+            {
                 return StatusCode(StatusCodes.Status403Forbidden);
+            }
 
             model ??= new GrantApplicationFormViewModel();
+            if (!string.IsNullOrWhiteSpace(model.HprNumber)
+                && !string.Equals(model.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "HPR-nummeret må samsvare med innlogget ALIS-bruker." });
+            }
+
+            if (model.Id != Guid.Empty)
+            {
+                GrantCaseDto existing;
+                try
+                {
+                    existing = await _svc.GetByIdAsync(model.Id, cancellationToken).ConfigureAwait(false);
+                }
+                catch (System.Collections.Generic.KeyNotFoundException)
+                {
+                    return NotFound(new { message = "Søknaden finnes ikke lenger." });
+                }
+
+                if (!string.Equals(existing.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
+                    return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             model.Attachments ??= [];
             model.Certificate ??= new();
             model.Certificate.Sessions ??= [];
             model.EmploymentPeriods ??= [];
             model.SelectedPositionTypes ??= [];
             model.DoctorProfessions ??= [];
-
-            if (currentUser is not null)
-            {
-                model.HprNumber ??= currentUser.HprNumber;
-                model.DoctorName ??= currentUser.Name;
-            }
+            model.HprNumber = currentUser.HprNumber;
+            model.DoctorName ??= currentUser.Name;
 
             model.GrantType ??= Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             if (!ModelState.IsValid)
-                return BadRequest(new { message = "Kontroller tall og datoer før du lagrer." });
-            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
+            {
+                var hasInvalidGuidanceHours = ModelState.Keys.Any(key =>
+                    key.Contains("Sessions", StringComparison.OrdinalIgnoreCase)
+                    && key.EndsWith("Hours", StringComparison.OrdinalIgnoreCase));
+                return BadRequest(new
+                {
+                    message = hasInvalidGuidanceHours
+                        ? "Veiledningstimer må oppgis som hele timer mellom 1 og 24."
+                        : "Kontroller tall og datoer før du lagrer."
+                });
+            }
             try
             {
                 var saved = model.Id == Guid.Empty
@@ -145,17 +197,105 @@ namespace Alisflyt.Web.Controllers
             };
             var model = System.Text.Json.JsonSerializer.Deserialize<GrantApplicationFormViewModel>(System.Text.Json.JsonSerializer.Serialize(form))!;
             model.Id = data.Id;
+            model.InitialErrors = BuildInitialFieldErrors(form);
             return model;
+        }
+
+        private static List<GrantApplicationFieldError> BuildInitialFieldErrors(Alisflyt.Domain.Forms.GrantApplicationData data)
+        {
+            var errors = new List<GrantApplicationFieldError>();
+            var periods = data.EmploymentPeriods ?? [];
+
+            if (data.SelectedPositionTypes.Count == 0)
+            {
+                errors.Add(new()
+                {
+                    Field = "position-types",
+                    Code = "PositionTypes",
+                    Message = "Velg hvilke stillingstyper legen har hatt i perioden."
+                });
+            }
+
+            if (data.SelectedPositionTypes.Contains(Alisflyt.Domain.Forms.PositionType.RegularGpOrLocum)
+                && !data.FirstRegularGpOrLocumDate.HasValue)
+            {
+                errors.Add(new()
+                {
+                    Field = nameof(Alisflyt.Domain.Forms.GrantApplicationData.FirstRegularGpOrLocumDate),
+                    Code = "FirstRegularGpOrLocumDate",
+                    Message = "Oppgi når legen første gang startet som fastlege eller fastlegevikar."
+                });
+            }
+
+            if (data.GrantType == Alisflyt.Domain.Forms.GrantType.AlisAgreementIncludingSupervision
+                && !data.Attachments.Any(a => a is not null && string.Equals(a.Kind, "Agreement", StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add(new()
+                {
+                    Field = "agreement-upload-area",
+                    Code = "AgreementAttachment",
+                    Message = "Last opp ALIS-avtalen før søknaden kan sendes inn."
+                });
+            }
+
+            if (periods.Count == 0)
+            {
+                errors.Add(new() { Field = "employment-rows", Code = "EmploymentPeriods", Message = "Legg til minst én stillingsperiode med tilskuddsperiode." });
+                return errors;
+            }
+
+            for (var index = 0; index < periods.Count; index++)
+            {
+                var period = periods[index];
+                if (period is null) continue;
+                var prefix = $"EmploymentPeriods[{index}]";
+                if (!period.PositionType.HasValue)
+                    errors.Add(new() { Field = prefix + ".PositionType", Code = "EmploymentPeriodPositionType", Message = "Velg stillingstype." });
+                else if (!data.SelectedPositionTypes.Contains(period.PositionType.Value))
+                    errors.Add(new() { Field = prefix + ".PositionType", Code = "EmploymentPeriodPositionType", Message = "Stillingstypen må også være krysset av under hvilke stillinger legen har hatt." });
+                if (!period.PositionPercentage.HasValue)
+                    errors.Add(new() { Field = prefix + ".PositionPercentage", Code = "EmploymentPercentage", Message = "Oppgi stillingsprosent." });
+                if (!period.EmploymentStartDate.HasValue)
+                    errors.Add(new() { Field = prefix + ".EmploymentStartDate", Code = "EmploymentStartDate", Message = "Oppgi dato for tiltredelse." });
+                if (!period.FundingFrom.HasValue)
+                    errors.Add(new() { Field = prefix + ".FundingFrom", Code = "FundingFrom", Message = "Oppgi dato for «Tilskudd fra»." });
+                if (!period.FundingThrough.HasValue)
+                    errors.Add(new() { Field = prefix + ".FundingThrough", Code = "FundingThrough", Message = "Oppgi dato for «Tilskudd til og med»." });
+            }
+
+            foreach (var type in data.SelectedPositionTypes.Distinct().Where(t => !periods.Any(p => p?.PositionType == t)))
+            {
+                errors.Add(new()
+                {
+                    Field = "position-types",
+                    Code = "PositionTypes",
+                    Message = "Legg til en stillingsperiode for den valgte stillingstypen."
+                });
+            }
+
+            return errors;
         }
 
         [HttpGet]
         public async Task<IActionResult> Application(Guid id, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is null
+                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             try
             {
                 var data = await _svc.GetByIdAsync(id, cancellationToken);
-                if (HttpContext is not null && !UserCanAccessCase(data.HprNumber))
+                if (!string.Equals(currentUser.Role, "Koordinator", StringComparison.OrdinalIgnoreCase)
+                    && !UserCanAccessCase(data.HprNumber))
+                {
                     return StatusCode(StatusCodes.Status403Forbidden);
+                }
 
                 var model = FormModel(data);
                 model.ReadOnly = true;
@@ -167,6 +307,14 @@ namespace Alisflyt.Web.Controllers
 
         public async Task<IActionResult> Details(Guid id, CancellationToken cancellationToken)
         {
+            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
+            if (currentUser is null
+                || (!string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden);
+            }
+
             Alisflyt.Application.Models.GrantCaseDto d;
             try
             {
@@ -177,13 +325,12 @@ namespace Alisflyt.Web.Controllers
                 return NotFound();
             }
 
-            var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
-            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
-            if (HttpContext is not null && currentUser is not null && string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
+            if (string.Equals(currentUser.Role, "Veileder", StringComparison.OrdinalIgnoreCase)
                 && !DemoAuthentication.IsCurrentSupervisorForDoctor(HttpContext, d.HprNumber))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
@@ -200,18 +347,46 @@ namespace Alisflyt.Web.Controllers
                 Status = d.Status,
                 CreatedAtUtc = d.CreatedAtUtc,
                 LastModifiedAtUtc = d.LastModifiedAtUtc,
+                ReadyForAuditorApprovalAtUtc = d.ReadyForAuditorApprovalAtUtc,
                 ReturnReason = d.ReturnReason,
-                ReturnedAtUtc = d.ReturnedAtUtc,
-                ApplicationData = d.ApplicationData
-            };
+                    ReturnedAtUtc = d.ReturnedAtUtc,
+                    ApplicationData = d.ApplicationData,
+                    GuidanceApprovalStatus = d.GuidanceApprovalStatus,
+                    GuidanceApprovalRequired = d.GuidanceApprovalRequired,
+                    GuidanceApprovalApproved = d.GuidanceApprovalApproved,
+                    GuidanceCorrectionReason = d.GuidanceCorrectionReason
+                };
 
             if (_repository is not null)
             {
                 var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
                 var currentApproval = domainCase?.GetCurrentGuidanceApproval();
-                if (currentApproval is not null && currentApproval.Status == Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                var guidanceCorrectionRequired = d.Status is Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview
+                    && currentApproval?.Status == Domain.Enums.GuidanceApprovalStatus.NeedsCorrection;
+                if (guidanceCorrectionRequired)
                 {
-                    ViewData["GuidanceCorrectionStatus"] = "Korrigering nødvendig";
+                    vm = new GrantCaseDetailsViewModel
+                    {
+                        Id = vm.Id,
+                        CaseNumber = vm.CaseNumber,
+                        HprNumber = vm.HprNumber,
+                        EmploymentPercentage = vm.EmploymentPercentage,
+                        EmploymentStartDate = vm.EmploymentStartDate,
+                        EmploymentEndDate = vm.EmploymentEndDate,
+                        Status = vm.Status,
+                        CreatedAtUtc = vm.CreatedAtUtc,
+                        LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
+                        ReturnReason = vm.ReturnReason,
+                        ReturnedAtUtc = vm.ReturnedAtUtc,
+                        ApplicationData = vm.ApplicationData,
+                        GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                        GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                        GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
+                        GuidanceCorrectionRequired = true,
+                        GuidanceCorrectionReason = currentApproval!.RequestedRevisionReason
+                    };
+                    ViewData["GuidanceCorrectionStatus"] = "Veiledningsattest må korrigeres";
                     ViewData["GuidanceCorrectionReason"] = currentApproval.RequestedRevisionReason;
                     ViewData["GuidanceCorrectionLink"] = Url is null ? null : Url.Action(nameof(EditGuidance), new { id });
                 }
@@ -236,16 +411,23 @@ namespace Alisflyt.Web.Controllers
                         Status = vm.Status,
                         CreatedAtUtc = vm.CreatedAtUtc,
                         LastModifiedAtUtc = vm.LastModifiedAtUtc,
+                        ReadyForAuditorApprovalAtUtc = vm.ReadyForAuditorApprovalAtUtc,
                         ReturnReason = vm.ReturnReason,
                         ReturnedAtUtc = vm.ReturnedAtUtc,
                         ApplicationData = vm.ApplicationData,
+                        GuidanceApprovalStatus = vm.GuidanceApprovalStatus,
+                        GuidanceApprovalRequired = vm.GuidanceApprovalRequired,
+                        GuidanceApprovalApproved = vm.GuidanceApprovalApproved,
+                        GuidanceCorrectionRequired = vm.GuidanceCorrectionRequired,
+                        GuidanceCorrectionReason = vm.GuidanceCorrectionReason,
                         Calculation = calc
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Swallow to keep details view stable; calculation not critical
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(Details), d.Id);
+                ViewData["CalculationError"] = "Beregningen kunne ikke lastes på grunn av en teknisk feil.";
             }
 
             // Return explicit Details view so MVC does not search for a Submit.cshtml view.
@@ -269,7 +451,9 @@ namespace Alisflyt.Web.Controllers
             var domainCase = await _repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
                 ?? throw new KeyNotFoundException();
             var currentApproval = domainCase.GetCurrentGuidanceApproval();
-            if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+            if (domainCase.Status is not (Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview)
+                || currentApproval is null
+                || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
                 return BadRequest();
 
             var data = domainCase.ApplicationDataJson is null
@@ -318,8 +502,24 @@ namespace Alisflyt.Web.Controllers
                 var domainCase = await _repository.GetByIdAsync(id.Value, cancellationToken).ConfigureAwait(false)
                     ?? throw new KeyNotFoundException();
                 var currentApproval = domainCase.GetCurrentGuidanceApproval();
-                if (currentApproval is null || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
+                if (domainCase.Status is not (Domain.Enums.GrantCaseStatus.Submitted or Domain.Enums.GrantCaseStatus.UnderReview)
+                    || currentApproval is null
+                    || currentApproval.Status != Domain.Enums.GuidanceApprovalStatus.NeedsCorrection)
                     return BadRequest();
+
+                model.CaseNumber = domainCase.CaseNumber;
+                model.HprNumber = grantCase.HprNumber;
+                model.CorrectionReason = currentApproval.RequestedRevisionReason;
+
+                if (Request.HasFormContentType)
+                {
+                    var form = await Request.ReadFormAsync(cancellationToken);
+                    foreach (var key in form.Keys.Where(key => key.StartsWith("Sessions[", StringComparison.Ordinal) && key.EndsWith("].Hours", StringComparison.Ordinal)))
+                    {
+                        if (!IsValidWholeGuidanceHours(form[key].FirstOrDefault()))
+                            ModelState.AddModelError(nameof(model.Sessions), "Veiledningstimer må oppgis som hele timer mellom 1 og 24.");
+                    }
+                }
 
                 if (model.Sessions is null || model.Sessions.Count == 0)
                     ModelState.AddModelError(nameof(model.Sessions), "Legg til minst én veiledningsøkt.");
@@ -339,16 +539,7 @@ namespace Alisflyt.Web.Controllers
                 if (!ModelState.IsValid)
                     return View("EditGuidance", model);
 
-                var data = domainCase.ApplicationDataJson is null
-                    ? new Alisflyt.Domain.Forms.GrantApplicationData()
-                    : System.Text.Json.JsonSerializer.Deserialize<Alisflyt.Domain.Forms.GrantApplicationData>(domainCase.ApplicationDataJson)
-                        ?? new Alisflyt.Domain.Forms.GrantApplicationData();
-
-                data.HprNumber ??= grantCase.HprNumber;
-                data.DoctorName ??= currentUser?.Name ?? data.DoctorName;
-                if (data.Certificate is null)
-                    data.Certificate = new Alisflyt.Domain.Forms.SupervisionCertificateViewModel();
-                data.Certificate.Sessions = model.Sessions
+                var sessions = model.Sessions
                     .Select(s => new Alisflyt.Domain.Forms.SupervisionSessionInputModel
                     {
                         Date = s.Date,
@@ -357,18 +548,10 @@ namespace Alisflyt.Web.Controllers
                     })
                     .ToList();
 
-                data.ValidateDraft();
-                var now = DateTimeOffset.UtcNow;
-                domainCase.UpdateApplication(data, now);
-                domainCase.RequestGuidanceApproval(
-                    grantCase.HprNumber ?? data.HprNumber ?? currentUser?.HprNumber ?? string.Empty,
-                    currentApproval.SupervisorHprNumber,
-                    currentApproval.SupervisorUserKey,
-                    now,
-                    currentApproval.SupervisorName);
-                await _repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-                TempData["Success"] = "Veiledningstimer er oppdatert og sendt til ny godkjenning.";
+                var correctionResult = await _svc.UpdateGuidanceAsync(id.Value, sessions, cancellationToken).ConfigureAwait(false);
+                TempData["Success"] = correctionResult.CreatedNewApproval
+                    ? "Veiledningstimer er oppdatert og sendt til ny godkjenning."
+                    : "Veiledningstimene er uendret. Ingen ny godkjenning ble opprettet.";
                 return RedirectToAction(nameof(Details), new { id = id.Value });
             }
             catch (KeyNotFoundException)
@@ -390,61 +573,46 @@ namespace Alisflyt.Web.Controllers
                 ModelState.AddModelError(string.Empty, ex.Message);
                 return View("EditGuidance", model);
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database save failed in {Action} for case {CaseId}.", nameof(UpdateGuidance), id.Value);
+                ModelState.AddModelError(string.Empty, "Endringen kunne ikke lagres. Prøv igjen.");
+                return View("EditGuidance", model);
+            }
         }
 
-        private async Task TryCreatePendingGuidanceApprovalAsync(GrantCaseDto grantCase, CancellationToken cancellationToken)
+        private static bool IsValidWholeGuidanceHours(string? value)
         {
-            if (_guidanceApprovalService is null)
-                return;
-
-            var certificate = grantCase.ApplicationData?.Certificate;
-            if (certificate is null || certificate.Sessions is null || certificate.Sessions.Count == 0)
-                return;
-
-            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
-                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
-
-            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
-            if (string.IsNullOrWhiteSpace(doctorUserKey))
-                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
-
-            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
-            if (string.IsNullOrWhiteSpace(supervisorUserKey))
-                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
-
-            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
-                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
-            if (supervisor is null)
-                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
-
-            var supervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
-                ? supervisor.HprNumber
-                : certificate.SupervisorHprNumber;
-
-            var approval = await _guidanceApprovalService.RequestApprovalAsync(
-                grantCase.Id,
-                grantCase.HprNumber,
-                supervisorHprNumber,
-                supervisorUserKey,
-                supervisor.Name,
-                cancellationToken).ConfigureAwait(false);
-
-            if (approval is null || approval.Status != Domain.Enums.GuidanceApprovalStatus.Pending)
-                throw new InvalidOperationException("Godkjenningsforespørsel ble ikke opprettet som ventende for denne attestversjonen.");
+            return !string.IsNullOrWhiteSpace(value)
+                && value.All(char.IsDigit)
+                && int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var hours)
+                && hours is >= 1 and <= 24;
         }
 
         [HttpGet]
         public async Task<IActionResult> CalculationPreview(Guid id, CancellationToken cancellationToken)
         {
+            if (!IsGrantCaseReader())
+                return StatusCode(StatusCodes.Status403Forbidden);
+
             try
             {
+                var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (!UserCanAccessCase(data.HprNumber))
+                    return StatusCode(StatusCodes.Status403Forbidden);
+
                 var calcSvc = (Alisflyt.Application.Services.IGrantCalculationApplicationService?)HttpContext?.RequestServices.GetService(typeof(Alisflyt.Application.Services.IGrantCalculationApplicationService));
                 if (calcSvc == null) return StatusCode(500);
                 var calc = await calcSvc.CalculateForCaseAsync(id, cancellationToken).ConfigureAwait(false);
                 return PartialView("_CalculationResultPartial", calc);
             }
             catch (System.Collections.Generic.KeyNotFoundException) { return NotFound(); }
-            catch { return StatusCode(500); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Calculation failed in {Action} for case {CaseId}.", nameof(CalculationPreview), id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "Beregningen kunne ikke lastes på grunn av en teknisk feil." });
+            }
         }
 
         [HttpGet]
@@ -464,14 +632,13 @@ namespace Alisflyt.Web.Controllers
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(d.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase)))
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             if (d.Status != Domain.Enums.GrantCaseStatus.Draft && d.Status != Domain.Enums.GrantCaseStatus.ReturnedForCorrection)
                 return BadRequest();
 
             var model = FormModel(d);
-            model.GrantType = Domain.Forms.GrantType.AlisAgreementIncludingSupervision;
             return View("Application", model);
         }
 
@@ -482,20 +649,21 @@ namespace Alisflyt.Web.Controllers
         {
             var currentUser = DemoAuthentication.GetCurrentUser(HttpContext);
             if (HttpContext is not null && (currentUser is null || !string.Equals(currentUser.Role, "ALIS", StringComparison.OrdinalIgnoreCase)))
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden);
 
             try
             {
+                Alisflyt.Application.Models.SubmitGrantCaseRequest? guidanceRequest = null;
                 if (currentUser is not null)
                 {
                     var data = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
                     if (!string.Equals(data.HprNumber, currentUser.HprNumber, StringComparison.OrdinalIgnoreCase))
-                        return Forbid();
+                        return StatusCode(StatusCodes.Status403Forbidden);
+
+                    guidanceRequest = CreateGuidanceRequest(data);
                 }
 
-                await _svc.SubmitAsync(id, cancellationToken).ConfigureAwait(false);
-                var submittedCase = await _svc.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
-                await TryCreatePendingGuidanceApprovalAsync(submittedCase, cancellationToken).ConfigureAwait(false);
+                await _svc.SubmitAsync(id, guidanceRequest, cancellationToken).ConfigureAwait(false);
                 return RedirectToAction(nameof(Details), new { id });
             }
             catch (System.Collections.Generic.KeyNotFoundException)
@@ -515,13 +683,53 @@ namespace Alisflyt.Web.Controllers
             {
                 ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: " + ex.Message);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn i nåværende status. Bare utkast og søknader returnert for korrigering kan sendes inn.");
+                var message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Søknaden kan ikke sendes inn i nåværende status."
+                    : ex.Message;
+                ModelState.AddModelError(string.Empty, "Søknaden kan ikke sendes inn: " + message);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+            {
+                ModelState.AddModelError(string.Empty, "Søknaden kunne ikke lagres. Ingen del av innsendingen ble fullført.");
             }
 
             // Reuse the complete details model while preserving validation errors.
             return await Details(id, cancellationToken);
+        }
+
+        private static Alisflyt.Application.Models.SubmitGrantCaseRequest? CreateGuidanceRequest(GrantCaseDto grantCase)
+        {
+            var certificate = grantCase.ApplicationData?.Certificate;
+            if (certificate?.Sessions is null || certificate.Sessions.Count == 0)
+                return null;
+
+            if (string.IsNullOrWhiteSpace(grantCase.HprNumber))
+                throw new InvalidOperationException("Kan ikke opprette godkjenningsforespørsel uten HPR-nummer for ALIS-legens sak.");
+
+            var doctorUserKey = DemoAuthentication.GetDoctorUserKeyForHprNumber(grantCase.HprNumber);
+            if (string.IsNullOrWhiteSpace(doctorUserKey))
+                throw new InvalidOperationException($"Fant ingen ALIS-bruker for HPR-nummer {grantCase.HprNumber}.");
+
+            var supervisorUserKey = DemoAuthentication.GetSupervisorUserKeyForDoctorUserKey(doctorUserKey);
+            if (string.IsNullOrWhiteSpace(supervisorUserKey))
+                throw new InvalidOperationException($"Fant ingen tilknyttet veileder for ALIS-bruker {doctorUserKey}.");
+
+            var supervisor = DemoAuthentication.DemoUsers.FirstOrDefault(u =>
+                string.Equals(u.Key, supervisorUserKey, StringComparison.OrdinalIgnoreCase));
+            if (supervisor is null)
+                throw new InvalidOperationException($"Fant ingen veileder med nøkkel {supervisorUserKey}.");
+
+            return new Alisflyt.Application.Models.SubmitGrantCaseRequest
+            {
+                DoctorHprNumber = grantCase.HprNumber,
+                SupervisorHprNumber = string.IsNullOrWhiteSpace(certificate.SupervisorHprNumber)
+                    ? supervisor.HprNumber
+                    : certificate.SupervisorHprNumber,
+                SupervisorUserKey = supervisorUserKey,
+                SupervisorName = supervisor.Name
+            };
         }
     }
 }

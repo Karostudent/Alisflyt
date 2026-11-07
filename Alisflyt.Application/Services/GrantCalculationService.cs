@@ -13,23 +13,33 @@ public class GrantCalculationService
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(rateSet);
 
-        var practiceCompensation =
-            CalculatePracticeCompensation(input, rateSet);
-        var learningActivities =
-            CalculateLearningActivities(input, rateSet);
-        var productivity =
-            CalculateProductivity(input, rateSet);
+        var isAlisAgreement =
+            input.GrantType == GrantType.AlisAgreementIncludingSupervision;
+        var practiceCompensation = isAlisAgreement
+            ? CalculatePracticeCompensation(input, rateSet)
+            : (Amount: 0m, Maximum: 0m);
+        var learningActivities = isAlisAgreement
+            ? CalculateLearningActivities(input, rateSet)
+            : 0m;
+        var productivity = isAlisAgreement
+            ? CalculateProductivity(input, rateSet)
+            : 0m;
+        var guidanceMaximum = CalculateGuidanceMaximum(input, rateSet);
         var guidance =
-            CalculateGuidance(input, rateSet);
+            Math.Min(input.SupervisionExpenses, guidanceMaximum);
+        var guidanceHonorarium = isAlisAgreement
+            ? CalculateGuidanceHonorarium(input, rateSet, guidanceMaximum)
+            : (RegisteredHours: 0m, PaidHours: 0m, HourlyRate: 0m, Amount: 0m, Maximum: 0m, CappedAmount: 0m);
         var standardElements =
             practiceCompensation.Amount
             + learningActivities
             + productivity
             + guidance;
 
-        var facilitation =
-            standardElements * rateSet.FacilitationRate;
-        
+        var facilitation = isAlisAgreement
+            ? standardElements * rateSet.FacilitationRate
+            : 0m;
+
         var centralitySupplement =
             CalculateCentralitySupplement(input, rateSet);
 
@@ -37,10 +47,17 @@ public class GrantCalculationService
         {
             PracticeCompensationAmount = practiceCompensation.Amount,
             PracticeCompensationMaximumAmount = practiceCompensation.Maximum,
-            IsPracticeCompensationCapped = input.AbsenceCompensation > practiceCompensation.Maximum,
+            IsPracticeCompensationCapped = isAlisAgreement
+                && input.AbsenceCompensation > practiceCompensation.Maximum,
             LearningActivitiesAmount = learningActivities,
             ProductivityAmount = productivity,
             GuidanceAmount = guidance,
+            RegisteredGuidanceHours = guidanceHonorarium.RegisteredHours,
+            GuidancePaidHours = guidanceHonorarium.PaidHours,
+            GuidanceHourlyRate = guidanceHonorarium.HourlyRate,
+            GuidanceHonorariumAmount = guidanceHonorarium.Amount,
+            GuidanceHonorariumMaximumAmount = guidanceHonorarium.Maximum,
+            GuidanceHonorariumCappedAmount = guidanceHonorarium.CappedAmount,
             FacilitationAmount = facilitation,
             CentralitySupplementAmount = centralitySupplement,
             CentralityExplanation = DetermineCentralityExplanation(input, centralitySupplement)
@@ -93,11 +110,11 @@ public class GrantCalculationService
                 continue;
             }
 
-            var wholeMonths = CountWholeMonths(
+            var periodDays = CountDays(
                 period.FundingFrom,
                 period.FundingThrough);
 
-            if (wholeMonths <= 0)
+            if (periodDays <= 0)
             {
                 continue;
             }
@@ -106,7 +123,7 @@ public class GrantCalculationService
                 period.PositionPercentage / 100m;
 
             var periodFraction =
-                wholeMonths / 12m;
+                periodDays / 365m;
 
             var annualMaximum =
                 rateSet.SalaryRate
@@ -130,11 +147,11 @@ public class GrantCalculationService
 
         foreach (var period in input.EmploymentPeriods)
         {
-            var wholeMonths = CountWholeMonths(
+            var periodDays = CountDays(
                 period.FundingFrom,
                 period.FundingThrough);
 
-            if (wholeMonths <= 0)
+            if (periodDays <= 0)
             {
                 continue;
             }
@@ -143,7 +160,7 @@ public class GrantCalculationService
                 period.PositionPercentage / 100m;
 
             var periodFraction =
-                wholeMonths / 12m;
+                periodDays / 365m;
 
             maximumAmount +=
                 rateSet.LearningActivitiesMaxAmount
@@ -186,11 +203,11 @@ public class GrantCalculationService
                 continue;
             }
 
-            var wholeMonths = CountWholeMonths(
+            var periodDays = CountDays(
                 eligibilityPeriod.From,
                 eligibilityPeriod.Through);
 
-            if (wholeMonths <= 0)
+            if (periodDays <= 0)
             {
                 continue;
             }
@@ -199,7 +216,7 @@ public class GrantCalculationService
                 period.PositionPercentage / 100m;
 
             var periodFraction =
-                wholeMonths / 12m;
+                periodDays / 365m;
 
             amount +=
                 rateSet.ProductivityMaxAmount
@@ -210,7 +227,7 @@ public class GrantCalculationService
         return amount;
     }
 
-    private static decimal CalculateGuidance(
+    private static decimal CalculateGuidanceMaximum(
     GrantCalculationInput input,
     GrantRateSet rateSet)
     {
@@ -218,11 +235,11 @@ public class GrantCalculationService
 
         foreach (var period in input.EmploymentPeriods)
         {
-            var wholeMonths = CountWholeMonths(
+            var periodDays = CountDays(
                 period.FundingFrom,
                 period.FundingThrough);
 
-            if (wholeMonths <= 0)
+            if (periodDays <= 0)
             {
                 continue;
             }
@@ -231,7 +248,7 @@ public class GrantCalculationService
                 period.PositionPercentage / 100m;
 
             var periodFraction =
-                wholeMonths / 12m;
+                periodDays / 365m;
 
             var annualMaximum =
                 rateSet.SalaryRate
@@ -244,10 +261,28 @@ public class GrantCalculationService
                 * periodFraction;
         }
 
-        return Math.Min(
-            input.SupervisionExpenses,
-            maximumAmount);
+        return maximumAmount;
     }
+
+    private static (decimal RegisteredHours, decimal PaidHours, decimal HourlyRate, decimal Amount, decimal Maximum, decimal CappedAmount) CalculateGuidanceHonorarium(
+        GrantCalculationInput input,
+        GrantRateSet rateSet,
+        decimal maximumAmount)
+    {
+        const decimal preparationFactor = 1m + 1.5m / 4m;
+        var hourlyRate = rateSet.SalaryRate * rateSet.GuidanceRate;
+        var paidHours = input.RegisteredGuidanceHours * preparationFactor;
+        var amount = paidHours * hourlyRate;
+
+        return (
+            input.RegisteredGuidanceHours,
+            paidHours,
+            hourlyRate,
+            amount,
+            maximumAmount,
+            Math.Min(amount, maximumAmount));
+    }
+
     private static decimal CalculateCentralitySupplement(
     GrantCalculationInput input,
     GrantRateSet rateSet)
@@ -266,11 +301,11 @@ public class GrantCalculationService
 
         foreach (var period in input.EmploymentPeriods)
         {
-            var wholeMonths = CountWholeMonths(
+            var periodDays = CountDays(
                 period.FundingFrom,
                 period.FundingThrough);
 
-            if (wholeMonths <= 0)
+            if (periodDays <= 0)
             {
                 continue;
             }
@@ -279,7 +314,7 @@ public class GrantCalculationService
                 period.PositionPercentage / 100m;
 
             var periodFraction =
-                wholeMonths / 12m;
+                periodDays / 365m;
 
             maximumAmount +=
                 rateSet.CentralitySupplementMaxAmount
@@ -292,7 +327,7 @@ public class GrantCalculationService
             maximumAmount);
     }
 
-    internal static int CountWholeMonths(
+    internal static int CountDays(
         DateOnly from,
         DateOnly through)
     {
@@ -302,16 +337,6 @@ public class GrantCalculationService
                 "Funding through cannot be before funding from.");
         }
 
-        var months =
-            (through.Year - from.Year) * 12
-            + through.Month
-            - from.Month;
-
-        if (through.Day >= from.Day)
-        {
-            months++;
-        }
-
-        return months;
+        return through.DayNumber - from.DayNumber + 1;
     }
 }

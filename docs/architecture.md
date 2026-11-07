@@ -8,26 +8,31 @@ Dette dokumentet beskriver kort hvordan koden er organisert og hvilket ansvar de
 
 ### Alisflyt.Domain
 
-Inneholder forretningsbegreper, entiteter, statuser og regler. Domain skal ikke kjenne Web, database eller eksterne systemer.
+Inneholder forretningsbegreper, entiteter, statuser, søknadsmodeller og regler. Domain håndhever blant annet validering ved innsending, gyldige statusoverganger, krav om begrunnelse ved retur og krav om godkjent veiledningsattest før saken kan settes klar for revisorkontroll. Domain skal ikke kjenne Web, database eller eksterne systemer.
 
 Eksempler:
 
 - `Alisflyt.Domain/Entities/GrantCase.cs`
+- `Alisflyt.Domain/Entities/GuidanceApproval.cs`
 - `Alisflyt.Domain/Enums/GrantCaseStatus.cs`
+- `Alisflyt.Domain/Forms/GrantApplicationData.cs`
 
 ### Alisflyt.Application
 
-Koordinerer brukstilfellene og definerer tjenester, DTO-er, request-modeller og tekniske kontrakter.
+Koordinerer brukstilfellene og definerer tjenester, DTO-er, request-modeller og tekniske kontrakter. Her ligger blant annet søknadstjenester, veiledningsflyt og beregningsmotoren. `GrantCalculationApplicationService` velger et aktivt satssett som dekker hele beregningsperioden, mens `GrantCalculationService` utfører beregningene.
 
-Eksempel:
+Eksempler:
 
 - `Alisflyt.Application/Services/IGrantCaseApplicationService.cs`
+- `Alisflyt.Application/Services/GrantCaseApplicationService.cs`
+- `Alisflyt.Application/Services/GrantCalculationService.cs`
+- `Alisflyt.Application/Abstractions/IGrantCaseRepository.cs`
 
 Application bruker Domain, men skal ikke avhenge av Infrastructure.
 
 ### Alisflyt.Infrastructure
 
-Implementerer tekniske løsninger for database og lagring. Her ligger EF Core, databasekontekst, repositories, migrasjoner, saksnummergenerator og utviklingsdata.
+Implementerer tekniske løsninger for database og lagring. Her ligger EF Core, databasekontekst, repositories, migrasjoner, saksnummergenerator og utviklingsdata. Søknadsdata og vedlegg lagres i `ApplicationDataJson`; vedleggene lagres forenklet som Base64-innhold. `GrantCaseRepository.ListOverviewAsync` bruker EF Core-projeksjon for å hente metadata til ALIS- og koordinatoroversiktene uten å hente `ApplicationDataJson`.
 
 Eksempler:
 
@@ -39,12 +44,17 @@ Infrastructure avhenger av Application og Domain og implementerer kontrakter def
 
 ### Alisflyt.Web
 
-Inneholder ASP.NET Core MVC-controllerne, ViewModels, Razor Views, navigasjon og statiske filer.
+Inneholder ASP.NET Core MVC-controllerne, ViewModels, Razor Views, navigasjon, sesjonsbasert demoautentisering og statiske filer. Controllerne håndhever praktiske rolle- og eierskapskontroller for demoens ALIS-, veileder-, koordinator- og administratorområder. `GrantCaseExcelExport` lager Excel-eksporten fra saks- og beregningsdata.
 
 Eksempler:
 
 - `Alisflyt.Web/Controllers/GrantCasesController.cs`
+- `Alisflyt.Web/Controllers/CoordinatorController.cs`
+- `Alisflyt.Web/Models/DemoUser.cs`
+- `Alisflyt.Web/Exports/GrantCaseExcelExport.cs`
 - `Alisflyt.Web/Views/GrantCases/Details.cshtml`
+
+Autentiseringen er en sesjonsbasert demoløsning med forhåndsdefinerte, syntetiske brukere. Den er ikke en produksjonsklar identitets- eller tilgangsløsning.
 
 `Alisflyt.Web/Program.cs` starter applikasjonen og fungerer som composition root. Her kobles Application-kontraktene til implementasjonene i Infrastructure.
 
@@ -56,10 +66,10 @@ Er klargjort for fremtidig kommunikasjon med eksterne systemer, for eksempel P36
 
 Testene ligger under `tests/`:
 
-- `Alisflyt.Domain.Tests` tester forretningsregler.
-- `Alisflyt.Application.Tests` tester brukstilfeller og mapping.
-- `Alisflyt.Web.Tests` tester controlleroppførsel.
-- `Alisflyt.IntegrationTests` tester Infrastructure mot LocalDB.
+- `Alisflyt.Domain.Tests` tester forretningsregler, validering, statusoverganger og beregningsrelaterte domeneegenskaper.
+- `Alisflyt.Application.Tests` tester brukstilfeller, mapping, beregningsmotor og tjenestelogikk.
+- `Alisflyt.Web.Tests` tester controlleroppførsel, rolle-/eierskapskontroller og webflyt.
+- `Alisflyt.IntegrationTests` tester Infrastructure og EF Core mot LocalDB, blant annet repositoryprojeksjonen for oversikter.
 
 ## Avhengighetsretning
 
@@ -93,30 +103,38 @@ Testene ligger under `tests/`:
 
 ## Implementert
 
-- Opprette og lagre ufullstendige utkast
-- Hente og vise saker
-- Redigere utkast
+- Sesjonsbasert demoautentisering med syntetiske brukere for ALIS, veileder, koordinator og administrator
+- Rolle- og demo-eierskapskontroller i relevante arbeidsområder
+- Opprette, lagre og redigere ufullstendige søknadsutkast
 - Validere og sende inn søknader
-- Rolleportal og ALIS-dashboard
-- Skrivebeskyttet koordinatorvisning
+- Veiledningstimer, veiledningsattest og attestgodkjenning
+- Ny attestversjon ved veilederens krav om korrigering
 - Starte behandling av innsendt søknad
-- Returnere søknad for korrigering med begrunnelse
-- Vise returbegrunnelse og tidspunkt
-- Redigere og sende inn returnert søknad på nytt
-- EF Core-persistens, migrasjoner og demodata
+- Returnere søknad for korrigering med begrunnelse og sende den inn på nytt
+- Markere saken som `AwaitingAuditorApproval` («Klar for revisorkontroll») når veiledningsattesten er godkjent
+- Beregningsmotor for praksiskompensasjon, læringsaktiviteter, lavere produktivitet, veiledningstilskudd, tilrettelegging og sentralitetstillegg
+- Separat timebasert veilederhonorar, som ikke inngår i samlet beregnet tilskuddsgrunnlag
+- Aktivt satssett som må dekke hele beregningsperioden
+- Vedlegg med validering av filtype og størrelse, lagret som Base64 i `ApplicationDataJson`
+- Excel-eksport for koordinator for saker i `UnderReview` og `AwaitingAuditorApproval`
+- Lettvekts listehenting for ALIS- og koordinatoroversiktene gjennom `ListOverviewAsync`, uten å hente `ApplicationDataJson`
+- EF Core-persistens, migrasjoner og utviklingsdata
 - Automatiserte tester og GitHub Actions
 
-## Planlagt
+## Planlagt eller ikke implementert
 
-- Autentisering og autorisasjon
-- Eierskap og avgrensning av saker per bruker
-- Veiledningstimer og avstemming
-- Koordinatorbehandling og retur for korrigering
-- Sakshistorikk
-- Dokumentopplasting og beregninger
-- Revisorgodkjenning
-- Frister og varsling
-- Integrasjoner mot P360 og Helsedirektoratet
+- Produksjonsautentisering, brukerregister, passordløsning og federert innlogging
+- Produksjonsklar tilgangsmodell for sakseierskap og organisatorisk tilhørighet
+- Opprettelse, redigering og aktivering av satssett fra administratorområdet
+- Historisk lagring av beregningsresultat og permanent kobling til brukt satsversjon
+- Støtte for saker som går over flere satsperioder
+- Full sakshistorikk, revisjonsspor og komplett vedtaks-/ferdigstillingsflyt
+- Selve revisorkontrollen, innsending til direktoratet, vedtak og utbetaling
+- Frister, varsling, rapportering og arkivering
+- Faglig og teknisk avklart kobling mellom veilederhonorar og tilskudd til veiledning
+- Ferdige eksterne integrasjoner mot P360, Helsedirektoratet, HPR eller andre fagsystemer
+
+`Alisflyt.Integrations` tilbyr foreløpig ingen fungerende eksterne integrasjoner. Prosjektet er kun klargjort for fremtidige adaptere.
 
 Se `Alisflyt.Web/Program.cs` for hvordan applikasjonen settes sammen, og `README.md` for oppstart og lokal utvikling.
 

@@ -69,6 +69,43 @@ namespace Alisflyt.Application.Tests
         }
 
         [Fact]
+        public async Task MarkReadyForAuditorApprovalAsync_changes_status_and_saves_once()
+        {
+            var id = Guid.NewGuid();
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = GrantCase.Create(id, "CASE-A5", now);
+            grantCase.UpdateDraft("HPR1", 50m, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 1), now);
+            grantCase.Submit(now.AddMinutes(1));
+            grantCase.StartReview(now.AddMinutes(2));
+
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            await repo.SaveChangesAsync();
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-X"), new FakeTimeProvider(now));
+
+            await svc.MarkReadyForAuditorApprovalAsync(id);
+
+            Assert.Equal(2, repo.SaveChangesCallCount);
+            var stored = await repo.GetByIdAsync(id);
+            Assert.Equal(GrantCaseStatus.AwaitingAuditorApproval, stored!.Status);
+            Assert.Equal(now, stored.ReadyForAuditorApprovalAtUtc);
+        }
+
+        [Fact]
+        public async Task MarkReadyForAuditorApprovalAsync_rejects_non_review_case()
+        {
+            var id = Guid.NewGuid();
+            var now = DateTimeOffset.UtcNow;
+            var grantCase = GrantCase.Create(id, "CASE-A6", now);
+            var repo = new FakeGrantCaseRepository();
+            await repo.AddAsync(grantCase);
+            await repo.SaveChangesAsync();
+            var svc = new GrantCaseApplicationService(repo, new FakeCaseNumberGenerator("CN-X"), new FakeTimeProvider(now));
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => svc.MarkReadyForAuditorApprovalAsync(id));
+        }
+
+        [Fact]
         public async Task ReturnForCorrectionAsync_throws_when_not_found()
         {
             var repo = new FakeGrantCaseRepository();

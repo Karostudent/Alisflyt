@@ -5,7 +5,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Abstractions;
+using Alisflyt.Application.Models;
 using Alisflyt.Domain.Entities;
+using Alisflyt.Domain.Enums;
 
 namespace Alisflyt.Application.Tests.Fakes
 {
@@ -14,6 +16,7 @@ namespace Alisflyt.Application.Tests.Fakes
         private readonly ConcurrentDictionary<Guid, GrantCase> _store = new();
         public int AddAsyncCallCount { get; private set; }
         public int SaveChangesCallCount { get; private set; }
+        public Exception? SaveChangesException { get; set; }
 
         public Task AddAsync(GrantCase grantCase, CancellationToken cancellationToken = default)
         {
@@ -45,10 +48,34 @@ namespace Alisflyt.Application.Tests.Fakes
             return Task.FromResult(list);
         }
 
+        public Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+        {
+            var list = _store.Values
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .ThenByDescending(c => c.Id)
+                .Select(c => new GrantCaseListItemDto
+                {
+                    Id = c.Id,
+                    CaseNumber = c.CaseNumber,
+                    HprNumber = c.HprNumber,
+                    Status = c.Status,
+                    ReturnReason = c.ReturnReason,
+                    GuidanceApprovalStatus = c.GetCurrentGuidanceApproval()?.Status,
+                    GuidanceCorrectionReason = c.GetCurrentGuidanceApproval()?.Status == GuidanceApprovalStatus.NeedsCorrection
+                        ? c.GetCurrentGuidanceApproval()?.RequestedRevisionReason
+                        : null,
+                    LastModifiedAtUtc = c.LastModifiedAtUtc
+                })
+                .ToList();
+            return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)list);
+        }
+
         public Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            // in-memory store already updated
             SaveChangesCallCount++;
+            if (SaveChangesException is not null)
+                throw SaveChangesException;
+
             return Task.CompletedTask;
         }
     }

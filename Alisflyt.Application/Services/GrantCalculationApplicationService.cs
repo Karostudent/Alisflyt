@@ -71,6 +71,17 @@ namespace Alisflyt.Application.Services
             }
 
             var chosen = matching.First();
+            var coversAllPeriods = input.EmploymentPeriods.All(period =>
+                chosen.ValidFrom <= period.FundingFrom
+                && chosen.ValidTo >= period.FundingThrough);
+            if (!coversAllPeriods)
+            {
+                return new GrantCalculationDetailsDto
+                {
+                    IsAvailable = false,
+                    UnavailableReason = "Tilskuddsperioden dekkes ikke av tilgjengelige satser. Beregningen kan ikke gjennomføres. Søknaden kan fortsatt lagres som utkast."
+                };
+            }
 
             // Calculate
             var result = _calcService.Calculate(input, chosen);
@@ -85,6 +96,13 @@ namespace Alisflyt.Application.Services
                 LearningActivitiesAmount = result.LearningActivitiesAmount,
                 ProductivityAmount = result.ProductivityAmount,
                 GuidanceAmount = result.GuidanceAmount,
+                RegisteredGuidanceHours = result.RegisteredGuidanceHours,
+                GuidancePaidHours = result.GuidancePaidHours,
+                GuidanceHourlyRate = result.GuidanceHourlyRate,
+                GuidanceHonorariumAmount = result.GuidanceHonorariumAmount,
+                GuidanceHonorariumMaximumAmount = result.GuidanceHonorariumMaximumAmount,
+                GuidanceHonorariumCappedAmount = result.GuidanceHonorariumCappedAmount,
+                GuidanceHonorariumApprovalStatus = grantCase.GetCurrentGuidanceApproval()?.Status,
                 FacilitationAmount = result.FacilitationAmount,
                 CentralitySupplementAmount = result.CentralitySupplementAmount,
                 CentralityExplanation = result.CentralityExplanation,

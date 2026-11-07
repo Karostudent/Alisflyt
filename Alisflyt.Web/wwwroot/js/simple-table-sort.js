@@ -1,43 +1,76 @@
 (function () {
     'use strict';
 
-    const isNumber = (v) => /^-?\d+(?:[\.,]\d+)?$/.test(v.trim());
-    const toNumber = (v) => Number(v.replace(',', '.'));
-    const isISODate = (v) => !isNaN(Date.parse(v)); // used only for data-sort-value which we set to ISO
+    const numberPattern = /^[-+]?\d+(?:[.,]\d+)?$/;
+
+    function normalizeNumber(value) {
+        let normalized = String(value ?? '').trim().replace(/[\s\u00a0]/g, '');
+        if (!normalized) return null;
+
+        const lastComma = normalized.lastIndexOf(',');
+        const lastDot = normalized.lastIndexOf('.');
+        if (lastComma !== -1 && lastDot !== -1) {
+            if (lastComma > lastDot) {
+                normalized = normalized.replace(/\./g, '').replace(',', '.');
+            } else {
+                normalized = normalized.replace(/,/g, '');
+            }
+        } else if (lastComma !== -1) {
+            normalized = normalized.replace(',', '.');
+        } else if ((normalized.match(/\./g) || []).length > 1) {
+            normalized = normalized.replace(/\./g, '');
+        } else if (lastDot !== -1 && normalized.length - lastDot - 1 === 3) {
+            normalized = normalized.replace('.', '');
+        }
+
+        const number = Number(normalized);
+        return Number.isFinite(number) ? number : null;
+    }
 
     function getCellSortValue(td) {
         if (!td) return '';
-        const dv = td.getAttribute('data-sort-value');
-        if (dv !== null) return dv;
-        return td.textContent.trim();
+        const dataValue = td.getAttribute('data-sort-value');
+        return dataValue !== null ? dataValue : td.textContent.trim();
     }
 
-    function stableSort(arr, compare) {
-        return arr
-            .map((v, i) => ({ v, i }))
-            .sort((a, b) => {
-                const r = compare(a.v, b.v);
-                return r !== 0 ? r : a.i - b.i;
-            })
-            .map(x => x.v);
+    function compareText(a, b) {
+        return String(a).localeCompare(String(b), 'nb-NO', {
+            numeric: true,
+            sensitivity: 'base'
+        });
     }
 
-    function compareValues(a, b) {
-        // both null/undefined
-        if (a == null && b == null) return 0;
-        if (a == null) return -1;
-        if (b == null) return 1;
+    function isMissingValue(value, type) {
+        const normalized = String(value ?? '').trim();
+        if (!normalized) return true;
+        if (type === 'number') return normalizeNumber(normalized) === null;
+        if (type === 'date') return Number.isNaN(Date.parse(normalized));
+        return false;
+    }
 
-        // numeric?
-        if (isNumber(a) && isNumber(b)) return toNumber(a) - toNumber(b);
+    function compareValues(a, b, type) {
+        const left = String(a ?? '').trim();
+        const right = String(b ?? '').trim();
 
-        // ISO date?
-        if (isISODate(a) && isISODate(b)) {
-            return new Date(a) - new Date(b);
+        if (isMissingValue(left, type) || isMissingValue(right, type)) return 0;
+
+        if (type === 'number' || (!type && numberPattern.test(left) && numberPattern.test(right))) {
+            const leftNumber = normalizeNumber(left);
+            const rightNumber = normalizeNumber(right);
+            if (leftNumber !== null && rightNumber !== null) return leftNumber - rightNumber;
+            if (leftNumber === null && rightNumber !== null) return 1;
+            if (leftNumber !== null && rightNumber === null) return -1;
         }
 
-        // fallback to localeCompare
-        return a.localeCompare(b, navigator.language || 'nb-NO', { numeric: true });
+        if (type === 'date') {
+            const leftDate = Date.parse(left);
+            const rightDate = Date.parse(right);
+            if (!Number.isNaN(leftDate) && !Number.isNaN(rightDate)) return leftDate - rightDate;
+        } else if (!type && !Number.isNaN(Date.parse(left)) && !Number.isNaN(Date.parse(right))) {
+            return Date.parse(left) - Date.parse(right);
+        }
+
+        return compareText(left, right);
     }
 
     function setupTable(table) {
@@ -49,54 +82,71 @@
         let active = { index: -1, asc: true };
 
         function clearIndicators() {
-            headers.forEach(h => {
-                const ind = h.querySelector('.sort-indicator');
-                if (ind) ind.textContent = '';
-                h.setAttribute('aria-sort', 'none');
+            headers.forEach(header => {
+                const indicator = header.querySelector('.sort-indicator');
+                if (indicator) indicator.textContent = '';
+                header.setAttribute('aria-sort', 'none');
             });
         }
 
-        function sortByColumn(idx) {
+        function sortByColumn(index) {
             const rows = Array.from(tbody.querySelectorAll('tr'));
-            const mapped = rows.map(r => ({ row: r, key: getCellSortValue(r.children[idx]) }));
-            const compare = (a, b) => compareValues(a.key, b.key);
-            let sorted = stableSort(mapped, compare);
+            const sortableRows = rows
+                .map((row, originalIndex) => ({
+                    row,
+                    originalIndex,
+                    key: getCellSortValue(row.children[index])
+                }))
+                .filter(item => item.row.getAttribute('data-sort-ignore') !== 'true');
+            const type = headers[index].getAttribute('data-sort-type');
 
-            if (active.index === idx) {
-                // toggle
+            if (active.index === index) {
                 active.asc = !active.asc;
             } else {
-                active.index = idx;
+                active.index = index;
                 active.asc = true;
             }
 
-            if (!active.asc) sorted = sorted.reverse();
+            sortableRows.sort((left, right) => {
+                const leftMissing = isMissingValue(left.key, type);
+                const rightMissing = isMissingValue(right.key, type);
+                if (leftMissing || rightMissing) {
+                    if (leftMissing && rightMissing) return left.originalIndex - right.originalIndex;
+                    return leftMissing ? 1 : -1;
+                }
 
-            // reattach
-            const frag = document.createDocumentFragment();
-            sorted.forEach(s => frag.appendChild(s.row));
-            tbody.appendChild(frag);
+                const result = compareValues(left.key, right.key, type);
+                if (result !== 0) return active.asc ? result : -result;
+                return left.originalIndex - right.originalIndex;
+            });
 
-            // update indicators
+            let sortedIndex = 0;
+            const sortedRows = rows.map(row => {
+                if (row.getAttribute('data-sort-ignore') === 'true') return row;
+                return sortableRows[sortedIndex++].row;
+            });
+
+            const fragment = document.createDocumentFragment();
+            sortedRows.forEach(row => fragment.appendChild(row));
+            tbody.appendChild(fragment);
+
             clearIndicators();
-            const indicator = headers[idx].querySelector('.sort-indicator');
+            const indicator = headers[index].querySelector('.sort-indicator');
             if (indicator) indicator.textContent = active.asc ? ' ▲' : ' ▼';
-            headers[idx].setAttribute('aria-sort', active.asc ? 'ascending' : 'descending');
+            headers[index].setAttribute('aria-sort', active.asc ? 'ascending' : 'descending');
         }
 
-        headers.forEach((th, idx) => {
-            if (th.getAttribute('data-sortable') === 'true') {
-                const activate = (e) => {
-                    e.preventDefault();
-                    sortByColumn(idx);
-                };
-                th.addEventListener('click', activate);
-                th.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        activate(e);
-                    }
-                });
-            }
+        headers.forEach((header, index) => {
+            if (header.getAttribute('data-sortable') !== 'true') return;
+
+            const activate = event => {
+                event.preventDefault();
+                sortByColumn(index);
+            };
+            header.addEventListener('click', activate);
+            header.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') activate(event);
+            });
         });
     }
 

@@ -2,32 +2,68 @@
 
 <div class="calculation-result">
 	<h3>Beregningsresultat</h3>
-	@if (Model is null || !Model.IsAvailable)
+	@if (ViewData["CalculationError"] is string calculationError)
 	{
-		<div class="alert alert-info">@((Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.")</div>
+		<div class="alert alert-danger" role="alert">@calculationError</div>
+	}
+	else if (Model is null || !Model.IsAvailable)
+	{
+		var unavailableReason = (Model?.UnavailableReason) ?? "Beregning ikke tilgjengelig for denne søknaden.";
+		var blocksProgress = unavailableReason.Contains("Mangler dato", StringComparison.OrdinalIgnoreCase)
+			|| unavailableReason.Contains("Ufullstendig søknad", StringComparison.OrdinalIgnoreCase)
+			|| unavailableReason.Contains("Ugyldig søknadsdata", StringComparison.OrdinalIgnoreCase);
+		<div class="alert @(blocksProgress ? "alert-danger" : "alert-info")" role="@(blocksProgress ? "alert" : "status")">
+			@if (blocksProgress)
+			{
+				<h4 class="alert-heading"><span aria-hidden="true">⚠</span> Opplysninger må korrigeres</h4>
+			}
+			<p class="mb-@(blocksProgress ? "2" : "0")">@unavailableReason</p>
+			@if (blocksProgress && ViewData["CalculationEditUrl"] is string editUrl)
+			{
+				<a href="@editUrl" class="alert-link">Åpne søknaden for å rette opplysningene</a>
+			}
+		</div>
 	}
 	else
 	{
+		<p class="small text-muted">Beregningen nedenfor bruker sist lagrede søknadsopplysninger og gjeldende satssett.</p>
 		<table class="table table-sm">
 			<tbody>
 				<tr data-practice-maximum="@Model.PracticeCompensationMaximumAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)"><th>Praksiskompensasjon</th><td>@Model.PracticeCompensationAmount.ToString("N0") kr
-                    @if (Model.IsPracticeCompensationCapped)
-                    {
-                        <span class="small text-muted ms-2">Maksgrense: @Model.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
-                    }
-                </td></tr>
+					@if (Model.IsPracticeCompensationCapped)
+					{
+						<span class="small text-muted ms-2">Maksgrense: @Model.PracticeCompensationMaximumAmount.ToString("N2") kr for valgt stilling og periode.</span>
+					}
+				</td></tr>
 				<tr><th>Læringsaktiviteter</th><td>@Model.LearningActivitiesAmount.ToString("N0") kr</td></tr>
-				<tr><th>Produktivitetselement</th><td>@Model.ProductivityAmount.ToString("N0") kr</td></tr>
+				<tr><th>Lavere produktivitet</th><td>@Model.ProductivityAmount.ToString("N0") kr<br /><span class="small text-muted">Beregnes automatisk etter fastlegeandel, tilskuddsperiode og de første 24 månedene.</span></td></tr>
 				<tr><th>Tilskudd til veiledning</th><td data-guidance-amount>@Model.GuidanceAmount.ToString("N0") kr</td></tr>
+				<tr><th colspan="2">Veilederhonorar – separat beregning (inngår ikke i samlet tilskuddsgrunnlag)</th></tr>
+				<tr><th>Registrerte timer</th><td>@Model.RegisteredGuidanceHours.ToString("0.##")</td></tr>
+				<tr><th>For-/etterarbeid</th><td>@((Model.GuidancePaidHours - Model.RegisteredGuidanceHours).ToString("0.##")) timer</td></tr>
+				<tr><th>Samlet antall honorerbare timer</th><td>@Model.GuidancePaidHours.ToString("0.##")</td></tr>
+				<tr><th>Timesats</th><td>@Model.GuidanceHourlyRate.ToString("N2") kr</td></tr>
+				<tr><th>Beregnet veilederhonorar</th><td>@Model.GuidanceHonorariumAmount.ToString("N2") kr</td></tr>
+				<tr><th>Etter eventuell maksimalgrense</th><td>@Model.GuidanceHonorariumCappedAmount.ToString("N2") kr <span class="small text-muted">Maks: @Model.GuidanceHonorariumMaximumAmount.ToString("N2") kr</span></td></tr>
+				<tr><td colspan="2"><div class="alert alert-warning py-2 mb-2" role="note"><span aria-hidden="true">ⓘ</span> <strong>Merk:</strong> Beregnet veilederhonorar vises kun til informasjon og er ikke inkludert i «Beregnet samlet tilskuddsgrunnlag» nederst i tabellen. Tilskudd til veiledning beregnes separat ut fra oppgitte veiledningskostnader, i påvente av faglig avklaring.</div></td></tr>
+				@if (Model.GuidanceHonorariumApprovalStatus == Alisflyt.Domain.Enums.GuidanceApprovalStatus.Approved)
+				{
+					<tr><td colspan="2"><span class="text-success">Veiledningsattesten er godkjent.</span></td></tr>
+				}
+				else if (Model.RegisteredGuidanceHours > 0)
+				{
+					<tr><td colspan="2"><span class="text-muted">Foreløpig beregning – veiledningsattesten er ikke godkjent.</span></td></tr>
+				}
 				<tr><th>Tilrettelegging</th><td>@Model.FacilitationAmount.ToString("N0") kr</td></tr>
 				<tr><th>Sentralitetstillegg</th><td>@Model.CentralitySupplementAmount.ToString("N0") kr</td></tr>
 		@if (!string.IsNullOrWhiteSpace(Model.CentralityExplanation))
 		{
 			<tr><td></td><td><div class="small text-muted">@Model.CentralityExplanation</div></td></tr>
 		}
-				<tr class="table-primary"><th>Totalt beregnet tilskudd</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
+				<tr class="table-primary"><th>Beregnet samlet tilskuddsgrunnlag</th><th>@Model.TotalAmount.ToString("N0") kr</th></tr>
 			</tbody>
 		</table>
+		<p class="small text-muted">Summen er kommunens samlede beregnede tilskuddsgrunnlag for kostnader knyttet til ALIS-spesialiseringen. Den viser ikke hva som faktisk tilfaller ALIS-legen eller hvordan beløpet fordeles. Helsedirektoratet behandler søknaden og fastsetter eventuelt tilskudd.</p>
 		<div class="small text-muted">Satssett: @Model.RateSetName (@Model.RateSetValidFrom?.ToString("dd.MM.yyyy") - @Model.RateSetValidTo?.ToString("dd.MM.yyyy"))</div>
 	}
 </div>

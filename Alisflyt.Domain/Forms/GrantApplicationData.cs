@@ -35,6 +35,8 @@ public class GrantApplicationData
             throw new ArgumentException("Velg en gyldig norsk kommune fra listen for veileder.");
         if (Certificate.Sessions.Any(s => s is null || s.Hours is <= 0 or > 24))
             throw new ArgumentException("Veiledningstimer må være større enn 0 og høyst 24.");
+        if (Certificate.Sessions.Any(s => s.Hours.HasValue && decimal.Truncate(s.Hours.Value) != s.Hours.Value))
+            throw new ArgumentException("Veiledningstimer må oppgis som hele timer mellom 1 og 24.");
         if (ExpectedCompletionDate.HasValue && SpecializationStartDate.HasValue && ExpectedCompletionDate < SpecializationStartDate)
             throw new ArgumentException("Avslutning av spesialisering kan ikke være før startdato.");
     }
@@ -50,6 +52,12 @@ public class GrantApplicationData
         if (!GrantType.HasValue) errors.Add("Velg hva tilskuddet gjelder: ALIS-avtale eller veiledning av ALIS.");
         if (SelectedPositionTypes.Count == 0)
             errors.Add("Velg hvilke stillingstyper legen har hatt i perioden.");
+
+        if (GrantType == Forms.GrantType.AlisAgreementIncludingSupervision
+            && !Attachments.Any(a => a is not null && string.Equals(a.Kind, "Agreement", StringComparison.OrdinalIgnoreCase)))
+        {
+            errors.Add("Last opp ALIS-avtalen før søknaden kan sendes inn.");
+        }
 
         if (SelectedPositionTypes.Contains(PositionType.RegularGpOrLocum)
             && !FirstRegularGpOrLocumDate.HasValue)

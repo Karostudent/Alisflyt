@@ -41,16 +41,19 @@ Søknadsdata lagres samlet i `GrantCases.ApplicationDataJson`.
 #### Saksbehandling og veiledergodkjenning
 
 - Koordinator kan se saksoversikt og åpne saksdetaljer
-- Koordinator kan starte behandling av innsendte saker
+- Koordinator kan starte behandling av innsendte saker (`Submitted` → `UnderReview`)
 - Koordinator kan returnere en sak for korrigering med obligatorisk begrunnelse
 - Returbegrunnelse og tidspunkt lagres og vises til ALIS
-- ALIS kan åpne, korrigere og sende inn en returnert søknad på nytt
+- ALIS kan åpne, korrigere og sende inn en returnert søknad på nytt (`ReturnedForCorrection` → `Submitted`)
 - Veileder får oversikt over tilknyttede ALIS-leger og deres veiledningsattester
 - Veileder kan se veiledningsøkter og beregnet veiledningsbeløp
 - Veileder kan godkjenne en ventende attest eller kreve korrigering
 - Korrigeringsflyten oppretter en ny attestversjon ved endring av veiledningsdata
 - Godkjenningsstatusene `Pending`, `NeedsCorrection`, `Approved` og `Superseded` vises i løsningen
+- Når veiledningsattesten er godkjent, kan koordinator markere saken som `AwaitingAuditorApproval` («Klar for revisorkontroll»)
 - Koordinator kan se veiledergodkjenningen i saksdetaljen og eksportere saker under behandling til Excel
+
+Den sentrale saksflyten er: `Draft` → `Submitted` → `UnderReview`. En sak kan returneres som `ReturnedForCorrection` og sendes inn på nytt. Siste implementerte steg er `AwaitingAuditorApproval` («Klar for revisorkontroll»). Senere statuser finnes i domenemodellen, men selve revisorkontrollen, vedtaket og utbetalingen er ikke implementert.
 
 #### Administrator
 
@@ -63,19 +66,23 @@ Opprettelse, redigering og aktivering av satssett er ikke implementert i Web-lag
 
 #### Automatisk beregning
 
-Det er implementert kalkulering basert på søknadsdata.
+Det er implementert kalkulering basert på søknadsdata. Beregningen gjøres i Application-laget og vises i søknadsskjemaet, saksdetaljer og koordinatorens detaljvisning.
 
 Beregningen omfatter foreløpig:
 
-- kompensasjon ved fravær
-- læringsaktiviteter
-- produktivitetselement
-- veiledning
-- tilrettelegging
-- sentralitetstillegg
-- samlet beregnet tilskuddsbeløp
+- **Praksiskompensasjon:** manuelt oppgitt beløp, begrenset til beregnet maksimalramme
+- **Læringsaktiviteter:** manuelt oppgitte kostnader, begrenset til maksimalramme etter periode og stillingsandel
+- **Lavere produktivitet:** beregnet for relevante fastlege-/fastlegevikarperioder etter 24-månedersregelen
+- **Tilskudd til veiledning:** manuelt oppgitte veiledningskostnader, begrenset til maksimalrammen
+- **Tilrettelegging:** beregnet tilskudd etter søknadsdata og satssett
+- **Sentralitetstillegg:** søkt beløp, begrenset til maksimalramme, når vilkårene for sentralitetsgrad 6 og riktig tilskuddstype er oppfylt
+- **Samlet beregnet tilskuddsgrunnlag:** summerer de ordinære beregnede tilskuddspostene
 
-Beregningen velger satssett basert på tilskuddsperioden, og kalkulasjonen vises i både søknadsskjemaet og saksdetaljer. Dersom beregningen ikke kan gjennomføres, vises en forklaring i UI-et.
+Praksiskompensasjonens maksimalramme beregnes per stillingsperiode ut fra salærsats, praksiskompensasjonsrate, 160 timer, stillingsandel og antall dager i tilskuddsperioden. Systemet registrerer ikke faktiske fraværstimer eller fraværsdager som beregningsgrunnlag.
+
+Veilederhonoraret beregnes separat og timebasert fra registrerte veiledningstimer, forberedelsesfaktor og sats. Det vises som informasjon, men inngår ikke i samlet beregnet tilskuddsgrunnlag. Ekstra veiledningskostnader registreres også separat og inngår ikke automatisk i totalen.
+
+Beregningen velger satssett basert på tilskuddsperioden. Dersom beregningen ikke kan gjennomføres, vises en forklaring i UI-et.
 
 ### Rammer for beregningen i prototypen
 
@@ -94,24 +101,42 @@ Sentralitetstillegg beregnes i denne demoen når:
 
 Merkostnader til veiledning inngår ikke i automatisk beregning i denne versjonen.
 
+#### Vedlegg
+
+Vedlegg valideres ved lagring og innsending og lagres forenklet som Base64-innhold i `ApplicationDataJson`. Tillatte filtyper er PDF, PNG, JPG og JPEG. Det kan lastes opp maksimalt 30 vedlegg, hvert vedlegg kan være inntil 5 MB, og samlet størrelse kan være inntil 15 MB. En ALIS-avtale er obligatorisk ved innsending av søknadstypen «ALIS-avtale inkludert veiledning». Vedlegg beholdes ved retur og ny innsending, og koordinator kan laste dem ned.
+
+#### Excel-eksport
+
+Koordinator kan eksportere saker til Excel når status er `UnderReview` eller `AwaitingAuditorApproval`. Eksporten bruker den samme beregningsmotoren som visningen, skiller mellom oppgitte beløp og beregnede tilskudd og inneholder beregningsgrunnlag, satssett og revisjonsdetaljer. Eksporten forklarer også at veilederhonoraret ikke inngår i samlet beregnet tilskuddsgrunnlag.
+
+#### Oversiktsytelse
+
+ALIS- og koordinatoroversiktene bruker en lettvekts databaseprojeksjon som bare henter nødvendige metadata. `ApplicationDataJson` og Base64-vedlegg hentes ikke i disse oversiktsspørringene. Saksdetaljer, vedlegg og veilederoversikten bruker fortsatt egne, mer omfattende datahentinger.
+
 ## Begrensninger / ikke implementert
 
 Dette er fortsatt en prototype. Følgende er ikke ferdig implementert eller må behandles som avgrensninger:
 
-- produksjonsautentisering, brukerregister, passordløsning og federert innlogging
-- fullstendig og konsekvent server-side autorisasjon for alle koordinatorhandlinger
-- produksjonsklar tilgangsmodell for sakseierskap og organisatorisk tilhørighet
+- produksjonsautentisering, brukerregister, passordløsning og federert innlogging; dagens innlogging er demoautentisering med syntetiske brukere og session
+- produksjonsklar tilgangsmodell for sakseierskap og organisatorisk tilhørighet; prototypen bruker rolle- og eierskapskontroller for demoen
 - opprettelse, redigering og aktivering av satssett fra administratorområdet
 - lagring av et historisk beregningsresultat eller en permanent kobling til brukt satsversjon
-- automatisk beregning av alle kostnadstyper, blant annet merkostnader til veiledning
-- støtte for saker som går over flere satsperioder
-- filopplasting og lagring av vedlegg
+- automatisk beregning av alle kostnadstyper, blant annet ekstra veiledningskostnader
+- koblingen mellom separat veilederhonorar og tilskudd til veiledning; dette er et faglig avklaringspunkt
+- praksiskompensasjon beregnes fra manuelt oppgitt beløp, begrenset av maksimalrammen, og ikke fra registrerte fraværstimer
+- støtte for saker som går over flere satsperioder; ett satssett må dekke hele beregningsperioden
 - full sakshistorikk, revisjonsspor og vedtaks-/ferdigstillingsflyt
 - frister, varsling, rapportering og arkivering
 - reelle integrasjoner mot P360, HPR, kommunale fagsystemer eller andre eksterne systemer
-- nettleserbasert ende-til-ende-test av den komplette brukerflyten
+- selve revisorkontrollen, innsending til direktoratet, vedtak og utbetaling
 
-Beregninger gjøres på nytt ved visning med tilgjengelig satssett. Historiske saker kan derfor få et annet beregningsresultat dersom satsdata endres.
+Vedlegg er implementert, men lagres som Base64 i søknadsdataene. Dette er en forenklet prototypemodell og ikke en anbefalt produksjonsarkitektur.
+
+Veilederoversikten er ikke optimalisert med samme lettvekts listehenting som ALIS- og koordinatoroversiktene og kan derfor være mer påvirket av store søknadsdata og vedlegg.
+
+Det er sporadisk observert `TaskCanceledException` ved navigasjon eller rollebytte. Dette er ikke bekreftet som en behandlingsfeil og kan skyldes at en HTTP-forespørsel avbrytes, eller at debuggeren stopper på et kansellert databasekall.
+
+Beregninger gjøres på nytt ved visning og eksport med tilgjengelig satssett. Historiske saker kan derfor få et annet beregningsresultat dersom satsdata endres. Ett aktivt satssett må dekke hele beregningsperioden; prototypen støtter ikke beregning over flere satsperioder.
 
 Prosjektet bruker syntetiske testdata og skal ikke forstås som en komplett eller autoritativ implementasjon av endelig regelverk.
 
@@ -191,6 +216,8 @@ dotnet test tests/Alisflyt.IntegrationTests/Alisflyt.IntegrationTests.csproj --c
 ```
 
 Testprosjektene dekker domain-regler, Application-tjenester, controlleroppførsel og databaseintegrasjon mot LocalDB. GitHub Actions kjører unit-/webtestene på Ubuntu og integrasjonstestene på Windows med LocalDB. Testene er ikke en erstatning for manuell nettleserverifisering av hele demoen.
+
+Den samlede brukerflyten er også testet manuelt i nettleseren gjennom scenarioer for normal søknadsflyt, veilederkorrigering, retur fra koordinator samt beregninger og Excel-eksport. Alle scenarioene ble bestått. Den siste rapporterte automatiske testkjøringen hadde 387 beståtte tester.
 
 ## Notat om demo-/prototypestatus
 

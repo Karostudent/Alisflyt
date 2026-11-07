@@ -15,6 +15,13 @@ namespace Alisflyt.Application.Models
         public decimal LearningActivitiesAmount { get; init; }
         public decimal ProductivityAmount { get; init; }
         public decimal GuidanceAmount { get; init; }
+        public decimal RegisteredGuidanceHours { get; init; }
+        public decimal GuidancePaidHours { get; init; }
+        public decimal GuidanceHourlyRate { get; init; }
+        public decimal GuidanceHonorariumAmount { get; init; }
+        public decimal GuidanceHonorariumMaximumAmount { get; init; }
+        public decimal GuidanceHonorariumCappedAmount { get; init; }
+        public Alisflyt.Domain.Enums.GuidanceApprovalStatus? GuidanceHonorariumApprovalStatus { get; init; }
         public decimal FacilitationAmount { get; init; }
         public decimal CentralitySupplementAmount { get; init; }
 

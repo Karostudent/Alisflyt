@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using Alisflyt.Domain.Entities;
 using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
@@ -168,14 +169,229 @@ public class GuidanceApprovalTests
         Assert.Equal(GuidanceApprovalStatus.Pending, replacementApproval.Status);
     }
 
+    [Fact]
+    public void UpdateGuidanceSessions_rejects_fractional_hours_without_creating_new_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+
+        var exception = Assert.Throws<ArgumentException>(() => grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 1.5m, Topic = "Desimaltid" }],
+            now.AddMinutes(5)));
+
+        Assert.Contains("hele timer", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(grantCase.GuidanceApprovals);
+        Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, grantCase.GetCurrentGuidanceApproval()!.Status);
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_accepts_fifteen_whole_hours()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+
+        var replacement = grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 15m, Topic = "Lang veiledning" }],
+            now.AddMinutes(5));
+
+        Assert.Equal(GuidanceApprovalStatus.Pending, replacement.Status);
+        var data = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+        Assert.Equal(15m, data.Certificate.Sessions[0].Hours);
+    }
+
+    [Theory]
+    [InlineData(GrantCaseStatus.Submitted)]
+    [InlineData(GrantCaseStatus.UnderReview)]
+    public void UpdateGuidanceSessions_allows_correction_for_submitted_or_under_review_case(GrantCaseStatus status)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(status, now);
+        var sessions = new List<SupervisionSessionInputModel>
+        {
+            new() { Date = new DateOnly(2026, 2, 10), Hours = 4m, Topic = "Korrigert veiledning" }
+        };
+
+        var replacement = grantCase.UpdateGuidanceSessions(sessions, now.AddMinutes(5));
+
+        Assert.Equal(GuidanceApprovalStatus.Superseded, grantCase.GuidanceApprovals.Single(a => a.VersionNumber == 1).Status);
+        Assert.Equal(GuidanceApprovalStatus.Pending, replacement.Status);
+        Assert.Equal(2, replacement.VersionNumber);
+        Assert.Equal("veileder-per", replacement.SupervisorUserKey);
+        Assert.Equal("987654321", replacement.SupervisorHprNumber);
+        Assert.Equal("Per Olsen", replacement.SupervisorName);
+        Assert.Equal(status, grantCase.Status);
+        Assert.Equal(2, grantCase.GuidanceApprovals.Count);
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_changes_only_sessions_and_preserves_case_data()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.Submitted, now);
+        var id = grantCase.Id;
+        var caseNumber = grantCase.CaseNumber;
+        var before = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+
+        grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 4m, Topic = "Korrigert veiledning" }],
+            now.AddMinutes(5));
+
+        var after = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!;
+        Assert.Equal(id, grantCase.Id);
+        Assert.Equal(caseNumber, grantCase.CaseNumber);
+        Assert.Equal(GrantCaseStatus.Submitted, grantCase.Status);
+        Assert.Equal(before.HprNumber, after.HprNumber);
+        Assert.Equal(before.DoctorName, after.DoctorName);
+        Assert.Equal(before.GrantType, after.GrantType);
+        Assert.Equal(before.EmploymentPeriods[0].PositionPercentage, after.EmploymentPeriods[0].PositionPercentage);
+        Assert.Equal(before.Attachments.Count, after.Attachments.Count);
+        Assert.Equal(before.Certificate.SupervisorHprNumber, after.Certificate.SupervisorHprNumber);
+        Assert.Equal(before.Certificate.SupervisorName, after.Certificate.SupervisorName);
+        Assert.Equal(4m, after.Certificate.Sessions[0].Hours);
+        Assert.Equal("Korrigert veiledning", after.Certificate.Sessions[0].Topic);
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_rejects_awaiting_auditor_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+        grantCase.GetCurrentGuidanceApproval()!.Approve(now.AddMinutes(5), "veileder-per");
+        grantCase.MarkReadyForAuditorApproval(now.AddMinutes(6));
+        grantCase.GetCurrentGuidanceApproval()!.RequestCorrection("Ny korrigering", now.AddMinutes(7));
+
+        Assert.Throws<InvalidOperationException>(() => grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 4m, Topic = "Korrigert veiledning" }],
+            now.AddMinutes(8)));
+        Assert.Equal(GrantCaseStatus.AwaitingAuditorApproval, grantCase.Status);
+    }
+
+    [Theory]
+    [InlineData(GuidanceApprovalStatus.Pending)]
+    [InlineData(GuidanceApprovalStatus.Approved)]
+    public void UpdateGuidanceSessions_rejects_when_current_approval_is_not_needs_correction(GuidanceApprovalStatus status)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        var approval = grantCase.GetCurrentGuidanceApproval()!;
+        if (status == GuidanceApprovalStatus.Approved)
+            approval.Approve(now.AddMinutes(4), "veileder-per");
+
+        Assert.Throws<InvalidOperationException>(() => grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 4m, Topic = "Korrigert veiledning" }],
+            now.AddMinutes(5)));
+        Assert.Equal(1, grantCase.GuidanceApprovals.Count);
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_with_unchanged_snapshot_does_not_create_duplicate_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.Submitted, now);
+        var current = grantCase.GetCurrentGuidanceApproval()!;
+        var sessions = JsonSerializer.Deserialize<GrantApplicationData>(grantCase.ApplicationDataJson!)!.Certificate.Sessions;
+
+        var result = grantCase.UpdateGuidanceSessions(sessions, now.AddMinutes(5));
+
+        Assert.Same(current, result);
+        Assert.Equal(GuidanceApprovalStatus.NeedsCorrection, result.Status);
+        Assert.Single(grantCase.GuidanceApprovals);
+    }
+
+    [Fact]
+    public void Returned_case_with_unchanged_guidance_reuses_existing_approval()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        var approval = grantCase.GetCurrentGuidanceApproval()!;
+        approval.Approve(now.AddMinutes(4), "veileder-per");
+        grantCase.StartReview(now.AddMinutes(5));
+        grantCase.ReturnForCorrection("Korriger andre opplysninger.", now.AddMinutes(6));
+
+        var requested = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(7), "Per Olsen");
+
+        Assert.Same(approval, requested);
+        Assert.Equal(GuidanceApprovalStatus.Approved, requested.Status);
+        Assert.Single(grantCase.GuidanceApprovals);
+    }
+
+    [Fact]
+    public void Returned_case_with_changed_guidance_creates_one_pending_version_and_blocks_finalization()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        var oldApproval = grantCase.GetCurrentGuidanceApproval()!;
+        oldApproval.Approve(now.AddMinutes(4), "veileder-per");
+        grantCase.StartReview(now.AddMinutes(5));
+        grantCase.ReturnForCorrection("Korriger veiledningen.", now.AddMinutes(6));
+
+        var changed = CreateValidApplicationData();
+        changed.Certificate.Sessions.Add(new SupervisionSessionInputModel
+        {
+            Date = new DateOnly(2026, 2, 10),
+            Hours = 1m,
+            Topic = "Ny veiledning"
+        });
+        grantCase.UpdateApplication(changed, now.AddMinutes(7));
+        var replacement = grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(8), "Per Olsen");
+
+        Assert.Equal(GuidanceApprovalStatus.Superseded, oldApproval.Status);
+        Assert.Equal(GuidanceApprovalStatus.Pending, replacement.Status);
+        Assert.Equal(2, grantCase.GuidanceApprovals.Count);
+        Assert.Throws<InvalidOperationException>(() => grantCase.MarkReadyForAuditorApproval(now.AddMinutes(9)));
+    }
+
+    [Fact]
+    public void UpdateGuidanceSessions_makes_old_approval_insufficient_for_auditor_finalization()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var grantCase = CreateCaseWithCorrectionRequested(GrantCaseStatus.UnderReview, now);
+        var oldApproval = grantCase.GetCurrentGuidanceApproval()!;
+
+        grantCase.UpdateGuidanceSessions(
+            [new SupervisionSessionInputModel { Date = new DateOnly(2026, 2, 10), Hours = 4m, Topic = "Korrigert veiledning" }],
+            now.AddMinutes(5));
+
+        Assert.Equal(GuidanceApprovalStatus.Superseded, oldApproval.Status);
+        Assert.Throws<InvalidOperationException>(() => grantCase.MarkReadyForAuditorApproval(now.AddMinutes(6)));
+        Assert.Equal(GrantCaseStatus.UnderReview, grantCase.Status);
+    }
+
+    private static GrantCase CreateCaseWithCorrectionRequested(GrantCaseStatus status, DateTimeOffset now)
+    {
+        var grantCase = CreateSubmittedCaseWithGuidance(now);
+        if (status == GrantCaseStatus.UnderReview)
+            grantCase.StartReview(now.AddMinutes(4));
+        grantCase.GetCurrentGuidanceApproval()!.RequestCorrection("Korriger veiledningen.", now.AddMinutes(5));
+        return grantCase;
+    }
+
+    private static GrantCase CreateSubmittedCaseWithGuidance(DateTimeOffset now)
+    {
+        var grantCase = GrantCase.Create(Guid.NewGuid(), "CASE-CORRECTION", now);
+        grantCase.UpdateApplication(CreateValidApplicationData(), now.AddMinutes(1));
+        grantCase.RequestGuidanceApproval("123456789", "987654321", "veileder-per", now.AddMinutes(2), "Per Olsen");
+        grantCase.Submit(now.AddMinutes(3));
+        return grantCase;
+    }
+
     private static GrantApplicationData CreateValidApplicationData()
     {
         return new GrantApplicationData
         {
             HprNumber = "123456789",
             GrantType = GrantType.AlisAgreementIncludingSupervision,
+            Attachments = [new ApplicationAttachment { Kind = "Agreement", FileName = "avtale.pdf", ContentBase64 = Convert.ToBase64String("agreement"u8.ToArray()) }],
             DoctorName = "Anna Hansen",
             DoctorProfessions = ["Allmennlege"],
+            ConfirmsSpecialization = true,
+            SpecializationStartDate = new DateOnly(2025, 1, 1),
+            ExpectedCompletionDate = new DateOnly(2028, 1, 1),
+            ConfirmsAlisAgreement = true,
+            ConfirmsOfficialAgreementTemplate = true,
+            ConfirmsNoCommercialAgencyAffiliation = true,
+            AgreementEffectiveFrom = new DateOnly(2025, 1, 1),
+            FirstRegularGpOrLocumDate = new DateOnly(2025, 1, 1),
             SelectedPositionTypes = [PositionType.RegularGpOrLocum],
             EmploymentPeriods =
             [
@@ -207,7 +423,6 @@ public class GuidanceApprovalTests
                     }
                 ]
             },
-            Attachments = [],
             ProductivityRequestedAmount = 0m,
             AbsenceCompensation = 0m,
             LearningActivityExpenses = 0m,

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Alisflyt.Application.Services;
 using Alisflyt.Application.Models;
+using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Web.Tests.Fakes
 {
@@ -23,16 +24,23 @@ namespace Alisflyt.Web.Tests.Fakes
         public Exception? SubmitException { get; set; }
         // New configurable exceptions for tests
         public Exception? StartReviewException { get; set; }
+        public Exception? MarkReadyForAuditorApprovalException { get; set; }
         public Exception? ReturnForCorrectionException { get; set; }
+        public Exception? UpdateGuidanceException { get; set; }
+        public GuidanceCorrectionResult? UpdateGuidanceResponse { get; set; }
 
         // Call recording
         public List<(CreateGrantCaseRequest request, CancellationToken ct)> CreateDraftCalls { get; } = new();
         public List<(Guid id, UpdateGrantCaseDraftRequest request, CancellationToken ct)> UpdateDraftCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> GetByIdCalls { get; } = new();
         public List<CancellationToken> ListCalls { get; } = new();
+        public List<CancellationToken> ListOverviewCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> SubmitCalls { get; } = new();
+        public List<(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken ct)> AtomicSubmitCalls { get; } = new();
         public List<(Guid id, CancellationToken ct)> StartReviewCalls { get; } = new();
+        public List<(Guid id, CancellationToken ct)> MarkReadyForAuditorApprovalCalls { get; } = new();
         public List<(Guid id, ReturnForCorrectionRequest request, CancellationToken ct)> ReturnForCorrectionCalls { get; } = new();
+        public List<(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken ct)> UpdateGuidanceCalls { get; } = new();
 
         public Task<GrantCaseDto> CreateDraftAsync(CreateGrantCaseRequest request, CancellationToken cancellationToken = default)
         {
@@ -68,6 +76,14 @@ namespace Alisflyt.Web.Tests.Fakes
             return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)list);
         }
 
+        public Task<IReadOnlyList<GrantCaseListItemDto>> ListOverviewAsync(CancellationToken cancellationToken = default)
+        {
+            ListOverviewCalls.Add(cancellationToken);
+            if (ListException != null) throw ListException;
+            if (ListResponse != null) return Task.FromResult(ListResponse);
+            return Task.FromResult((IReadOnlyList<GrantCaseListItemDto>)new List<GrantCaseListItemDto>());
+        }
+
         public Task SubmitAsync(Guid id, CancellationToken cancellationToken = default)
         {
             SubmitCalls.Add((id, cancellationToken));
@@ -75,10 +91,33 @@ namespace Alisflyt.Web.Tests.Fakes
             return Task.CompletedTask;
         }
 
+        public Task<GrantCaseDto> SubmitAsync(Guid id, SubmitGrantCaseRequest? guidanceRequest, CancellationToken cancellationToken = default)
+        {
+            AtomicSubmitCalls.Add((id, guidanceRequest, cancellationToken));
+            if (SubmitException != null) throw SubmitException;
+            if (GetByIdResponse != null) return Task.FromResult(GetByIdResponse);
+            throw new InvalidOperationException("GetByIdResponse was not configured for this test.");
+        }
+
+        public Task<GuidanceCorrectionResult> UpdateGuidanceAsync(Guid id, IReadOnlyCollection<SupervisionSessionInputModel> sessions, CancellationToken cancellationToken = default)
+        {
+            UpdateGuidanceCalls.Add((id, sessions, cancellationToken));
+            if (UpdateGuidanceException != null) throw UpdateGuidanceException;
+            if (UpdateGuidanceResponse != null) return Task.FromResult(UpdateGuidanceResponse);
+            throw new InvalidOperationException("UpdateGuidanceResponse was not configured for this test.");
+        }
+
         public Task StartReviewAsync(Guid id, CancellationToken cancellationToken = default)
         {
             StartReviewCalls.Add((id, cancellationToken));
             if (StartReviewException != null) throw StartReviewException;
+            return Task.CompletedTask;
+        }
+
+        public Task MarkReadyForAuditorApprovalAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            MarkReadyForAuditorApprovalCalls.Add((id, cancellationToken));
+            if (MarkReadyForAuditorApprovalException != null) throw MarkReadyForAuditorApprovalException;
             return Task.CompletedTask;
         }
 

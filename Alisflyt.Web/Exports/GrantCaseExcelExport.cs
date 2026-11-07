@@ -2,6 +2,7 @@
 using System.IO.Compression;
 using System.Xml.Linq;
 using Alisflyt.Application.Models;
+using Alisflyt.Domain.Enums;
 using Alisflyt.Domain.Forms;
 
 namespace Alisflyt.Web.Exports;
@@ -82,7 +83,12 @@ public static class GrantCaseExcelExport
         Row("Saksnummer", application.CaseNumber);
         Row("Søknads-ID", application.Id);
         Row("HPR-nummer", data?.HprNumber ?? application.HprNumber);
-        Row("Status", "Under behandling");
+        Row("Status", application.Status switch
+        {
+            GrantCaseStatus.UnderReview => "Under behandling",
+            GrantCaseStatus.AwaitingAuditorApproval => "Avventer revisorkontroll",
+            _ => application.Status.ToString()
+        });
         Row("Tilskuddstype", data?.GrantType == GrantType.AlisAgreementIncludingSupervision ? "ALIS-avtale inkludert veiledning" : data?.GrantType.HasValue == true ? "Veiledning av ALIS" : "Ikke oppgitt");
         Row("Opprettet (UTC)", application.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'"));
         Row("Sist endret (UTC)", application.LastModifiedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'"));
@@ -98,20 +104,22 @@ public static class GrantCaseExcelExport
             Row(period.PositionType switch { PositionType.RegularGpOrLocum => "Fastlege/fastlegevikar", PositionType.IntroductoryDoctor => "Introduksjonslege", null => "Ikke oppgitt", _ => "Allmennlege utenfor FLO" }, period.PositionPercentage, period.EmploymentStartDate, period.FundingFrom, period.FundingThrough);
         Row();
         Section("3. Beregnede tilskudd og summer");
-        Header("Beregningsposter", "Søkt beløp (kr)", "Beregnet beløp (kr)");
+        Header("Beregningsposter", "Søkt beløp (kr, ikke nødvendigvis innvilget)", "Automatisk beregnet tilskudd (kr)");
         void Amount(string label, decimal? requested, decimal calculated) => Row(label, requested, calculation.IsAvailable ? calculated : null);
         Amount("Praksiskompensasjon", data?.AbsenceCompensation, calculation.PracticeCompensationAmount);
         Amount("Læringsaktiviteter", data?.LearningActivityExpenses, calculation.LearningActivitiesAmount);
-        Amount("Produktivitetselement", data?.ProductivityRequestedAmount, calculation.ProductivityAmount);
+        Amount("Lavere produktivitet (beregnet)", null, calculation.ProductivityAmount);
         Amount("Tilskudd til veiledning", data?.SupervisionExpenses, calculation.GuidanceAmount);
+        Row("Merknad", "Merk: Beregnet veilederhonorar vises kun til informasjon og er ikke inkludert i «Beregnet samlet tilskuddsgrunnlag» nederst i tabellen. Tilskudd til veiledning beregnes separat ut fra oppgitte veiledningskostnader, i påvente av faglig avklaring.");
         Amount("Tilrettelegging", null, calculation.FacilitationAmount);
         Amount("Sentralitetstillegg", data?.CentralitySupplementRequestedAmount, calculation.CentralitySupplementAmount);
-        var requestedAmounts = new[] { data?.AbsenceCompensation, data?.LearningActivityExpenses, data?.ProductivityRequestedAmount, data?.SupervisionExpenses, data?.AdditionalSupervisionCosts, data?.CentralitySupplementRequestedAmount };
-        Amount("Totalt", requestedAmounts.Any(x => x.HasValue) ? requestedAmounts.Sum(x => x ?? 0) : null, calculation.TotalAmount);
+        var requestedAmounts = new[] { data?.AbsenceCompensation, data?.LearningActivityExpenses, data?.SupervisionExpenses, data?.CentralitySupplementRequestedAmount };
+        Amount("Totalt søkt beløp (ikke nødvendigvis innvilget)", requestedAmounts.Any(x => x.HasValue) ? requestedAmounts.Sum(x => x ?? 0) : null, calculation.TotalAmount);
         foreach (var cell in rows[^1].Elements(Ns + "c")) cell.SetAttributeValue("s", cell.Element(Ns + "v") is null ? "5" : "6");
         Row();
-        Row("Oppgitte ekstra veiledningskostnader (kr)", data?.AdditionalSupervisionCosts);
-        Row("Søkte beløp", "Summen omfatter oppgitte beløp, inkludert ekstra veiledningskostnader. Produktivitet og tilrettelegging beregnes etter egne regler i detaljgrunnlaget.");
+        Row("Separat søkt beløp – ikke inkludert i automatisk beregning (ekstra veiledningskostnader)", data?.AdditionalSupervisionCosts);
+        Row("Tidligere oppgitt produktivitetsbeløp (ikke brukt i beregning)", data?.ProductivityRequestedAmount);
+        Row("Søkte beløp", "Summen gjelder ordinære oppgitte kostnader og er ikke en innvilget utbetaling. Ekstra veiledningskostnader vises separat og krever særskilt vurdering.");
         Section("4. Beregningsmerknader og satssett");
         Row("Beregningsstatus", calculation.IsAvailable ? "Tilgjengelig" : calculation.UnavailableReason ?? "Beregning ikke tilgjengelig");
         if (calculation.IsAvailable)
