@@ -152,6 +152,7 @@ namespace Alisflyt.Web.Controllers
             model.Attachments ??= [];
             model.Certificate ??= new();
             model.Certificate.Sessions ??= [];
+            model.CalculationBasis ??= new();
             model.EmploymentPeriods ??= [];
             model.SelectedPositionTypes ??= [];
             model.DoctorProfessions ??= [];

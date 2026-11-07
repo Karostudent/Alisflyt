@@ -24,7 +24,7 @@
                     </thead>
                     <tbody data-calculation-basis-rows>
                         <tr class="calculation-basis-category"><td colspan="8"><strong>Kurs, hospitering, praksisbesøk:</strong></td></tr>
-                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                        <tr data-calculation-basis-row data-calculation-basis-kind="LearningActivity" class="calculation-basis-entry-row">
                                 <td><input class="form-control form-control-sm" aria-label="Læringsaktivitet" /></td>
                                 <td><input class="form-control form-control-sm" aria-label="Dato" placeholder="dd.mm.åå" /></td>
                                 <td><input class="form-control form-control-sm" aria-label="Antall timer" inputmode="decimal" /></td>
@@ -35,11 +35,11 @@
                                 <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum totalt" value="kr 0" /></td>
                                 <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett læringsaktivitet">Slett</button></td>
                         </tr>
-                            <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til læringsaktivitet</button></td></tr>
+                            <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row data-calculation-basis-kind="LearningActivity">+ Legg til læringsaktivitet</button></td></tr>
                         <tr data-calculation-guidance="individual"><td colspan="2"><strong>Individuell veiledning summert opp timer:</strong></td><td><input class="form-control form-control-sm" aria-label="Individuell veiledning timer" inputmode="decimal" /></td><td colspan="4"></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Individuell veiledning sum totalt" value="kr 0" /></td><td></td></tr>
                         <tr data-calculation-guidance="group"><td colspan="2"><strong>Gruppeveiledning summert opp timer/dager:</strong></td><td><input class="form-control form-control-sm" aria-label="Gruppeveiledning timer" inputmode="decimal" /></td><td><input class="form-control form-control-sm" aria-label="Gruppeveiledning dager" inputmode="decimal" /></td><td colspan="3"></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Gruppeveiledning sum totalt" value="kr 0" /></td><td></td></tr>
                         <tr><td colspan="9"><strong>Studie- og fordypningsdager:</strong></td></tr>
-                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                        <tr data-calculation-basis-row data-calculation-basis-kind="StudyAndSpecializationDay" class="calculation-basis-entry-row">
                             <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag tema" placeholder="Tema" /></td>
                             <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag dato" placeholder="dd.mm.åå" /></td>
                             <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag timer" inputmode="decimal" /></td>
@@ -50,7 +50,7 @@
                             <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Studie- og fordypningsdag sum totalt" value="kr 0" /></td>
                             <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett studie- eller fordypningsdag">Slett</button></td>
                         </tr>
-                        <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til studie- eller fordypningsdag</button></td></tr>
+                        <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row data-calculation-basis-kind="StudyAndSpecializationDay">+ Legg til studie- eller fordypningsdag</button></td></tr>
                         <tr class="table-light"><td colspan="2"><strong>Sum</strong></td><td><input readonly class="form-control form-control-sm" aria-label="Totalt antall timer" value="0" /></td><td><input readonly class="form-control form-control-sm" aria-label="Totalt antall dager" value="0" /></td><td colspan="3" class="text-end"><strong>Sum praksiskompensasjon</strong></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Total praksiskompensasjon" value="kr 0" /></td><td></td></tr>
                     </tbody>
                 </table>
@@ -64,7 +64,7 @@
                 <table class="table table-bordered calculation-basis-table calculation-basis-expenses">
                     <thead><tr><th scope="col">Utgifter ved gjennomføring av læringsaktiviteter</th><th scope="col">Dato</th><th scope="col">Reiseutgift</th><th scope="col">Kursavgift</th><th scope="col">Sum totalt</th><th scope="col"><span class="visually-hidden">Handling</span></th></tr></thead>
                     <tbody data-calculation-basis-rows>
-                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                        <tr data-calculation-basis-row data-calculation-basis-kind="Expense" class="calculation-basis-entry-row">
                                 <td><input class="form-control form-control-sm" aria-label="Utgift læringsaktivitet" /></td>
                                 <td><input class="form-control form-control-sm" aria-label="Utgift dato" placeholder="dd.mm.åå" /></td>
                                 <td><input class="form-control form-control-sm calculation-basis-amount" aria-label="Reiseutgift" placeholder="kr 0" /></td>
@@ -72,7 +72,7 @@
                                 <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum utgift" value="kr 0" /></td>
                                 <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett utgift">Slett</button></td>
                         </tr>
-                            <tr><td colspan="6"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til utgift</button></td></tr>
+                            <tr><td colspan="6"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row data-calculation-basis-kind="Expense">+ Legg til utgift</button></td></tr>
                             <tr class="table-light"><td colspan="4" class="text-end"><strong>Sum</strong></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Totale utgifter" value="kr 0" /></td><td></td></tr>
                     </tbody>
                 </table>
@@ -88,7 +88,7 @@
                         <tr><th scope="row">Tilskuddsperiode</th><td><input class="form-control form-control-sm" aria-label="Tilskuddsperiode" placeholder="dd.mm.åå - dd.mm.åå" /></td><th scope="row">Akkumulert tid i mnd.</th><td><input class="form-control form-control-sm" aria-label="Akkumulert tid i måneder" inputmode="decimal" /></td></tr>
                         <tr><th scope="row">Redusert listestørrelse <sup>4)</sup></th><td colspan="3"><input class="form-control form-control-sm" aria-label="Redusert listestørrelse" /></td></tr>
                         <tr><th scope="row">Lavere produktivitet <sup>4)</sup></th><td colspan="3"><input class="form-control form-control-sm calculation-basis-amount" aria-label="Lavere produktivitet" placeholder="kr 0" /></td></tr>
-                        <tr class="table-light"><th scope="row">Sum</th><td colspan="3"><input class="form-control form-control-sm calculation-basis-amount" aria-label="Sum lavere produktivitet" placeholder="kr 0" /></td></tr>
+                        <tr class="table-light"><th scope="row">Sum</th><td colspan="3"><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum lavere produktivitet" value="kr 0" /></td></tr>
                     </tbody>
                 </table>
             </div>

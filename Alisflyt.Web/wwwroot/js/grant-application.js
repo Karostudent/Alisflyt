@@ -293,7 +293,8 @@
             DoctorProfessions: document.getElementById("doctor-professions")?.value.split(",").map(value => value.trim()).filter(Boolean) || [],
             SelectedPositionTypes: [],
             EmploymentPeriods: [],
-            Certificate: { Sessions: [] }
+            Certificate: { Sessions: [] },
+            CalculationBasis: collectCalculationBasis()
         };
 
         for (const input of form.querySelectorAll("input[name],select[name],textarea[name]")) {
@@ -528,17 +529,17 @@
                 const daysAmount = days * 6600;
                 const total = hoursAmount + daysAmount;
                 const fields = row.querySelectorAll(".calculation-basis-amount");
-                if (fields.length >= 4) {
+                if (row.querySelector('[aria-label="Sum utgift"]')) {
+                    const rowExpenses = calculationBasisNumber(row.querySelector('[aria-label="Reiseutgift"]'))
+                        + calculationBasisNumber(row.querySelector('[aria-label="Kursavgift"]'));
+                    row.querySelector('[aria-label="Sum utgift"]').value = formatCalculationBasisAmount(rowExpenses);
+                    expensesTotal += rowExpenses;
+                } else if (fields.length >= 4) {
                     fields[0].value = formatCalculationBasisAmount(hoursAmount);
                     fields[1].value = formatCalculationBasisAmount(daysAmount);
                     fields[2].value = formatCalculationBasisAmount(total);
                     fields[3].value = formatCalculationBasisAmount(total);
                     practiceTotal += total;
-                } else if (fields.length === 1 && row.querySelector('[aria-label="Sum utgift"]')) {
-                    const rowExpenses = calculationBasisNumber(row.querySelector('[aria-label="Reiseutgift"]'))
-                        + calculationBasisNumber(row.querySelector('[aria-label="Kursavgift"]'));
-                    fields[0].value = formatCalculationBasisAmount(rowExpenses);
-                    expensesTotal += rowExpenses;
                 }
             });
 
@@ -561,14 +562,21 @@
 
             const expensesSum = section.querySelector('[aria-label="Totale utgifter"]');
             if (expensesSum) expensesSum.value = formatCalculationBasisAmount(expensesTotal);
+
+            const productivityAmount = section.querySelector('[aria-label="Lavere produktivitet"]');
+            const productivitySum = section.querySelector('[aria-label="Sum lavere produktivitet"]');
+            if (productivityAmount && productivitySum) {
+                productivitySum.value = formatCalculationBasisAmount(calculationBasisNumber(productivityAmount));
+            }
         });
     };
 
     document.querySelectorAll("[data-add-calculation-basis-row]").forEach(button => {
         button.addEventListener("click", () => {
             const section = button.closest(".calculation-basis-section");
+            const kind = button.dataset.calculationBasisKind;
             const rows = section?.querySelector("[data-calculation-basis-rows]");
-            const source = rows?.querySelector("[data-calculation-basis-row]");
+            const source = rows?.querySelector(`[data-calculation-basis-row][data-calculation-basis-kind='${kind}']`);
             if (!rows || !source) return;
 
             const row = source.cloneNode(true);
@@ -594,6 +602,95 @@
     document.addEventListener("input", event => {
         if (event.target.closest(".calculation-basis-section")) updateCalculationBasisTotals();
     });
+    updateCalculationBasisTotals();
+
+    const calculationBasisDate = input => {
+        const value = input?.value?.trim();
+        if (!value) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        const match = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/.exec(value);
+        if (!match) return null;
+        const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+        return `${year}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+    };
+
+    const collectCalculationBasis = () => {
+        const basis = {
+            LearningActivities: [],
+            StudyAndSpecializationDays: [],
+            Expenses: [],
+            IndividualGuidanceHours: calculationBasisNumber(document.querySelector('[aria-label="Individuell veiledning timer"]')) || null,
+            GroupGuidanceHours: calculationBasisNumber(document.querySelector('[aria-label="Gruppeveiledning timer"]')) || null
+        };
+
+        document.querySelectorAll("[data-calculation-basis-row]").forEach(row => {
+            const kind = row.dataset.calculationBasisKind;
+            if (kind === "Expense") {
+                basis.Expenses.push({
+                    Description: row.querySelector('[aria-label="Utgift læringsaktivitet"]')?.value || "",
+                    Date: calculationBasisDate(row.querySelector('[aria-label="Utgift dato"]')),
+                    TravelExpense: calculationBasisNumber(row.querySelector('[aria-label="Reiseutgift"]')) || null,
+                    CourseExpense: calculationBasisNumber(row.querySelector('[aria-label="Kursavgift"]')) || null
+                });
+                return;
+            }
+
+            const activity = {
+                Description: row.querySelector('[aria-label="Læringsaktivitet"], [aria-label="Studie- og fordypningsdag tema"]')?.value || "",
+                Date: calculationBasisDate(row.querySelector('[aria-label="Dato"], [aria-label="Studie- og fordypningsdag dato"]')),
+                Hours: calculationBasisNumber(row.querySelector('[aria-label="Antall timer"], [aria-label="Studie- og fordypningsdag timer"]')) || null,
+                Days: calculationBasisNumber(row.querySelector('[aria-label="Antall dager"]')) || null
+            };
+            if (kind === "StudyAndSpecializationDay") basis.StudyAndSpecializationDays.push(activity);
+            else basis.LearningActivities.push(activity);
+        });
+
+        return basis;
+    };
+
+    const setCalculationBasisInput = (row, selector, value) => {
+        const input = row.querySelector(selector);
+        if (input) input.value = value ?? "";
+    };
+
+    const formatCalculationBasisDate = value => {
+        if (!value) return "";
+        const parts = value.split("-");
+        return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
+    };
+
+    const restoreCalculationBasisRows = (kind, items) => {
+        const source = document.querySelector(`[data-calculation-basis-row][data-calculation-basis-kind='${kind}']`);
+        const button = document.querySelector(`[data-add-calculation-basis-row][data-calculation-basis-kind='${kind}']`);
+        const rows = source?.parentElement;
+        if (!source || !button || !rows) return;
+
+        rows.querySelectorAll(`[data-calculation-basis-row][data-calculation-basis-kind='${kind}']`).forEach((row, index) => {
+            if (index > 0) row.remove();
+        });
+
+        items.forEach((item, index) => {
+            const row = index === 0 ? source : source.cloneNode(true);
+            if (index > 0) rows.insertBefore(row, button.closest("tr"));
+            if (kind === "Expense") {
+                setCalculationBasisInput(row, '[aria-label="Utgift læringsaktivitet"]', item.Description);
+                setCalculationBasisInput(row, '[aria-label="Utgift dato"]', formatCalculationBasisDate(item.Date));
+                setCalculationBasisInput(row, '[aria-label="Reiseutgift"]', item.TravelExpense);
+                setCalculationBasisInput(row, '[aria-label="Kursavgift"]', item.CourseExpense);
+            } else {
+                setCalculationBasisInput(row, '[aria-label="Læringsaktivitet"], [aria-label="Studie- og fordypningsdag tema"]', item.Description);
+                setCalculationBasisInput(row, '[aria-label="Dato"], [aria-label="Studie- og fordypningsdag dato"]', formatCalculationBasisDate(item.Date));
+                setCalculationBasisInput(row, '[aria-label="Antall timer"], [aria-label="Studie- og fordypningsdag timer"]', item.Hours);
+                setCalculationBasisInput(row, '[aria-label="Antall dager"]', item.Days);
+            }
+        });
+    };
+
+    restoreCalculationBasisRows("LearningActivity", initialDraft.CalculationBasis?.LearningActivities || []);
+    restoreCalculationBasisRows("StudyAndSpecializationDay", initialDraft.CalculationBasis?.StudyAndSpecializationDays || []);
+    restoreCalculationBasisRows("Expense", initialDraft.CalculationBasis?.Expenses || []);
+    setCalculationBasisInput(document, '[aria-label="Individuell veiledning timer"]', initialDraft.CalculationBasis?.IndividualGuidanceHours);
+    setCalculationBasisInput(document, '[aria-label="Gruppeveiledning timer"]', initialDraft.CalculationBasis?.GroupGuidanceHours);
     updateCalculationBasisTotals();
 
     const renderAttachments = () => {
@@ -739,7 +836,7 @@
                 doctorNameField.value = document.getElementById("DoctorName")?.value || "";
             }
 
-            const saved = await saveDraft();
+            const saved = form.dataset.readonly === "true" ? true : await saveDraft();
             if (!saved) return;
 
             showApplicationStep("calculation-basis-step");
@@ -797,7 +894,11 @@
         form.querySelectorAll("input,select,textarea,button").forEach(element => {
             if (!["next-step", "previous-step"].includes(element.id)) element.disabled = true;
         });
+        document.querySelectorAll("#calculation-basis-step input,#calculation-basis-step select,#calculation-basis-step textarea,#calculation-basis-step button").forEach(element => {
+            if (!["calculation-basis-previous-step", "calculation-basis-next-step"].includes(element.id)) element.disabled = true;
+        });
         form.querySelectorAll(".save-draft,#add-employment,#add-supervision,.remove-employment,.remove-supervision,.duration-shortcuts").forEach(element => element.hidden = true);
+        document.querySelectorAll("#calculation-basis-step [data-add-calculation-basis-row],#calculation-basis-step [data-remove-calculation-basis-row]").forEach(element => element.hidden = true);
         return;
     }
 

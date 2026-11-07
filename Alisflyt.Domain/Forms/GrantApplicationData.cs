@@ -14,6 +14,8 @@ public class GrantApplicationData
             Certificate = new();
         if (Certificate.Sessions is null)
             Certificate.Sessions = [];
+        CalculationBasis ??= new();
+        CalculationBasis.Validate();
         if (Certificate.SupervisorHprNumber?.Length > 50 || HprNumber?.Length > 50 || (GrantType.HasValue && !Enum.IsDefined(GrantType.Value))
             || SelectedPositionTypes.Any(p => !Enum.IsDefined(p)))
             throw new ArgumentException("Kontroller HPR-nummer og valgte typer.");
@@ -125,6 +127,7 @@ public class GrantApplicationData
     public List<EmploymentPeriodInputModel> EmploymentPeriods { get; set; } = [];
 
     public List<ApplicationAttachment> Attachments { get; set; } = [];
+    public CalculationBasisData CalculationBasis { get; set; } = new();
     public decimal? ProductivityRequestedAmount { get; set; }
     public decimal? AbsenceCompensation { get; set; }
     public decimal? LearningActivityExpenses { get; set; }

@@ -1,27 +1,37 @@
 -- Run against AlisflytDevelopment using sqlcmd -b -i scripts/refresh-development-demo-data.sql.
--- Keep the original form example and the four hard-coded ALIS-DEM cases.
+-- Keep the original form example and three detailed ALIS demo cases.
 SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 
 IF DB_NAME() <> N'AlisflytDevelopment'
     THROW 50000, 'This script is only for AlisflytDevelopment.', 1;
 
-DECLARE @sourceId uniqueidentifier = '81252649-9ee1-4924-8a80-c762fd4e3da3';
+DECLARE @sourceId uniqueidentifier = '11111111-1111-1111-1111-111111111111';
 IF NOT EXISTS (SELECT 1 FROM dbo.GrantCases WHERE Id = @sourceId
-    AND HprNumber = N'HPR-1911-2003' AND ISJSON(ApplicationDataJson) = 1)
-    THROW 50001, 'The original HPR-1911-2003 demo application is missing.', 1;
+    AND HprNumber = N'HPR-DEM-1' AND ISJSON(ApplicationDataJson) = 1)
+    THROW 50001, 'The ALIS-DEM-001 demo application is missing.', 1;
 
 DECLARE @examples TABLE (
     Id uniqueidentifier, CaseNumber nvarchar(100), HprNumber nvarchar(50),
     DoctorName nvarchar(100), SupervisorName nvarchar(100),
-    SupervisorHprNumber nvarchar(50), EmploymentPercentage decimal(5,2)
+    SupervisorHprNumber nvarchar(50), EmploymentPercentage decimal(5,2),
+    AbsenceCompensation decimal(18,2), LearningActivityExpenses decimal(18,2),
+    SupervisionExpenses decimal(18,2), CalculationBasisJson nvarchar(max)
 );
 INSERT INTO @examples VALUES
-('66666666-6666-4666-8666-666666666661', N'ALIS-DEMO-FORM-001', N'HPR-1912-2004', N'Anna Berg', N'Ingrid Solheim', N'HPR-2711-2012', 100),
-('66666666-6666-4666-8666-666666666662', N'ALIS-DEMO-FORM-002', N'HPR-1913-2005', N'Martin Hansen', N'Lars Nilsen', N'HPR-2712-2013', 80),
-('66666666-6666-4666-8666-666666666663', N'ALIS-DEMO-FORM-003', N'HPR-1914-2006', N'Sara Dahl', N'Kari Holm', N'HPR-2713-2014', 60),
-('66666666-6666-4666-8666-666666666664', N'ALIS-DEMO-FORM-004', N'HPR-1915-2007', N'Jonas Vik', N'Per Strand', N'HPR-2714-2015', 90),
-('66666666-6666-4666-8666-666666666665', N'ALIS-DEMO-FORM-005', N'HPR-1916-2008', N'Emma Lie', N'Marit Lund', N'HPR-2715-2016', 50);
+('66666666-6666-4666-8666-666666666661', N'ALIS-DEMO-BASIS-001', N'123456789', N'Anna Hansen', N'Ingrid Solheim', N'HPR-2711-2012', 100, 37150, 8000, 42000,
+ N'{"LearningActivities":[{"Description":"Grunnkurs B - Bodø","Date":"2025-09-16","Hours":null,"Days":5},{"Description":"Emnekurs - Endokrinologi i allmennpraksis","Date":"2025-10-22","Hours":null,"Days":2},{"Description":"Hospitering ved sykehus","Date":"2025-11-11","Hours":4,"Days":null}],"StudyAndSpecializationDays":[{"Description":"Svangerskapsoppfølging","Date":"2025-10-16","Hours":4,"Days":null},{"Description":"ALM033 - lest artikkel og litteratur","Date":"2025-11-13","Hours":2,"Days":null}],"Expenses":[{"Description":"Emnekurs - Endokrinologi i allmennpraksis","Date":"2025-10-22","TravelExpense":0,"CourseExpense":6000},{"Description":"Grunnkurs B Bodø","Date":"2025-09-16","TravelExpense":2000,"CourseExpense":0}],"IndividualGuidanceHours":42,"GroupGuidanceHours":null}'),
+('66666666-6666-4666-8666-666666666662', N'ALIS-DEMO-BASIS-002', N'123456789', N'Anna Hansen', N'Lars Nilsen', N'HPR-2712-2013', 80, 19800, 4500, 25500,
+ N'{"LearningActivities":[{"Description":"Kurs i akuttmedisin","Date":"2025-08-12","Hours":6,"Days":null},{"Description":"Hospitering på legevakt","Date":"2025-09-05","Hours":8,"Days":null}],"StudyAndSpecializationDays":[{"Description":"Fordypning: kroniske sykdommer","Date":"2025-10-03","Hours":4,"Days":null}],"Expenses":[{"Description":"Kurs i akuttmedisin","Date":"2025-08-12","TravelExpense":1200,"CourseExpense":4500}],"IndividualGuidanceHours":24,"GroupGuidanceHours":2}'),
+('66666666-6666-4666-8666-666666666663', N'ALIS-DEMO-BASIS-003', N'123456789', N'Anna Hansen', N'Kari Holm', N'HPR-2713-2014', 60, 0, 12500, 18000,
+ N'{"LearningActivities":[],"StudyAndSpecializationDays":[{"Description":"Studie- og fordypningsdag: veiledning","Date":"2025-12-01","Hours":8,"Days":null},{"Description":"Studie- og fordypningsdag: fagmøte","Date":"2026-01-15","Hours":8,"Days":null}],"Expenses":[{"Description":"Fagmøte og kursmateriell","Date":"2026-01-15","TravelExpense":3500,"CourseExpense":9000}],"IndividualGuidanceHours":12,"GroupGuidanceHours":4}');
+
+DELETE FROM dbo.GrantCases
+WHERE Id IN (
+    '66666666-6666-4666-8666-666666666661',
+    '66666666-6666-4666-8666-666666666662',
+    '66666666-6666-4666-8666-666666666663'
+);
 
 INSERT INTO dbo.GrantCases (Id, CaseNumber, HprNumber, EmploymentPercentage,
     EmploymentStartDate, EmploymentEndDate, Status, CreatedAtUtc, LastModifiedAtUtc,
@@ -29,7 +39,7 @@ INSERT INTO dbo.GrantCases (Id, CaseNumber, HprNumber, EmploymentPercentage,
 SELECT e.Id, e.CaseNumber, e.HprNumber, e.EmploymentPercentage,
     source.EmploymentStartDate, source.EmploymentEndDate, source.Status,
     TODATETIMEOFFSET(SYSUTCDATETIME(), '+00:00'), TODATETIMEOFFSET(SYSUTCDATETIME(), '+00:00'),
-    JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(
+    JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(
     JSON_MODIFY(JSON_MODIFY(JSON_MODIFY(source.ApplicationDataJson,
         '$.HprNumber', e.HprNumber),
         '$.DoctorName', e.DoctorName),
@@ -38,7 +48,10 @@ SELECT e.Id, e.CaseNumber, e.HprNumber, e.EmploymentPercentage,
         '$.Certificate.SupervisorName', e.SupervisorName),
         '$.Certificate.SupervisorHprNumber', e.SupervisorHprNumber),
         '$.EmploymentPeriods[0].PositionPercentage', e.EmploymentPercentage),
-        '$.AbsenceCompensation', CAST(25000 AS decimal(18,2))),
+        '$.AbsenceCompensation', e.AbsenceCompensation),
+        '$.LearningActivityExpenses', e.LearningActivityExpenses),
+        '$.SupervisionExpenses', e.SupervisionExpenses),
+        '$.CalculationBasis', JSON_QUERY(e.CalculationBasisJson)),
         '$.SupervisorApprovedAtUtc', NULL),
     NULL, NULL
 FROM @examples e
