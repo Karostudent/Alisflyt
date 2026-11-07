@@ -1,0 +1,104 @@
+@model Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel
+<div id="calculation-basis-step" data-application-step hidden>
+    <p class="text-muted">Trinn 2 av 3 · Beregningsgrunnlag</p>
+    <h1 id="calculation-basis-heading" tabindex="-1">Beregningsgrunnlag for ALIS</h1>
+
+    <section class="application-section calculation-basis-sheet">
+        <div class="section-content">
+            <details class="calculation-basis-section">
+                <summary>Praksiskompensasjon læringsaktivitet <sup>1)</sup></summary>
+            <div class="table-responsive">
+                <table class="table table-bordered calculation-basis-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Praksiskompensasjon læringsaktivitet</th>
+                            <th scope="col">Dato</th>
+                            <th scope="col">Antall timer</th>
+                            <th scope="col">Antall dager (à 8 timer)</th>
+                            <th scope="col">Beløp timer</th>
+                            <th scope="col">Beløp dager</th>
+                            <th scope="col">Sum praksiskompensasjon</th>
+                            <th scope="col">Sum totalt</th>
+                            <th scope="col"><span class="visually-hidden">Handling</span></th>
+                        </tr>
+                    </thead>
+                    <tbody data-calculation-basis-rows>
+                        <tr class="calculation-basis-category"><td colspan="8"><strong>Kurs, hospitering, praksisbesøk:</strong></td></tr>
+                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                                <td><input class="form-control form-control-sm" aria-label="Læringsaktivitet" /></td>
+                                <td><input class="form-control form-control-sm" aria-label="Dato" placeholder="dd.mm.åå" /></td>
+                                <td><input class="form-control form-control-sm" aria-label="Antall timer" inputmode="decimal" /></td>
+                                <td><input class="form-control form-control-sm" aria-label="Antall dager" inputmode="decimal" /></td>
+                                <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Beløp timer" value="kr 0" /></td>
+                                <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Beløp dager" value="kr 0" /></td>
+                                <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum praksiskompensasjon" value="kr 0" /></td>
+                                <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum totalt" value="kr 0" /></td>
+                                <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett læringsaktivitet">Slett</button></td>
+                        </tr>
+                            <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til læringsaktivitet</button></td></tr>
+                        <tr data-calculation-guidance="individual"><td colspan="2"><strong>Individuell veiledning summert opp timer:</strong></td><td><input class="form-control form-control-sm" aria-label="Individuell veiledning timer" inputmode="decimal" /></td><td colspan="4"></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Individuell veiledning sum totalt" value="kr 0" /></td><td></td></tr>
+                        <tr data-calculation-guidance="group"><td colspan="2"><strong>Gruppeveiledning summert opp timer/dager:</strong></td><td><input class="form-control form-control-sm" aria-label="Gruppeveiledning timer" inputmode="decimal" /></td><td><input class="form-control form-control-sm" aria-label="Gruppeveiledning dager" inputmode="decimal" /></td><td colspan="3"></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Gruppeveiledning sum totalt" value="kr 0" /></td><td></td></tr>
+                        <tr><td colspan="9"><strong>Studie- og fordypningsdager:</strong></td></tr>
+                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                            <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag tema" placeholder="Tema" /></td>
+                            <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag dato" placeholder="dd.mm.åå" /></td>
+                            <td><input class="form-control form-control-sm" aria-label="Studie- og fordypningsdag timer" inputmode="decimal" /></td>
+                            <td></td>
+                            <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Studie- og fordypningsdag beløp timer" value="kr 0" /></td>
+                            <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Studie- og fordypningsdag beløp dager" value="kr 0" /></td>
+                            <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Studie- og fordypningsdag sum" value="kr 0" /></td>
+                            <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Studie- og fordypningsdag sum totalt" value="kr 0" /></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett studie- eller fordypningsdag">Slett</button></td>
+                        </tr>
+                        <tr><td colspan="9"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til studie- eller fordypningsdag</button></td></tr>
+                        <tr class="table-light"><td colspan="2"><strong>Sum</strong></td><td><input readonly class="form-control form-control-sm" aria-label="Totalt antall timer" value="0" /></td><td><input readonly class="form-control form-control-sm" aria-label="Totalt antall dager" value="0" /></td><td colspan="3" class="text-end"><strong>Sum praksiskompensasjon</strong></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Total praksiskompensasjon" value="kr 0" /></td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="calculation-basis-note"><sup>1)</sup> Kurs med spesifisert kursnavn, hospitering, gjensidig praksisbesøk, individuell veiledning, gruppeveiledning og eventuelle nødvendige studie- og fordypningsdager.</p>
+            </details>
+
+            <details class="calculation-basis-section">
+                <summary>Utgifter ved gjennomføring av læringsaktiviteter <sup>2)</sup></summary>
+            <div class="table-responsive">
+                <table class="table table-bordered calculation-basis-table calculation-basis-expenses">
+                    <thead><tr><th scope="col">Utgifter ved gjennomføring av læringsaktiviteter</th><th scope="col">Dato</th><th scope="col">Reiseutgift</th><th scope="col">Kursavgift</th><th scope="col">Sum totalt</th><th scope="col"><span class="visually-hidden">Handling</span></th></tr></thead>
+                    <tbody data-calculation-basis-rows>
+                        <tr data-calculation-basis-row class="calculation-basis-entry-row">
+                                <td><input class="form-control form-control-sm" aria-label="Utgift læringsaktivitet" /></td>
+                                <td><input class="form-control form-control-sm" aria-label="Utgift dato" placeholder="dd.mm.åå" /></td>
+                                <td><input class="form-control form-control-sm calculation-basis-amount" aria-label="Reiseutgift" placeholder="kr 0" /></td>
+                                <td><input class="form-control form-control-sm calculation-basis-amount" aria-label="Kursavgift" placeholder="kr 0" /></td>
+                                <td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Sum utgift" value="kr 0" /></td>
+                                <td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-calculation-basis-row aria-label="Slett utgift">Slett</button></td>
+                        </tr>
+                            <tr><td colspan="6"><button type="button" class="btn btn-sm btn-outline-primary" data-add-calculation-basis-row>+ Legg til utgift</button></td></tr>
+                            <tr class="table-light"><td colspan="4" class="text-end"><strong>Sum</strong></td><td><input readonly class="form-control form-control-sm calculation-basis-amount" aria-label="Totale utgifter" value="kr 0" /></td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="calculation-basis-note"><sup>2)</sup> Utgifter utover det som dekkes av ordningen, inntil 14 000 kroner per tilskuddsår.</p>
+            </details>
+
+            <details class="calculation-basis-section">
+                <summary>Kompensasjon for lavere produktivitet <sup>3)</sup></summary>
+            <div class="table-responsive">
+                <table class="table table-bordered calculation-basis-table productivity-table">
+                    <tbody>
+                        <tr><th scope="row">Tilskuddsperiode</th><td><input class="form-control form-control-sm" aria-label="Tilskuddsperiode" placeholder="dd.mm.åå - dd.mm.åå" /></td><th scope="row">Akkumulert tid i mnd.</th><td><input class="form-control form-control-sm" aria-label="Akkumulert tid i måneder" inputmode="decimal" /></td></tr>
+                        <tr><th scope="row">Redusert listestørrelse <sup>4)</sup></th><td colspan="3"><input class="form-control form-control-sm" aria-label="Redusert listestørrelse" /></td></tr>
+                        <tr><th scope="row">Lavere produktivitet <sup>4)</sup></th><td colspan="3"><input class="form-control form-control-sm calculation-basis-amount" aria-label="Lavere produktivitet" placeholder="kr 0" /></td></tr>
+                        <tr class="table-light"><th scope="row">Sum</th><td colspan="3"><input class="form-control form-control-sm calculation-basis-amount" aria-label="Sum lavere produktivitet" placeholder="kr 0" /></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="calculation-basis-note"><sup>3)</sup> Kun i de 24 første månedene som fastlege/fastlegevikar. <sup>4)</sup> Se forklaringene i søknadsgrunnlaget.</p>
+            </details>
+        </div>
+    </section>
+
+    <div class="form-actions">
+        <button type="button" id="calculation-basis-previous-step" class="btn btn-outline-primary">← TILBAKE</button>
+        <button type="button" id="calculation-basis-next-step" class="btn btn-outline-primary">NESTE →</button>
+    </div>
+</div>

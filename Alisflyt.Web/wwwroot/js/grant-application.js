@@ -158,15 +158,18 @@
     };
 
     const showStepForInput = input => {
-        const inCertificate = input.closest("#certificate-step");
-        const applicationStep = document.getElementById("application-step");
-        const certificateStep = document.getElementById("certificate-step");
-        if (applicationStep && certificateStep) {
-            applicationStep.hidden = Boolean(inCertificate);
-            certificateStep.hidden = !inCertificate;
-        }
+        const step = input.closest("[data-application-step]");
+        showApplicationStep(step?.id);
         input.focus({ preventScroll: true });
         input.scrollIntoView({ block: "center" });
+    };
+
+    const showApplicationStep = stepId => {
+        document.querySelectorAll("[data-application-step]").forEach(step => {
+            step.hidden = step.id !== stepId;
+        });
+        document.getElementById(`${stepId}-heading`)?.focus();
+        window.scrollTo({ top: 0, behavior: "auto" });
     };
 
     const pathParts = name => name.replace(/\[(\d+)\]/g, ".$1").split(".");
@@ -507,6 +510,92 @@
         if (!initialDraft.Certificate?.Sessions?.length) addRow(false);
     }
 
+    const formatCalculationBasisAmount = value => `kr ${Math.round(value).toLocaleString("nb-NO")}`;
+    const calculationBasisNumber = input => Number.parseFloat(input?.value.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+
+    const updateCalculationBasisTotals = () => {
+        document.querySelectorAll(".calculation-basis-section").forEach(section => {
+            let practiceTotal = 0;
+            let totalHours = 0;
+            let totalDays = 0;
+            let expensesTotal = 0;
+            section.querySelectorAll("[data-calculation-basis-row]").forEach(row => {
+                const hours = calculationBasisNumber(row.querySelector('[aria-label$="timer"]')) || calculationBasisNumber(row.querySelector('[aria-label$="dag timer"]'));
+                const days = calculationBasisNumber(row.querySelector('[aria-label$="dager"]'));
+                totalHours += hours;
+                totalDays += days;
+                const hoursAmount = hours * 825;
+                const daysAmount = days * 6600;
+                const total = hoursAmount + daysAmount;
+                const fields = row.querySelectorAll(".calculation-basis-amount");
+                if (fields.length >= 4) {
+                    fields[0].value = formatCalculationBasisAmount(hoursAmount);
+                    fields[1].value = formatCalculationBasisAmount(daysAmount);
+                    fields[2].value = formatCalculationBasisAmount(total);
+                    fields[3].value = formatCalculationBasisAmount(total);
+                    practiceTotal += total;
+                } else if (fields.length === 1 && row.querySelector('[aria-label="Sum utgift"]')) {
+                    const rowExpenses = calculationBasisNumber(row.querySelector('[aria-label="Reiseutgift"]'))
+                        + calculationBasisNumber(row.querySelector('[aria-label="Kursavgift"]'));
+                    fields[0].value = formatCalculationBasisAmount(rowExpenses);
+                    expensesTotal += rowExpenses;
+                }
+            });
+
+            const individualRow = section.querySelector('[data-calculation-guidance="individual"]');
+            const groupRow = section.querySelector('[data-calculation-guidance="group"]');
+            const individualTotal = calculationBasisNumber(individualRow?.querySelector('[aria-label="Individuell veiledning timer"]')) * 825;
+            const groupTotal = calculationBasisNumber(groupRow?.querySelector('[aria-label="Gruppeveiledning timer"]')) * 825
+                + calculationBasisNumber(groupRow?.querySelector('[aria-label="Gruppeveiledning dager"]')) * 6600;
+            if (individualRow) individualRow.querySelector(".calculation-basis-amount").value = formatCalculationBasisAmount(individualTotal);
+            if (groupRow) groupRow.querySelector(".calculation-basis-amount").value = formatCalculationBasisAmount(groupTotal);
+            practiceTotal += individualTotal + groupTotal;
+
+            const practiceSum = section.querySelector('[aria-label="Total praksiskompensasjon"]');
+            if (practiceSum) practiceSum.value = formatCalculationBasisAmount(practiceTotal);
+
+            const totalHoursField = section.querySelector('[aria-label="Totalt antall timer"]');
+            const totalDaysField = section.querySelector('[aria-label="Totalt antall dager"]');
+            if (totalHoursField) totalHoursField.value = String(totalHours);
+            if (totalDaysField) totalDaysField.value = String(totalDays);
+
+            const expensesSum = section.querySelector('[aria-label="Totale utgifter"]');
+            if (expensesSum) expensesSum.value = formatCalculationBasisAmount(expensesTotal);
+        });
+    };
+
+    document.querySelectorAll("[data-add-calculation-basis-row]").forEach(button => {
+        button.addEventListener("click", () => {
+            const section = button.closest(".calculation-basis-section");
+            const rows = section?.querySelector("[data-calculation-basis-rows]");
+            const source = rows?.querySelector("[data-calculation-basis-row]");
+            if (!rows || !source) return;
+
+            const row = source.cloneNode(true);
+            row.querySelectorAll("input").forEach(input => input.value = "");
+            rows.insertBefore(row, button.closest("tr"));
+            row.querySelector("input")?.focus();
+            updateCalculationBasisTotals();
+        });
+    });
+
+    document.addEventListener("click", event => {
+        const button = event.target.closest("[data-remove-calculation-basis-row]");
+        if (!button) return;
+        const row = button.closest("[data-calculation-basis-row]");
+        const rows = row?.parentElement;
+        if (!row || !rows) return;
+        const entryRows = rows.querySelectorAll("[data-calculation-basis-row]");
+        if (entryRows.length > 1) row.remove();
+        else row.querySelectorAll("input").forEach(input => input.value = "");
+        updateCalculationBasisTotals();
+    });
+
+    document.addEventListener("input", event => {
+        if (event.target.closest(".calculation-basis-section")) updateCalculationBasisTotals();
+    });
+    updateCalculationBasisTotals();
+
     const renderAttachments = () => {
         const list = document.getElementById("attachment-list");
         if (!list) return;
@@ -653,25 +742,23 @@
             const saved = await saveDraft();
             if (!saved) return;
 
-            const applicationStep = document.getElementById("application-step");
-            const certificateStep = document.getElementById("certificate-step");
-            if (applicationStep) applicationStep.hidden = true;
-            if (certificateStep) certificateStep.hidden = false;
-            document.getElementById("certificate-heading")?.focus();
-            window.scrollTo({ top: 0, behavior: "auto" });
+            showApplicationStep("calculation-basis-step");
         });
+    }
+
+    const calculationBasisPreviousButton = document.getElementById("calculation-basis-previous-step");
+    if (calculationBasisPreviousButton) {
+        calculationBasisPreviousButton.addEventListener("click", () => showApplicationStep("application-step"));
+    }
+
+    const calculationBasisNextButton = document.getElementById("calculation-basis-next-step");
+    if (calculationBasisNextButton) {
+        calculationBasisNextButton.addEventListener("click", () => showApplicationStep("certificate-step"));
     }
 
     const previousButton = document.getElementById("previous-step");
     if (previousButton) {
-        previousButton.addEventListener("click", () => {
-            const applicationStep = document.getElementById("application-step");
-            const certificateStep = document.getElementById("certificate-step");
-            if (certificateStep) certificateStep.hidden = true;
-            if (applicationStep) applicationStep.hidden = false;
-            document.getElementById("application-heading")?.focus();
-            window.scrollTo({ top: 0, behavior: "auto" });
-        });
+        previousButton.addEventListener("click", () => showApplicationStep("calculation-basis-step"));
     }
 
     form.querySelectorAll("[data-case-navigation]").forEach(button => {

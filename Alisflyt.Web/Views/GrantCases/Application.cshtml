@@ -5,6 +5,8 @@
 }
 <partial name="~/Views/Shared/_RoleContextPartial.cshtml" model="@( "ALIS-visning" )" />
 <partial name="_ApplicationForm" model="Model" />
+<partial name="_CalculationBasis" model="Model" />
+<partial name="_SupervisionCertificate" model="Model" />
 @section Scripts {
     <script id="draft-data" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize<Alisflyt.Web.ViewModels.GrantCases.GrantApplicationFormViewModel>(Model))</script>
     <script src="~/js/grant-application.js" asp-append-version="true"></script>
